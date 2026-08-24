@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "./components/shell/AppShell";
 import { PostGrid } from "./components/PostGrid/PostGrid";
 import { PostViewer } from "./components/PostViewer/PostViewer";
+import { SettingsPanel } from "./components/Settings/SettingsPanel";
 import { usePostsQuery } from "./queries/usePostsQuery";
 import { loadSettings, useSettingsStore } from "./state/settingsStore";
 import { loadAllAccounts } from "./state/accountStore";
@@ -12,6 +13,7 @@ function App() {
   const [booted, setBooted] = useState(false);
   const [activeQuery, setActiveQuery] = useState("");
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([loadSettings(), loadAllAccounts()]).finally(() => setBooted(true));
@@ -58,7 +60,11 @@ function App() {
   }
 
   return (
-    <AppShell activeQuery={activeQuery} onSearch={runNewSearch}>
+    <AppShell
+      activeQuery={activeQuery}
+      onSearch={runNewSearch}
+      onOpenSettings={() => setSettingsOpen(true)}
+    >
       {!booted || isLoading ? (
         <div className="flex h-full items-center justify-center text-sm opacity-60">Loading…</div>
       ) : isError ? (
@@ -112,6 +118,8 @@ function App() {
           onBlacklistTag={addTagToBlacklist}
         />
       )}
+
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </AppShell>
   );
 }

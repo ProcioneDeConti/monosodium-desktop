@@ -81,7 +81,13 @@ src/
                                (colored pill chips grouped by category, matching the reference
                                Android app's look exactly - click opens a menu: Search / Add to
                                search / Exclude / Add to blacklist) + InfoPanel (click-to-copy)
-  App.tsx         wires everything: search state, viewer open/close, blacklist actions
+    Settings/                  full-screen overlay: SiteAccountCard (per-site username/API key,
+                               saves via accountStore -> Windows Credential Manager),
+                               BlacklistSection (textarea + import-from-account/push-to-account
+                               via e621Api.getCurrentUser/updateBlacklist), SettingsPanel (the
+                               rest inline: ratings/adult-mode, accent color, video defaults,
+                               download folder via @tauri-apps/plugin-dialog's `open()`)
+  App.tsx         wires everything: search state, viewer/settings open-close, blacklist actions
 ```
 
 Data flow for a post list: `usePostsQuery` → raw `Post[]` (unfiltered, so the blacklist
@@ -102,8 +108,10 @@ and `PostViewer` so click-to-open indices line up exactly.
 - [x] **Tag chips redesign** TagsPanel/TagChip rebuilt as category-colored pills matching the
       Android app's TagChip exactly (see `lib/tagCategoryStyle.ts`), click opens a menu (Search
       / Add to search / Exclude / Add to blacklist) instead of the old hover-button list rows
-- [ ] **M5** Settings (account fields + credential save/load, ratings/adult-mode, blacklist
-      editor with import/push, accent color, video defaults, download folder picker)
+- [x] **M5** Settings (account fields + credential save/load via `tauri-plugin-dialog` for the
+      folder picker, ratings/adult-mode, blacklist editor with import/push, accent color,
+      thumbnail size + video defaults) — compiles clean (`tsc`/`cargo check`), not yet run live
+      (see memory: feedback_no_manual_app_testing - user tests it themselves now)
 - [ ] **M6** Favorites screen (reuse PostGrid) + downloads (Rust command to save original file)
 - [ ] **M7** Polish pass (site toggle end-to-end re-search, connection health indicator,
       empty/error states, keyboard shortcuts)

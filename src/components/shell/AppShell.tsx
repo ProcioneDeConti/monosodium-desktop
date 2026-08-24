@@ -10,10 +10,11 @@ import {
 interface AppShellProps {
   activeQuery: string;
   onSearch: (query: string) => void;
+  onOpenSettings: () => void;
   children: ReactNode;
 }
 
-export function AppShell({ activeQuery, onSearch, children }: AppShellProps) {
+export function AppShell({ activeQuery, onSearch, onOpenSettings, children }: AppShellProps) {
   const site = useSettingsStore((s) => s.site);
   const setSite = useSettingsStore((s) => s.setSite);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
@@ -57,6 +58,15 @@ export function AppShell({ activeQuery, onSearch, children }: AppShellProps) {
             className="w-24 accent-[rgb(var(--accent))]"
           />
         </div>
+
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          title="Settings"
+          className="shrink-0 rounded-[var(--radius-sm)] px-2 py-1.5 text-base hover:bg-black/5 dark:hover:bg-white/10"
+        >
+          ⚙
+        </button>
       </header>
 
       <main className="flex-1 min-h-0">{children}</main>

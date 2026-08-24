@@ -1,0 +1,99 @@
+import { useEffect, useState } from "react";
+import { e621Api } from "../../api/client";
+import type { Site } from "../../models/site";
+import { useAccountStore } from "../../state/accountStore";
+import { useSettingsStore } from "../../state/settingsStore";
+
+interface BlacklistSectionProps {
+  site: Site;
+}
+
+export function BlacklistSection({ site }: BlacklistSectionProps) {
+  const blacklist = useSettingsStore((s) => s.blacklist);
+  const setBlacklist = useSettingsStore((s) => s.setBlacklist);
+  const isAuthenticated = useAccountStore((s) => s.isAuthenticated(site));
+
+  const [draft, setDraft] = useState(blacklist);
+  const [busy, setBusy] = useState<"import" | "push" | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => setDraft(blacklist), [blacklist]);
+
+  const dirty = draft !== blacklist;
+
+  async function handleImport() {
+    setBusy("import");
+    setMessage(null);
+    try {
+      const profile = await e621Api.getCurrentUser(site);
+      const imported = profile.blacklisted_tags ?? "";
+      setDraft(imported);
+      setBlacklist(imported);
+      setMessage("Imported from account.");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Import failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handlePush() {
+    setBusy("push");
+    setMessage(null);
+    try {
+      const profile = await e621Api.getCurrentUser(site);
+      await e621Api.updateBlacklist(site, profile.id, draft);
+      setMessage("Pushed to account.");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Push failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs opacity-60">
+        One entry per line. Tags on the same line must all match (AND); separate lines are
+        alternatives (OR). Example: <code className="opacity-80">young -age_difference</code>
+      </p>
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        rows={6}
+        spellCheck={false}
+        className="resize-y rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/30 px-2 py-1.5 text-sm font-mono outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+        placeholder="rating:explicit&#10;young -age_difference"
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={!dirty}
+          onClick={() => setBlacklist(draft)}
+          className="rounded-[var(--radius-sm)] bg-[rgb(var(--accent))] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          disabled={!isAuthenticated || busy !== null}
+          onClick={handleImport}
+          title={isAuthenticated ? undefined : "Sign in above to import"}
+          className="rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 px-3 py-1.5 text-xs hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
+        >
+          {busy === "import" ? "Importing…" : "Import from account"}
+        </button>
+        <button
+          type="button"
+          disabled={!isAuthenticated || busy !== null}
+          onClick={handlePush}
+          title={isAuthenticated ? undefined : "Sign in above to push"}
+          className="rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 px-3 py-1.5 text-xs hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
+        >
+          {busy === "push" ? "Pushing…" : "Push to account"}
+        </button>
+        {message && <span className="text-xs opacity-70">{message}</span>}
+      </div>
+    </div>
+  );
+}
