@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
 import type { Site } from "../../models/site";
 import { useTagAutocomplete } from "../../queries/useTagAutocomplete";
-import { TAG_CATEGORY_COLOR } from "../../lib/tagCategoryColors";
+import { TAG_CATEGORY_STYLE } from "../../lib/tagCategoryStyle";
+import { cacheTagCategory, getCachedTagCategory } from "../../lib/tagCategoryCache";
 import { tagSuggestionCategory } from "../../models/user";
+
+/** Strips the leading `-` (exclusion) so the remainder can be looked up as a plain tag name;
+ *  meta search operators (`rating:safe`, `user:foo`, `order:score`, ...) aren't real e621 tags
+ *  and have no category, so they're deliberately left uncolored. */
+function tagLookupName(tag: string): string | null {
+  const name = tag.replace(/^-/, "");
+  return name.includes(":") ? null : name;
+}
 
 interface SearchBarProps {
   site: Site;
@@ -32,6 +42,10 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
 
   const { data: suggestions } = useTagAutocomplete(site, draft);
   const shownSuggestions = useMemo(() => suggestions?.slice(0, 8) ?? [], [suggestions]);
+
+  useEffect(() => {
+    suggestions?.forEach((s) => cacheTagCategory(s.name, tagSuggestionCategory(s)));
+  }, [suggestions]);
 
   useEffect(() => {
     setHighlighted(0);
@@ -118,19 +132,22 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
     <div ref={containerRef} className="relative flex-1 min-w-0">
       <div
         className="flex flex-wrap items-center gap-1.5 rounded-[var(--radius-md)] border border-black/10 dark:border-white/10
-                   bg-white/70 dark:bg-black/30 px-2 py-1.5 min-h-9 focus-within:ring-2 focus-within:ring-[rgb(var(--accent))]"
+                   bg-white/70 dark:bg-black/30 px-2 py-1.5 min-h-9 transition-shadow
+                   focus-within:ring-2 focus-within:ring-[rgb(var(--accent))]"
         onClick={() => inputRef.current?.focus()}
       >
         {tags.map((tag, i) => {
           const excluded = tag.startsWith("-");
+          const lookupName = tagLookupName(tag);
+          const category = lookupName ? getCachedTagCategory(lookupName) : null;
+          const style = category ? TAG_CATEGORY_STYLE[category] : null;
           return (
             <span
               key={`${tag}-${i}`}
               className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                excluded
-                  ? "bg-red-500/15 text-red-600 dark:text-red-400"
-                  : "bg-black/8 dark:bg-white/10"
-              }`}
+                style ? "" : "bg-black/8 dark:bg-white/10"
+              } ${excluded ? "outline outline-2 outline-offset-1 outline-red-500" : ""}`}
+              style={style ? { backgroundColor: style.chipBg, color: style.chipFg } : undefined}
             >
               {tag}
               <button
@@ -142,7 +159,7 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
                 }}
                 aria-label={`Remove ${tag}`}
               >
-                ×
+                <X size={12} />
               </button>
             </span>
           );
@@ -186,7 +203,10 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
                     submit(next);
                   }}
                 >
-                  <span style={{ color: TAG_CATEGORY_COLOR[category] }} className="truncate font-medium">
+                  <span
+                    style={{ color: TAG_CATEGORY_STYLE[category].headerColor ?? "inherit" }}
+                    className="truncate font-medium"
+                  >
                     {s.name.replace(/_/g, " ")}
                   </span>
                   <span className="shrink-0 text-xs opacity-60">{s.post_count.toLocaleString()}</span>

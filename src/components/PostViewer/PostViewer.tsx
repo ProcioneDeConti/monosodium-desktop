@@ -1,4 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Heart,
+  ThumbsDown,
+  ThumbsUp,
+  X,
+} from "lucide-react";
 import type { Post } from "../../models/post";
 import { downloadFileName, isDeleted, isVideo, playableUrl } from "../../models/post";
 import type { Site } from "../../models/site";
@@ -11,6 +21,7 @@ import { useAccountStore } from "../../state/accountStore";
 import { useSettingsStore } from "../../state/settingsStore";
 import { matchingBlacklistTags, type BlacklistEntries } from "../../lib/blacklist";
 import { e621Api } from "../../api/client";
+import { IconButton } from "../ui/IconButton";
 
 interface PostViewerProps {
   site: Site;
@@ -26,6 +37,7 @@ interface PostViewerProps {
   onAddTagToSearch: (tag: string) => void;
   onExcludeTag: (tag: string) => void;
   onBlacklistTag: (tag: string) => void;
+  onOpenProfile: (userId: number) => void;
 }
 
 const LOAD_MORE_THRESHOLD = 6;
@@ -44,6 +56,7 @@ export function PostViewer({
   onAddTagToSearch,
   onExcludeTag,
   onBlacklistTag,
+  onOpenProfile,
 }: PostViewerProps) {
   const post = posts[index];
   const isAuthenticated = useAccountStore((s) => s.isAuthenticated(site));
@@ -121,57 +134,46 @@ export function PostViewer({
   const favTitle = isAuthenticated ? undefined : "Sign in (Settings) to favorite";
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] flex-col bg-black/90 backdrop-blur-sm">
       <div className="flex shrink-0 items-center gap-2 px-3 py-2 text-white">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded px-2 py-1 text-lg hover:bg-white/10"
-          title="Close (Esc)"
-        >
-          ×
-        </button>
+        <IconButton tone="invert" onClick={onClose} title="Close (Esc)">
+          <X size={18} />
+        </IconButton>
         <span className="text-sm opacity-70">#{post.id}</span>
 
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            type="button"
+        <div className="ml-auto flex items-center gap-0.5 rounded-[var(--radius-md)] bg-white/5 p-0.5">
+          <IconButton
+            tone="invert"
             disabled={!isAuthenticated}
             title={voteTitle ?? "Upvote"}
             onClick={() => vote.mutate({ postId: post.id, direction: 1 })}
-            className={`rounded px-2 py-1 text-sm font-semibold hover:bg-white/10 disabled:opacity-30 ${
-              post.vote_by > 0 ? "text-green-400" : ""
-            }`}
+            className={post.vote_by > 0 ? "!text-green-400" : ""}
           >
-            ▲
-          </button>
-          <span className="min-w-8 text-center text-sm tabular-nums">{post.score.total}</span>
-          <button
-            type="button"
+            <ThumbsUp size={16} className={post.vote_by > 0 ? "fill-current" : ""} />
+          </IconButton>
+          <span className="min-w-7 text-center text-sm tabular-nums">{post.score.total}</span>
+          <IconButton
+            tone="invert"
             disabled={!isAuthenticated}
             title={voteTitle ?? "Downvote"}
             onClick={() => vote.mutate({ postId: post.id, direction: -1 })}
-            className={`rounded px-2 py-1 text-sm font-semibold hover:bg-white/10 disabled:opacity-30 ${
-              post.vote_by < 0 ? "text-red-400" : ""
-            }`}
+            className={post.vote_by < 0 ? "!text-red-400" : ""}
           >
-            ▼
-          </button>
-          <button
-            type="button"
+            <ThumbsDown size={16} className={post.vote_by < 0 ? "fill-current" : ""} />
+          </IconButton>
+          <IconButton
+            tone="invert"
             disabled={!isAuthenticated}
             title={favTitle ?? (post.is_favorited ? "Remove favorite" : "Add favorite")}
             onClick={() =>
               post.is_favorited ? unfavorite.mutate(post.id) : favorite.mutate(post.id)
             }
-            className={`ml-1 rounded px-2 py-1 text-lg hover:bg-white/10 disabled:opacity-30 ${
-              post.is_favorited ? "text-pink-400" : ""
-            }`}
+            className={post.is_favorited ? "!text-pink-400" : ""}
           >
-            {post.is_favorited ? "♥" : "♡"}
-          </button>
-          <button
-            type="button"
+            <Heart size={16} className={post.is_favorited ? "fill-current" : ""} />
+          </IconButton>
+          <IconButton
+            tone="invert"
             disabled={downloadStatus === "saving" || deletedOrMissing}
             title={
               downloadStatus === "saved"
@@ -181,22 +183,22 @@ export function PostViewer({
                   : "Download original file"
             }
             onClick={() => void handleDownload()}
-            className="ml-1 rounded px-2 py-1 text-lg hover:bg-white/10 disabled:opacity-30"
+            className={downloadStatus === "saved" ? "!text-green-400" : downloadStatus === "error" ? "!text-red-400" : ""}
           >
-            {downloadStatus === "saving" ? "…" : downloadStatus === "saved" ? "✓" : downloadStatus === "error" ? "!" : "⭳"}
-          </button>
+            {downloadStatus === "saved" ? <Check size={16} /> : <Download size={16} />}
+          </IconButton>
         </div>
       </div>
 
       <div className="relative flex min-h-0 flex-1">
-        <button
-          type="button"
+        <IconButton
+          tone="invert"
           onClick={goPrev}
           disabled={!canGoPrev}
-          className="absolute left-0 top-0 z-10 flex h-full w-14 items-center justify-center text-3xl text-white/50 hover:text-white disabled:opacity-0"
+          className="absolute left-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 disabled:opacity-0"
         >
-          ‹
-        </button>
+          <ChevronLeft size={22} />
+        </IconButton>
 
         <div className="min-w-0 flex-1">
           {deleted || !url ? (
@@ -216,19 +218,19 @@ export function PostViewer({
           )}
         </div>
 
-        <button
-          type="button"
+        <IconButton
+          tone="invert"
           onClick={goNext}
           disabled={!canGoNext}
-          className="absolute right-0 top-0 z-10 flex h-full w-14 items-center justify-center text-3xl text-white/50 hover:text-white disabled:opacity-0"
+          className="absolute right-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 disabled:opacity-0"
         >
-          ›
-        </button>
+          <ChevronRight size={22} />
+        </IconButton>
 
         <aside className="w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[rgb(20,20,20)]/95 px-3 py-3 text-white">
           <section className="mb-4">
             <h2 className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-60">Info</h2>
-            <InfoPanel post={post} />
+            <InfoPanel post={post} onOpenProfile={onOpenProfile} />
           </section>
           <section>
             <h2 className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-60">Tags</h2>

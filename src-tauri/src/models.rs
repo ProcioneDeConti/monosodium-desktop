@@ -153,6 +153,18 @@ pub struct UserProfile {
     pub forum_notification_dot: bool,
     pub avatar_id: Option<i64>,
     pub favorite_count: Option<i64>,
+    pub wiki_page_version_count: Option<i64>,
+    pub artist_version_count: Option<i64>,
+    pub pool_version_count: Option<i64>,
+    pub forum_post_count: Option<i64>,
+    pub comment_count: Option<i64>,
+    pub flag_count: Option<i64>,
+    pub positive_feedback_count: Option<i64>,
+    pub neutral_feedback_count: Option<i64>,
+    pub negative_feedback_count: Option<i64>,
+    pub upload_slots: Option<i64>,
+    pub profile_about: Option<String>,
+    pub profile_artinfo: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

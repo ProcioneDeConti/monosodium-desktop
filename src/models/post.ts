@@ -126,6 +126,15 @@ export function playableUrl(post: Post): string | null {
   return post.file.url ?? post.sample.url;
 }
 
+/** Width/height ratio for the masonry grid's thumbnail box, clamped like the reference Android
+ *  app's PostThumbnail (`aspect.coerceIn(0.5f, 2f)`) so extreme comic-strip-shaped posts don't
+ *  produce absurdly tall or thin grid cells. */
+export function aspectRatio(post: Post): number {
+  const { width, height } = post.preview;
+  if (width <= 0 || height <= 0) return 1;
+  return Math.min(2, Math.max(0.5, width / height));
+}
+
 /** Tags paired with their e621 category, for category-colored tag chips. */
 export function categorizedTags(post: Post): CategorizedTag[] {
   const { tags } = post;

@@ -1,9 +1,11 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { ExternalLink, UserRound } from "lucide-react";
 import type { Post } from "../../models/post";
 import { CopyableField } from "./CopyableField";
 
 interface InfoPanelProps {
   post: Post;
+  onOpenProfile: (userId: number) => void;
 }
 
 const RATING_LABEL: Record<string, string> = {
@@ -12,7 +14,7 @@ const RATING_LABEL: Record<string, string> = {
   e: "Explicit",
 };
 
-export function InfoPanel({ post }: InfoPanelProps) {
+export function InfoPanel({ post, onOpenProfile }: InfoPanelProps) {
   const status = post.flags.deleted
     ? "Deleted"
     : post.flags.pending
@@ -24,6 +26,20 @@ export function InfoPanel({ post }: InfoPanelProps) {
   return (
     <div className="flex flex-col gap-0.5">
       <CopyableField label="ID" value={String(post.id)} />
+      {post.uploader_id != null && (
+        <button
+          type="button"
+          onClick={() => onOpenProfile(post.uploader_id!)}
+          className="flex items-center justify-between gap-2 rounded px-1 py-1 text-left text-sm hover:bg-white/5"
+          title="View uploader's profile"
+        >
+          <span className="shrink-0 opacity-60">Uploader</span>
+          <span className="flex items-center gap-1 truncate font-medium text-[rgb(var(--accent))]">
+            <UserRound size={12} />
+            {post.uploader_id}
+          </span>
+        </button>
+      )}
       <CopyableField label="Score" value={`${post.score.total} (+${post.score.up}/-${post.score.down})`} />
       <CopyableField label="Favorites" value={String(post.fav_count)} />
       <CopyableField label="Rating" value={RATING_LABEL[post.rating] ?? post.rating} />
@@ -44,9 +60,10 @@ export function InfoPanel({ post }: InfoPanelProps) {
                   <button
                     type="button"
                     onClick={() => void openUrl(src)}
-                    className="text-[rgb(var(--accent))] hover:underline text-left"
+                    className="flex items-center gap-1 text-left text-[rgb(var(--accent))] hover:underline"
                   >
-                    {src}
+                    <ExternalLink size={11} className="shrink-0" />
+                    <span className="truncate">{src}</span>
                   </button>
                 ) : (
                   src

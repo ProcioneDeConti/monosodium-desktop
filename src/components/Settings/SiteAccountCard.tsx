@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { Eye, EyeOff, ExternalLink } from "lucide-react";
 import { SITE_DISPLAY_NAME, SITE_WEB_BASE_URL, type Site } from "../../models/site";
 import { useAccountStore } from "../../state/accountStore";
+import { Button } from "../ui/Button";
+import { IconButton } from "../ui/IconButton";
 
 interface SiteAccountCardProps {
   site: Site;
@@ -49,10 +52,11 @@ export function SiteAccountCard({ site }: SiteAccountCardProps) {
   }
 
   return (
-    <div className="rounded-[var(--radius-md)] border border-black/10 dark:border-white/10 p-3">
+    <div className="rounded-[var(--radius-sm)] bg-black/[0.03] dark:bg-white/[0.04] p-3">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-sm font-semibold">{SITE_DISPLAY_NAME[site]}</h3>
-        <span className={`text-xs ${isAuthenticated ? "text-green-500" : "opacity-50"}`}>
+        <span className={`flex items-center gap-1 text-xs ${isAuthenticated ? "text-green-500" : "opacity-50"}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${isAuthenticated ? "bg-green-500" : "bg-current"}`} />
           {isAuthenticated ? `Signed in as ${account?.username}` : "Not signed in"}
         </span>
       </div>
@@ -78,22 +82,23 @@ export function SiteAccountCard({ site }: SiteAccountCardProps) {
               className="flex-1 rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/30 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
               placeholder="API key"
             />
-            <button
-              type="button"
+            <IconButton
               onClick={() => setShowKey((v) => !v)}
-              className="rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 px-2 text-xs hover:bg-black/5 dark:hover:bg-white/5"
+              title={showKey ? "Hide API key" : "Show API key"}
+              className="border border-black/10 dark:border-white/10"
             >
-              {showKey ? "Hide" : "Show"}
-            </button>
+              {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+            </IconButton>
           </div>
         </label>
 
         <button
           type="button"
           onClick={() => void openUrl(`${SITE_WEB_BASE_URL[site]}/users/home`)}
-          className="self-start text-xs text-[rgb(var(--accent))] hover:underline"
+          className="flex items-center gap-1 self-start text-xs text-[rgb(var(--accent))] hover:underline"
         >
-          Manage API access on {SITE_DISPLAY_NAME[site]} →
+          Manage API access on {SITE_DISPLAY_NAME[site]}
+          <ExternalLink size={11} />
         </button>
 
         <div className="mt-1 flex gap-2">
@@ -101,19 +106,15 @@ export function SiteAccountCard({ site }: SiteAccountCardProps) {
             type="button"
             disabled={!dirty || saving || !username.trim() || !apiKey.trim()}
             onClick={handleSave}
-            className="rounded-[var(--radius-sm)] bg-[rgb(var(--accent))] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+            className="rounded-[var(--radius-sm)] bg-[rgb(var(--accent))] px-3 py-1.5 text-xs font-semibold text-white
+                       transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {savedFlash ? "Saved!" : "Save"}
           </button>
           {isAuthenticated && (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={handleSignOut}
-              className="rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 px-3 py-1.5 text-xs hover:bg-black/5 dark:hover:bg-white/5"
-            >
+            <Button disabled={saving} onClick={handleSignOut}>
               Sign out
-            </button>
+            </Button>
           )}
         </div>
       </div>

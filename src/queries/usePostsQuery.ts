@@ -6,7 +6,7 @@
 // disable/re-enable toggle can show them again instantly, with a caution-stripe marker, without
 // needing to refetch anything.
 
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { e621Api } from "../api/client";
 import type { Post } from "../models/post";
 import type { Site } from "../models/site";
@@ -61,13 +61,32 @@ export function usePostsQuery(
   // request itself - included in the key so editing it (Settings) starts a fresh, correctly
   // re-filtered pagination sequence instead of mixing pages fetched under the old blacklist.
   const blacklistSignature = blacklistEntries.map((e) => e.join(" ")).join("\n");
+  const queryKey = postsQueryKey(site, tags, blacklistSignature);
+  const queryClient = useQueryClient();
 
-  return useInfiniteQuery({
-    queryKey: postsQueryKey(site, tags, blacklistSignature),
+  const query = useInfiniteQuery({
+    queryKey,
     queryFn: ({ pageParam }) => fetchLogicalPage(site, tags, pageParam, blacklistEntries),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled,
     staleTime: 60_000,
   });
+
+  // Mirrors the reference Android app's pull-to-refresh: discards every page beyond the first
+  // before refetching, rather than re-validating everything that's already been paged in (which
+  // is what a plain `refetch()` would do for an infinite query) - a manual "refresh" should feel
+  // like starting the search over, not a silent re-check of a potentially long scroll history.
+  function refresh() {
+    queryClient.setQueryData(
+      queryKey,
+      (data: InfiniteData<PostsPage, string | undefined> | undefined) =>
+        data && data.pages.length > 1
+          ? { pages: data.pages.slice(0, 1), pageParams: data.pageParams.slice(0, 1) }
+          : data,
+    );
+    return query.refetch();
+  }
+
+  return { ...query, refresh };
 }

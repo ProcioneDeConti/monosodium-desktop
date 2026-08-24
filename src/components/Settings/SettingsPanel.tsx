@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { FolderOpen, X } from "lucide-react";
 import {
   DEFAULT_THUMBNAIL_SIZE_PX,
   MAX_VIDEO_SPEED,
@@ -7,12 +8,18 @@ import {
   STEP_VIDEO_SPEED,
   useSettingsStore,
 } from "../../state/settingsStore";
+import { useAccountStore } from "../../state/accountStore";
 import type { Rating } from "../../models/post";
+import { randomGreeting } from "../../lib/greetings";
 import { SiteAccountCard } from "./SiteAccountCard";
 import { BlacklistSection } from "./BlacklistSection";
+import { Button } from "../ui/Button";
+import { IconButton } from "../ui/IconButton";
+import { Section } from "../ui/Section";
 
 interface SettingsPanelProps {
   onClose: () => void;
+  onOpenProfile: () => void;
 }
 
 const ACCENT_PRESETS = [
@@ -32,17 +39,13 @@ const RATING_OPTIONS: { value: Rating; label: string }[] = [
   { value: "e", label: "Explicit" },
 ];
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="mb-6">
-      <h2 className="mb-2 text-xs font-bold uppercase tracking-wide opacity-60">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-export function SettingsPanel({ onClose }: SettingsPanelProps) {
+export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   const site = useSettingsStore((s) => s.site);
+  const account = useAccountStore((s) => s.accounts[site]);
+  // Re-picked every time Settings opens (mount = open, since this component is only ever
+  // rendered while open) - mirrors the reference Android app's nav drawer, which re-rolls its
+  // greeting every time it's opened rather than keeping the same one all session.
+  const [greeting] = useState(randomGreeting);
   const adultModeEnabled = useSettingsStore((s) => s.adultModeEnabled);
   const setAdultModeEnabled = useSettingsStore((s) => s.setAdultModeEnabled);
   const enabledRatings = useSettingsStore((s) => s.enabledRatings);
@@ -81,21 +84,32 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-center bg-black/60 backdrop-blur-sm">
-      <div className="flex h-full w-full max-w-2xl flex-col bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl">
+    <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] justify-center bg-black/60 backdrop-blur-sm">
+      <div className="flex h-full w-full max-w-2xl animate-[scale-in_150ms_ease-out] flex-col bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl">
         <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
           <h1 className="text-sm font-semibold">Settings</h1>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ml-auto rounded px-2 py-1 text-lg hover:bg-black/5 dark:hover:bg-white/10"
-            title="Close (Esc)"
-          >
-            ×
-          </button>
+          <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+            <X size={18} />
+          </IconButton>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="mb-5">
+            <p className="text-xl font-black tracking-tight text-[rgb(var(--accent))]">{greeting},</p>
+            {account?.username && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenProfile();
+                }}
+                className="text-sm font-medium opacity-70 transition-opacity hover:text-[rgb(var(--accent))] hover:opacity-100"
+              >
+                {account.username}
+              </button>
+            )}
+          </div>
+
           <Section title="Accounts">
             <div className="flex flex-col gap-3">
               <SiteAccountCard site="e621" />
@@ -113,6 +127,10 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               />
               Adult mode (allow non-safe content)
             </label>
+            <p className="mb-2 pl-1 text-xs opacity-60">
+              Master switch - while off, results are locked to Safe regardless of the checkboxes
+              below.
+            </p>
             <div className="flex gap-4 pl-1">
               {RATING_OPTIONS.map((r) => (
                 <label
@@ -213,13 +231,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               <span className="flex-1 truncate text-sm opacity-80">
                 {downloadDir ?? "Default (Pictures/Videos folder)"}
               </span>
-              <button
-                type="button"
-                onClick={() => void chooseDownloadFolder()}
-                className="rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 px-3 py-1.5 text-xs hover:bg-black/5 dark:hover:bg-white/5"
-              >
+              <Button icon={<FolderOpen size={13} />} onClick={() => void chooseDownloadFolder()}>
                 Choose folder…
-              </button>
+              </Button>
               {downloadDir && (
                 <button
                   type="button"

@@ -23,9 +23,9 @@ or a rule, check there before guessing.
   every format e621 serves (jpg/png/gif/apng/webp/webm/mp4) natively with zero extra
   dependencies — the native-Windows alternatives all need a bundled video engine
   (LibVLCSharp, ~100MB+) just to play webm.
-- **Scope: core browsing first.** Comments, Dmail/messages, forum, user profiles, saved
-  searches, encrypted backup/restore, and the update checker are explicitly deferred — not
-  built yet, not stubbed.
+- **Scope: core browsing first, Phase 2 in progress.** User profiles have landed (see Progress).
+  Comments, Dmail/messages, forum, saved searches, encrypted backup/restore, and the update
+  checker are still explicitly deferred — not built yet, not stubbed.
 
 ## Critical constraint: e621 API rules — do not relax these
 
@@ -71,26 +71,48 @@ src/
   lib/            blacklist.ts (port of the Android app's blacklist matching logic - keep in
                   sync if that logic ever changes; also owns visiblePosts(), the single
                   filtered-list function shared by PostGrid and PostViewer so click-to-open
-                  indices always agree), tagCategoryColors.ts (autocomplete dropdown text
-                  color), tagCategoryStyle.ts (TagChip pill bg/fg per category - mirrors the
-                  Android app's TagChip exactly), color.ts, queryClient.ts
+                  indices always agree), tagCategoryStyle.ts (single source of truth for tag
+                  category colors - chip bg/fg + header/autocomplete text color per category,
+                  mirrors the Android app's TagChip exactly, including its merge of
+                  general/lore/meta into one neutral style), color.ts, queryClient.ts
   components/
-    shell/AppShell.tsx        top bar: title, SearchBar, site toggle, thumbnail-size slider
+    ui/                        shared button/section chrome (IconButton, Button, Section) reused
+                               across the shell, viewer, settings, and profile panel
+    shell/AppShell.tsx        top bar: title, SearchBar, site toggle, thumbnail-size slider,
+                               Favorites/Profile shortcuts
     SearchBar/SearchBar.tsx   tag-chip input + live category-colored autocomplete
-    PostGrid/                 react-virtuoso VirtuosoGrid, resizable columns, caution-stripe
-                               for blacklisted-but-shown posts
+    PostGrid/                 Pinterest-style virtualized masonry grid via `masonic` (variable
+                               cell height from each post's own aspect ratio via
+                               `models/post.ts`'s `aspectRatio()`, clamped [0.5, 2] like the
+                               reference app's PostThumbnail; packed into whichever column is
+                               shortest), resizable columns, caution-stripe for blacklisted-but-
+                               shown posts. `masonic`'s own `<Masonry>` only tracks browser
+                               `window` scroll, so this grid drives `useMasonry` from its own
+                               bounded scroll container instead (the shell header stays fixed
+                               above it) - see the doc comment in `PostGrid.tsx` for the
+                               resize-observer wiring that keeps cell positions correct when the
+                               column width changes, and why a new search remounts it via a
+                               `key` in `App.tsx` rather than trying to reconcile in place
     PostViewer/                full-screen overlay: ZoomableImage (wheel-zoom/pan) or
                                VideoPlayer (custom loop/speed/mute controls) + TagsPanel/TagChip
                                (colored pill chips grouped by category, matching the reference
                                Android app's look exactly - click opens a menu: Search / Add to
-                               search / Exclude / Add to blacklist) + InfoPanel (click-to-copy)
+                               search / Exclude / Add to blacklist) + InfoPanel (click-to-copy,
+                               plus a clickable Uploader row that opens ProfilePanel)
     Settings/                  full-screen overlay: SiteAccountCard (per-site username/API key,
                                saves via accountStore -> Windows Credential Manager),
                                BlacklistSection (textarea + import-from-account/push-to-account
                                via e621Api.getCurrentUser/updateBlacklist), SettingsPanel (the
                                rest inline: ratings/adult-mode, accent color, video defaults,
                                download folder via @tauri-apps/plugin-dialog's `open()`)
-  App.tsx         wires everything: search state, viewer/settings open-close, blacklist actions
+    Profile/ProfilePanel.tsx  full-screen overlay for a user profile (own account via "me", or
+                               any uploader by id): avatar (resolved from avatar_id via a
+                               get_posts id: lookup, since profiles only carry a post id, not an
+                               image URL), level badge, stats grid, feedback, about/artist-info
+                               text, and Posts/Favorites shortcuts into the normal search flow
+                               (user:<name> / fav:<name>)
+  App.tsx         wires everything: search state, viewer/settings/profile open-close, blacklist
+                  actions
 ```
 
 Data flow for a post list: `usePostsQuery` → raw `Post[]` (unfiltered, so the blacklist
@@ -127,12 +149,109 @@ and `PostViewer` so click-to-open indices line up exactly.
       the error state, and a `/` shortcut to focus the search box from anywhere (skipped when
       already typing in an input/textarea/contenteditable)
 
-**Phase 1 (core browsing) is now complete.** Everything above compiles clean (`tsc`/`cargo
-check`); not yet exercised live end-to-end by a human (see memory:
-feedback_no_manual_app_testing).
+**Phase 1 (core browsing) is complete and has passed one live human test pass** (see memory:
+feedback_no_manual_app_testing - the user tests it themselves, not Claude).
 
-**Deferred to a later phase, not started:** comments, Dmail/messages, forum, user profiles,
-saved searches, encrypted backup/restore, on-disk image cache management UI, update checker.
+- [x] **Visual refresh** Replaced every emoji/glyph icon (♥ ⚙ × ▲ ▼ ‹ › ⏸ ▶ 🔇 🔊 ↻ ⭳ ✓ 🔍 ⊘)
+      with `lucide-react` across the shell, grid, viewer, tag chip menu, video player, search
+      bar, and settings; introduced shared `components/ui/` chrome (`IconButton`, `Button`,
+      `Section`) to de-duplicate the button/card treatment that had been hand-copied per file;
+      added subtle entrance transitions on overlays and the tag-chip menu (`fade-in`/`scale-in`
+      keyframes in `index.css`). The Mica-backdrop translucency constraint (`index.css`'s
+      body/#root comment) is untouched - only already-opaque overlay layers got surface treatment.
+- [x] **Tag color reconciliation** Deleted `lib/tagCategoryColors.ts`; `SearchBar`'s autocomplete
+      now reads color from `tagCategoryStyle.ts` too, so the dropdown and the viewer's tag chips
+      agree on every category.
+- [x] **Phase 2: User Profiles** `ProfilePanel` (avatar, level badge, join date, stats, feedback,
+      about/artist-info, Posts/Favorites shortcuts) for both the signed-in account (shell
+      "Profile" button) and any post's uploader (`InfoPanel`'s new Uploader row). Backend reused
+      the `get_current_user`/`get_user` commands and `UserProfile` model that already existed
+      (only used by blacklist import/push before this) - extended the struct with the remaining
+      public fields (`models.rs` + `models/user.ts`), no new Tauri commands needed.
+- [x] **Masonry post grid** Replaced the even CSS-grid layout (`react-virtuoso`, square
+      thumbnails) with a Pinterest-style virtualized masonry grid (`masonic`) - cells keep each
+      post's real aspect ratio instead of being cropped to a square, packed into whichever
+      column is shortest, matching the reference Android app's `LazyVerticalStaggeredGrid` look.
+      **Live-verified**, including the resize-observer-driven re-layout on window resize and the
+      thumbnail-size slider (the part that couldn't be checked with `tsc`/`cargo check` alone) -
+      confirmed working, no further changes needed here.
+- [x] **Site-aware title + welcome greeting** The shell's top-left label now shows the active
+      site ("e621 Desktop" / "e6AI Desktop", accent-colored) instead of a static string, matching
+      the reference app's `SiteBadge`. Settings also greets you with a random "{greeting}," atop
+      the panel, re-rolled every time it's opened - `lib/greetings.ts` ports the reference app's
+      `res/raw/hello.txt` list (hello in ~90 languages, plus its two joke entries) verbatim; the
+      signed-in username underneath is clickable, opening your own profile, mirroring the
+      drawer's greeting header exactly.
+- [x] **Grid info dock** `PostThumbnail`'s hover-only score/favorite overlay plus separate
+      rating/video badges are replaced with the reference app's always-visible `InfoDock` bar
+      (rating chip anchors the left edge, filetype the right, "Score: N" and a gold favorite
+      star between - `lib/formatCount.ts` ports its K/M count formatting) and a single small
+      movie-icon badge for any animated/video post, dropping the old duration text to match the
+      reference app's simplified treatment exactly.
+- [x] **Refresh button + title as home** A dedicated refresh `IconButton` next to the search bar
+      calls `usePostsQuery`'s new `refresh()` (spins while `isRefetching`) instead of a plain
+      `refetch()` - mirrors the reference app's pull-to-refresh by discarding every page beyond
+      the first before refetching, rather than re-validating a potentially long scroll history;
+      the error state's Retry button now uses the same `refresh()`. The shell's site-aware title
+      is now a button that always calls `onSearch("")`, resetting to the default (tagless)
+      search regardless of the current query - both live in `AppShell.tsx`/`App.tsx`. Also
+      restored the video-duration text next to the movie-icon badge on animated/video thumbnails
+      (`PostThumbnail.tsx`) alongside the icon, after the info-dock rework had dropped it.
+
+      **Found and fixed live**: the refresh button initially blanked the whole app - `refresh()`
+      shrinking the posts array (discarding all but page 1) crashed `masonic`, which assumes
+      `items` only ever grows or gets wholesale-replaced, never shrinks out from under an
+      existing positioner (see `PostGrid.tsx`'s `resetNonce` ref - a same-render length check,
+      the same "ref as previous-render memory" pattern `usePositioner` itself uses internally -
+      that resets the positioner and scrolls back to top whenever `visible.length` drops).
+
+      **A second live-found bug** in the same pass: `App.tsx`'s `effectiveTags` memo depended on
+      `ratingTagFilter` (a stable function reference from the settings store - it never changes
+      identity, since it reads live state via `get()` internally rather than through its own
+      changing props/args), not on the `adultModeEnabled`/`enabledRatings` values that function
+      actually reads. Toggling a rating in Settings silently kept querying under the *old* filter
+      until `activeQuery` happened to change for an unrelated reason - fixed by subscribing to
+      those two values directly in `App.tsx` and adding them to the memo's deps. Worth remembering
+      if another derived value ever wraps a store-provided function like this: the function
+      reference is not a valid proxy for "the things it reads."
+- [x] **Loading indicators** New `components/ui/Spinner.tsx` (used in App.tsx's/ProfilePanel's
+      initial-load states) and `TopProgressBar.tsx` (a slim indeterminate bar under the shell
+      header - `AppShell`'s new `isLoadingPosts` prop, true while the posts query is
+      loading/refetching/paginating). `PostThumbnail` now shows a shimmer skeleton and fades its
+      image in on load instead of popping in abruptly; `ZoomableImage` and `VideoPlayer` got the
+      same treatment (a centered spinner until the full image/video is ready).
+
+      **Found and fixed live - thumbnail flicker on scroll**: the shimmer/fade-in above initially
+      replayed every time a thumbnail scrolled back into view, because `masonic` unmounts cells
+      that scroll past its overscan window and remounts them on the way back, resetting the
+      per-component `loaded` state each time even though the browser already had the image
+      cached. Fixed with a module-level `Set` of already-loaded thumbnail URLs
+      (`loadedThumbUrls` in `PostThumbnail.tsx`) that survives remounts, so a URL only ever
+      shows the skeleton/fade the first time it's displayed.
+
+      **A second live-found bug**: blacklisting a tag that every result in the current search
+      matched, then re-enabling "Show blacklisted posts," left the grid permanently blank.
+      `PostGrid`'s empty state was a separate early `return` that skipped rendering the
+      scrollable container div entirely; the `ResizeObserver` that measures it is attached once,
+      on mount, via an empty-deps effect, so if the container was ever absent when that effect
+      ran (or got replaced by a new DOM node later), it silently stopped reporting size forever -
+      width stuck at 0, and `{size.width > 0 && grid}` never rendered again even once posts
+      became visible. Fixed by keeping the container permanently mounted and rendering the empty
+      state *inside* it instead of replacing it.
+- [x] **Category-colored search chips** SearchBar's committed-tag chips now use the same
+      `tagCategoryStyle.ts` fill/text colors as TagChip and the autocomplete dropdown, instead of
+      flat neutral pills - an excluded (`-tag`) chip keeps its category color but gets a red
+      outline on top, rather than the color being replaced outright (matching how TagChip already
+      layers its blacklist-match outline over the category fill). A committed tag is just a
+      string with no category attached, unlike a suggestion or a post's own tags, so
+      `lib/tagCategoryCache.ts` is a session-only best-effort `Map` populated opportunistically
+      from data already being fetched (autocomplete suggestions in `SearchBar.tsx`, loaded posts'
+      tags in `App.tsx`) - a tag neither source has seen yet just renders neutral. Meta search
+      operators (`rating:`, `user:`, `order:`, ...) are deliberately excluded from lookup, since
+      they aren't real tags and have no category.
+
+**Deferred to a later phase, not started:** comments, Dmail/messages, forum, saved searches,
+encrypted backup/restore, on-disk image cache management UI, update checker.
 
 ## Running it
 
@@ -160,13 +279,6 @@ seconds.
 
 - Vote/favorite buttons are wired (`usePostMutations.ts`) but will 401 until M5 (Settings) lands
   and an account is actually signed in - not yet exercised against a real account.
-- `tagCategoryColors.ts` (simple text-color map, used only by SearchBar's autocomplete dropdown)
-  and `tagCategoryStyle.ts` (full chip bg/fg + header color, used by TagChip) are two separate
-  files with two different color choices for the same categories - intentional for now
-  (`tagCategoryStyle.ts` matches the Android app's TagChip exactly, including its choice to
-  visually merge general/lore/meta into one neutral style; `tagCategoryColors.ts` predates that
-  and gives lore/meta their own distinct hues since the autocomplete list has no such reference
-  to match). Worth reconciling into one source of truth if this bugs anyone.
 - No automated tests exist yet; verification has been `tsc --noEmit` + `cargo check`, plus one
   round of live manual testing earlier in the project (see conversation
   history for confirmed working screenshots of the grid/autocomplete).

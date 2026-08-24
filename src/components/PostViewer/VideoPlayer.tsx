@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Pause, Play, Repeat, Volume2, VolumeX } from "lucide-react";
 import { MAX_VIDEO_SPEED, MIN_VIDEO_SPEED, STEP_VIDEO_SPEED } from "../../state/settingsStore";
+import { Spinner } from "../ui/Spinner";
 
 interface VideoPlayerProps {
   src: string;
@@ -37,6 +39,7 @@ export function VideoPlayer({ src, loopDefault, speedDefault, autoplayEnabled }:
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [buffering, setBuffering] = useState(true);
 
   useEffect(() => {
     setPlaying(autoplayEnabled);
@@ -44,6 +47,7 @@ export function VideoPlayer({ src, loopDefault, speedDefault, autoplayEnabled }:
     setSpeed(speedDefault);
     setProgress(0);
     setDuration(0);
+    setBuffering(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
@@ -74,7 +78,16 @@ export function VideoPlayer({ src, loopDefault, speedDefault, autoplayEnabled }:
         onTimeUpdate={(e) => setProgress(e.currentTarget.currentTime)}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
         onEnded={() => !loop && setPlaying(false)}
+        onWaiting={() => setBuffering(true)}
+        onCanPlay={() => setBuffering(false)}
+        onPlaying={() => setBuffering(false)}
       />
+
+      {buffering && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <Spinner size={32} className="text-white/80" />
+        </div>
+      )}
 
       <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-gradient-to-t from-black/80 to-transparent px-3 pb-2 pt-6">
         <input
@@ -92,8 +105,12 @@ export function VideoPlayer({ src, loopDefault, speedDefault, autoplayEnabled }:
           className="w-full accent-[rgb(var(--accent))]"
         />
         <div className="flex items-center gap-3 text-xs text-white">
-          <button type="button" onClick={() => setPlaying((p) => !p)} className="w-6 text-center">
-            {playing ? "⏸" : "▶"}
+          <button
+            type="button"
+            onClick={() => setPlaying((p) => !p)}
+            className="flex w-6 items-center justify-center rounded p-1 hover:bg-white/15"
+          >
+            {playing ? <Pause size={14} className="fill-current" /> : <Play size={14} className="fill-current" />}
           </button>
           <span className="tabular-nums opacity-80">
             {formatTime(progress)} / {formatTime(duration)}
@@ -102,19 +119,19 @@ export function VideoPlayer({ src, loopDefault, speedDefault, autoplayEnabled }:
           <button
             type="button"
             onClick={() => setMuted((m) => !m)}
-            className="rounded px-1.5 py-0.5 hover:bg-white/15"
+            className="rounded p-1 hover:bg-white/15"
             title={muted ? "Unmute" : "Mute"}
           >
-            {muted ? "🔇" : "🔊"}
+            {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
           </button>
 
           <button
             type="button"
             onClick={() => setLoop((l) => !l)}
-            className={`rounded px-1.5 py-0.5 hover:bg-white/15 ${loop ? "text-[rgb(var(--accent))]" : ""}`}
+            className={`rounded p-1 hover:bg-white/15 ${loop ? "text-[rgb(var(--accent))]" : ""}`}
             title="Loop"
           >
-            ↻
+            <Repeat size={14} />
           </button>
 
           <div className="relative">

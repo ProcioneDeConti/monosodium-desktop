@@ -11,6 +11,37 @@ export interface UserProfile {
   forum_notification_dot: boolean;
   avatar_id: number | null;
   favorite_count: number | null;
+  wiki_page_version_count: number | null;
+  artist_version_count: number | null;
+  pool_version_count: number | null;
+  forum_post_count: number | null;
+  comment_count: number | null;
+  flag_count: number | null;
+  positive_feedback_count: number | null;
+  neutral_feedback_count: number | null;
+  negative_feedback_count: number | null;
+  upload_slots: number | null;
+  profile_about: string | null;
+  profile_artinfo: string | null;
+}
+
+/** e621's `UserLevel::MAPPING` (app/logical/user_level.rb in the site's source) - unrecognized
+ *  values fall back to the raw number. */
+const USER_LEVEL_LABELS: Record<number, string> = {
+  0: "Anonymous",
+  10: "Blocked",
+  20: "Member",
+  30: "Privileged",
+  40: "Former Staff",
+  50: "Staff",
+  60: "Janitor",
+  70: "Moderator",
+  80: "Admin",
+};
+
+export function userLevelLabel(level: number | null): string | null {
+  if (level == null) return null;
+  return USER_LEVEL_LABELS[level] ?? `Level ${level}`;
 }
 
 export interface TagSuggestion {

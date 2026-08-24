@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { Heart, RefreshCw, Settings as SettingsIcon, User } from "lucide-react";
 import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { SearchBar } from "../SearchBar/SearchBar";
 import {
@@ -7,12 +8,19 @@ import {
   useSettingsStore,
 } from "../../state/settingsStore";
 import { useHealthCheck } from "../../queries/useHealthCheck";
+import { Button } from "../ui/Button";
+import { IconButton } from "../ui/IconButton";
+import { TopProgressBar } from "../ui/TopProgressBar";
 
 interface AppShellProps {
   activeQuery: string;
   onSearch: (query: string) => void;
   onOpenSettings: () => void;
   onOpenFavorites: (() => void) | null;
+  onOpenProfile: (() => void) | null;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+  isLoadingPosts: boolean;
   children: ReactNode;
 }
 
@@ -21,6 +29,10 @@ export function AppShell({
   onSearch,
   onOpenSettings,
   onOpenFavorites,
+  onOpenProfile,
+  onRefresh,
+  isRefreshing,
+  isLoadingPosts,
   children,
 }: AppShellProps) {
   const site = useSettingsStore((s) => s.site);
@@ -65,33 +77,48 @@ export function AppShell({
         data-tauri-drag-region
         className="flex items-center gap-3 border-b border-black/10 dark:border-white/10 px-3 py-2 shrink-0"
       >
-        <span className="select-none text-sm font-semibold tracking-tight opacity-80 pr-1">
-          e621 Desktop
-        </span>
+        <button
+          type="button"
+          onClick={() => onSearch("")}
+          title="Back to the default search"
+          className="select-none whitespace-nowrap rounded-[var(--radius-sm)] pr-1 text-sm font-bold
+                     tracking-tight text-[rgb(var(--accent))] transition-opacity hover:opacity-80
+                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent))]"
+        >
+          {SITE_DISPLAY_NAME[site]} Desktop
+        </button>
 
         <SearchBar site={site as Site} activeQuery={activeQuery} onSearch={onSearch} />
 
-        <button
-          type="button"
-          onClick={toggleSite}
-          title={`Switch active site · ${healthTitle}`}
-          className="shrink-0 flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10
-                     bg-white/60 dark:bg-black/30 px-2.5 py-1.5 text-xs font-semibold hover:bg-[rgb(var(--accent))]/15"
-        >
-          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${healthColor}`} />
-          {SITE_DISPLAY_NAME[site]}
-        </button>
+        <IconButton onClick={onRefresh} title="Refresh results">
+          <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+        </IconButton>
 
-        <button
-          type="button"
+        <Button onClick={toggleSite} title={`Switch active site · ${healthTitle}`}>
+          <span
+            className={`h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${healthColor} ${
+              health.status === "pending" ? "animate-pulse" : ""
+            }`}
+          />
+          {SITE_DISPLAY_NAME[site]}
+        </Button>
+
+        <Button
+          icon={<Heart size={13} strokeWidth={2.5} />}
           onClick={onOpenFavorites ?? undefined}
           disabled={!onOpenFavorites}
           title={onOpenFavorites ? "Your favorites" : "Sign in (Settings) to view favorites"}
-          className="shrink-0 rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10
-                     bg-white/60 dark:bg-black/30 px-2.5 py-1.5 text-xs font-semibold hover:bg-[rgb(var(--accent))]/15 disabled:opacity-40"
         >
-          ♥ Favorites
-        </button>
+          Favorites
+        </Button>
+
+        <IconButton
+          onClick={onOpenProfile ?? undefined}
+          disabled={!onOpenProfile}
+          title={onOpenProfile ? "Your profile" : "Sign in (Settings) to view your profile"}
+        >
+          <User size={17} />
+        </IconButton>
 
         <div className="hidden sm:flex items-center gap-1.5 shrink-0" title="Thumbnail size">
           <span className="text-xs opacity-60">Size</span>
@@ -106,15 +133,12 @@ export function AppShell({
           />
         </div>
 
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          title="Settings"
-          className="shrink-0 rounded-[var(--radius-sm)] px-2 py-1.5 text-base hover:bg-black/5 dark:hover:bg-white/10"
-        >
-          ⚙
-        </button>
+        <IconButton onClick={onOpenSettings} title="Settings">
+          <SettingsIcon size={17} />
+        </IconButton>
       </header>
+
+      <TopProgressBar active={isLoadingPosts} />
 
       <main className="flex-1 min-h-0">{children}</main>
     </div>

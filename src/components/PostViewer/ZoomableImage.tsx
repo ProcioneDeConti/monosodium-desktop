@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Spinner } from "../ui/Spinner";
 
 interface ZoomableImageProps {
   src: string;
@@ -14,6 +15,7 @@ export function ZoomableImage({ src, alt }: ZoomableImageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [loaded, setLoaded] = useState(false);
   const dragState = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(
     null,
   );
@@ -21,6 +23,7 @@ export function ZoomableImage({ src, alt }: ZoomableImageProps) {
   useEffect(() => {
     setScale(1);
     setOffset({ x: 0, y: 0 });
+    setLoaded(false);
   }, [src]);
 
   function clampScale(next: number) {
@@ -86,14 +89,21 @@ export function ZoomableImage({ src, alt }: ZoomableImageProps) {
       onMouseLeave={endDrag}
       style={{ cursor: scale > 1 ? (dragState.current ? "grabbing" : "grab") : "default" }}
     >
+      {!loaded && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Spinner size={28} className="text-white/70" />
+        </div>
+      )}
+
       <img
         src={src}
         alt={alt}
         draggable={false}
-        className="max-h-full max-w-full object-contain"
+        onLoad={() => setLoaded(true)}
+        className={`max-h-full max-w-full object-contain ${loaded ? "opacity-100" : "opacity-0"}`}
         style={{
           transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-          transition: dragState.current ? "none" : "transform 80ms ease-out",
+          transition: dragState.current ? "none" : "transform 80ms ease-out, opacity 200ms ease-out",
         }}
       />
     </div>

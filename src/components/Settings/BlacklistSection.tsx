@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { Download, Upload } from "lucide-react";
 import { e621Api } from "../../api/client";
 import type { Site } from "../../models/site";
 import { useAccountStore } from "../../state/accountStore";
 import { useSettingsStore } from "../../state/settingsStore";
+import { Button } from "../ui/Button";
 
 interface BlacklistSectionProps {
   site: Site;
@@ -70,28 +72,27 @@ export function BlacklistSection({ site }: BlacklistSectionProps) {
           type="button"
           disabled={!dirty}
           onClick={() => setBlacklist(draft)}
-          className="rounded-[var(--radius-sm)] bg-[rgb(var(--accent))] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+          className="rounded-[var(--radius-sm)] bg-[rgb(var(--accent))] px-3 py-1.5 text-xs font-semibold text-white
+                     transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           Save
         </button>
-        <button
-          type="button"
+        <Button
+          icon={<Download size={13} />}
           disabled={!isAuthenticated || busy !== null}
           onClick={handleImport}
           title={isAuthenticated ? undefined : "Sign in above to import"}
-          className="rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 px-3 py-1.5 text-xs hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
         >
           {busy === "import" ? "Importing…" : "Import from account"}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          icon={<Upload size={13} />}
           disabled={!isAuthenticated || busy !== null}
           onClick={handlePush}
           title={isAuthenticated ? undefined : "Sign in above to push"}
-          className="rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 px-3 py-1.5 text-xs hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
         >
           {busy === "push" ? "Pushing…" : "Push to account"}
-        </button>
+        </Button>
         {message && <span className="text-xs opacity-70">{message}</span>}
       </div>
     </div>
