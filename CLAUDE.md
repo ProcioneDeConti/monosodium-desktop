@@ -23,9 +23,10 @@ or a rule, check there before guessing.
   every format e621 serves (jpg/png/gif/apng/webp/webm/mp4) natively with zero extra
   dependencies — the native-Windows alternatives all need a bundled video engine
   (LibVLCSharp, ~100MB+) just to play webm.
-- **Scope: core browsing first, Phase 2 in progress.** User profiles have landed (see Progress).
-  Comments, Dmail/messages, forum, saved searches, encrypted backup/restore, and the update
-  checker are still explicitly deferred — not built yet, not stubbed.
+- **Scope: core browsing first, Phase 2 in progress.** User profiles and saved searches have
+  landed (see Progress). Comments, Dmail/messages, forum, encrypted backup/restore, on-disk image
+  cache management, and the update checker are still explicitly deferred — not built yet, not
+  stubbed.
 
 ## Critical constraint: e621 API rules — do not relax these
 
@@ -63,7 +64,9 @@ src/
   models/         TS interfaces mirroring src-tauri/src/models.rs (post.ts, user.ts, site.ts)
   api/client.ts   typed wrappers around invoke("...") - the only place that calls Tauri commands
   state/          Zustand: settingsStore.ts (persisted via tauri-plugin-store JSON file),
-                  accountStore.ts (credentials, loaded from Windows Credential Manager)
+                  accountStore.ts (credentials, loaded from Windows Credential Manager),
+                  savedSearchesStore.ts (own tauri-plugin-store JSON file, separate from
+                  settings - local-only, e621 has no server-side saved-search feature to sync)
   queries/        TanStack Query: usePostsQuery.ts (keyset pagination + blacklist-aware page
                   skipping - see doc comment), usePostMutations.ts (vote/favorite, patches
                   postCache.ts so grid + viewer update instantly), useTagAutocomplete.ts,
@@ -111,8 +114,13 @@ src/
                                image URL), level badge, stats grid, feedback, about/artist-info
                                text, and Posts/Favorites shortcuts into the normal search flow
                                (user:<name> / fav:<name>)
-  App.tsx         wires everything: search state, viewer/settings/profile open-close, blacklist
-                  actions
+    SavedSearches/SavedSearchesPanel.tsx  full-screen overlay, create/delete only (no rename or
+                               reorder, matching the reference app) - a "save current search"
+                               row (shown only while there's a non-blank query) plus a list of
+                               saved {label, query} entries; clicking one runs it as a normal
+                               search, same as Favorites/Profile's shortcuts
+  App.tsx         wires everything: search state, viewer/settings/profile/saved-searches
+                  open-close, blacklist actions
 ```
 
 Data flow for a post list: `usePostsQuery` → raw `Post[]` (unfiltered, so the blacklist
@@ -249,9 +257,35 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       tags in `App.tsx`) - a tag neither source has seen yet just renders neutral. Meta search
       operators (`rating:`, `user:`, `order:`, ...) are deliberately excluded from lookup, since
       they aren't real tags and have no category.
+- [x] **Phase 2: Saved Searches** `SavedSearchesPanel` + `state/savedSearchesStore.ts`, ported
+      from the reference app's `SavedSearchStore`/`SavedSearchesScreen` field-for-field: e621 has
+      no server-side saved-search feature, so entries (`{id, label, query, createdAt}`) are
+      local-only, stored as one JSON array in their own `tauri-plugin-store` file. Create and
+      delete only - no rename, no reorder, no duplicate-name check, no delete confirmation,
+      matching the reference app exactly (see its `SavedSearch.kt`/`SavedSearchStore.kt` doc
+      comments and `SavedSearchesViewModel`, which guard the same way: blank label or query is a
+      silent no-op). Reachable from a new shell button (works with no account, unlike
+      Favorites/Profile) next to Favorites.
+- [x] **Fixed: meta search operators got silently replaced by a tag suggestion** Typing
+      `score:>1500` (or any `rating:`/`id:`/`user:`/`order:`/... operator) triggered a live
+      autocomplete fetch same as a plain tag, and pressing Enter auto-selected whatever e621
+      loosely returned for that garbage query instead of using the literal typed text - so the
+      search silently ran against the wrong tag entirely. `useTagAutocomplete` now skips fetching
+      whenever the prefix contains `:` (e621 tags themselves never do), and `SearchBar`'s Enter
+      handler double-checks the same thing against the live (non-debounced) draft, since the
+      dropdown's suggestions lag the debounce by up to 200ms.
+- [x] **The "cooter" easter egg** Ported from the reference app's `PostGridScreen.kt`/
+      `EasterEggDialog` verbatim: typing "cooter" into the search bar (live, or as a finalized
+      token - it can never become a real search chip) opens `EasterEggDialog.tsx`, showing
+      `assets/egg.png` (copied from the reference app's `res/raw/egg.png`) over an infinitely
+      scrolling ROYGBIV background (`.rainbow-scroll` in `index.css`, same stripe colors as the
+      reference app's `RainbowStripeColors`) with the caption "Ah ah ah! You DID say the magic
+      word". Typing a close-but-incomplete prefix (4+ characters, matching the reference app's
+      thresholds) shows an "Almost there…" tease in place of the real autocomplete dropdown,
+      without ever revealing the word itself.
 
-**Deferred to a later phase, not started:** comments, Dmail/messages, forum, saved searches,
-encrypted backup/restore, on-disk image cache management UI, update checker.
+**Deferred to a later phase, not started:** comments, Dmail/messages, forum, encrypted
+backup/restore, on-disk image cache management UI, update checker.
 
 ## Running it
 
@@ -277,8 +311,6 @@ seconds.
 
 ## Known follow-ups / things to watch
 
-- Vote/favorite buttons are wired (`usePostMutations.ts`) but will 401 until M5 (Settings) lands
-  and an account is actually signed in - not yet exercised against a real account.
-- No automated tests exist yet; verification has been `tsc --noEmit` + `cargo check`, plus one
-  round of live manual testing earlier in the project (see conversation
-  history for confirmed working screenshots of the grid/autocomplete).
+- No automated tests exist yet; verification has been `tsc --noEmit` + `cargo check`, plus
+  extensive live manual testing throughout the project (grid/autocomplete, and - confirmed with
+  a real signed-in account - voting and favoriting via `usePostMutations.ts`).

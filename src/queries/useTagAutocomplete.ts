@@ -9,11 +9,17 @@ import { useDebouncedValue } from "../lib/useDebouncedValue";
 export function useTagAutocomplete(site: Site, draft: string) {
   const debounced = useDebouncedValue(draft.trim(), 200);
   const prefix = debounced.replace(/^-/, "");
+  // A colon means this is a meta search operator (rating:safe, score:>1500, id:123, user:foo,
+  // order:score, ...), not a taggable name - e621 tags themselves never contain one. Fetching
+  // "suggestions" for these returns whatever loosely matches the raw string, which then looks
+  // like a real option and (see SearchBar's Enter handler) would otherwise get silently
+  // auto-selected in place of the operator the user actually typed.
+  const isMetaOperator = prefix.includes(":");
 
   return useQuery({
     queryKey: ["tagAutocomplete", site, prefix],
     queryFn: () => e621Api.autocompleteTags(site, `${prefix}*`),
-    enabled: prefix.length >= 2,
+    enabled: prefix.length >= 2 && !isMetaOperator,
     staleTime: 60_000,
   });
 }

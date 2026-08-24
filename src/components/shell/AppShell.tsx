@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { Heart, RefreshCw, Settings as SettingsIcon, User } from "lucide-react";
+import { Bookmark, Heart, RefreshCw, Settings as SettingsIcon, User } from "lucide-react";
 import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { SearchBar } from "../SearchBar/SearchBar";
 import {
@@ -18,6 +18,7 @@ interface AppShellProps {
   onOpenSettings: () => void;
   onOpenFavorites: (() => void) | null;
   onOpenProfile: (() => void) | null;
+  onOpenSavedSearches: () => void;
   onRefresh: () => void;
   isRefreshing: boolean;
   isLoadingPosts: boolean;
@@ -30,6 +31,7 @@ export function AppShell({
   onOpenSettings,
   onOpenFavorites,
   onOpenProfile,
+  onOpenSavedSearches,
   onRefresh,
   isRefreshing,
   isLoadingPosts,
@@ -111,6 +113,10 @@ export function AppShell({
         >
           Favorites
         </Button>
+
+        <IconButton onClick={onOpenSavedSearches} title="Saved searches">
+          <Bookmark size={17} />
+        </IconButton>
 
         <IconButton
           onClick={onOpenProfile ?? undefined}

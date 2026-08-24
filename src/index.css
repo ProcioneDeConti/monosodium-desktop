@@ -124,3 +124,39 @@ body {
 .caution-stripe > img {
   border-radius: calc(var(--radius-md) - 2px);
 }
+
+/* Cooter easter egg (SearchBar.tsx / EasterEggDialog.tsx) - an infinitely scrolling ROYGBIV
+   flag behind the egg image, same stripe colors as the reference app's RainbowStripeColors
+   (shared there with its pull-to-refresh spinner). A repeating-linear-gradient background
+   animated via background-position gives the same seamless scroll effect as the reference app's
+   per-rectangle tiling, without needing individual stripe elements. */
+@keyframes rainbow-scroll {
+  from {
+    background-position-x: 0%;
+  }
+  to {
+    background-position-x: -100%;
+  }
+}
+
+.rainbow-scroll {
+  background-image: repeating-linear-gradient(
+    90deg,
+    #ff0000 0%,
+    #ff0000 14.2857%,
+    #ff7f00 14.2857%,
+    #ff7f00 28.5714%,
+    #ffff00 28.5714%,
+    #ffff00 42.8571%,
+    #00ff00 42.8571%,
+    #00ff00 57.1428%,
+    #00bfff 57.1428%,
+    #00bfff 71.4285%,
+    #4b0082 71.4285%,
+    #4b0082 85.7142%,
+    #8f00ff 85.7142%,
+    #8f00ff 100%
+  );
+  background-size: 200% 100%;
+  animation: rainbow-scroll 6s linear infinite;
+}

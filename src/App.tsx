@@ -5,11 +5,13 @@ import { PostGrid } from "./components/PostGrid/PostGrid";
 import { PostViewer } from "./components/PostViewer/PostViewer";
 import { SettingsPanel } from "./components/Settings/SettingsPanel";
 import { ProfilePanel } from "./components/Profile/ProfilePanel";
+import { SavedSearchesPanel } from "./components/SavedSearches/SavedSearchesPanel";
 import { Button } from "./components/ui/Button";
 import { Spinner } from "./components/ui/Spinner";
 import { usePostsQuery } from "./queries/usePostsQuery";
 import { loadSettings, useSettingsStore } from "./state/settingsStore";
 import { loadAllAccounts, useAccountStore } from "./state/accountStore";
+import { loadSavedSearches } from "./state/savedSearchesStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
 import { hexToRgbTriplet } from "./lib/color";
 import { cacheTagCategory } from "./lib/tagCategoryCache";
@@ -21,9 +23,10 @@ function App() {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileTarget, setProfileTarget] = useState<number | "me" | null>(null);
+  const [savedSearchesOpen, setSavedSearchesOpen] = useState(false);
 
   useEffect(() => {
-    Promise.all([loadSettings(), loadAllAccounts()]).finally(() => setBooted(true));
+    Promise.all([loadSettings(), loadAllAccounts(), loadSavedSearches()]).finally(() => setBooted(true));
   }, []);
 
   const site = useSettingsStore((s) => s.site);
@@ -101,6 +104,7 @@ function App() {
       onOpenSettings={() => setSettingsOpen(true)}
       onOpenFavorites={account?.username ? () => runNewSearch(`fav:${account.username}`) : null}
       onOpenProfile={account?.username ? () => setProfileTarget("me") : null}
+      onOpenSavedSearches={() => setSavedSearchesOpen(true)}
       onRefresh={() => void refresh()}
       isRefreshing={isRefetching}
       isLoadingPosts={isLoading || isFetchingNextPage || isRefetching}
@@ -182,6 +186,14 @@ function App() {
           userId={profileTarget}
           onClose={() => setProfileTarget(null)}
           onSearch={runNewSearch}
+        />
+      )}
+
+      {savedSearchesOpen && (
+        <SavedSearchesPanel
+          currentQuery={activeQuery}
+          onClose={() => setSavedSearchesOpen(false)}
+          onApply={runNewSearch}
         />
       )}
     </AppShell>

@@ -5,6 +5,7 @@ import { useTagAutocomplete } from "../../queries/useTagAutocomplete";
 import { TAG_CATEGORY_STYLE } from "../../lib/tagCategoryStyle";
 import { cacheTagCategory, getCachedTagCategory } from "../../lib/tagCategoryCache";
 import { tagSuggestionCategory } from "../../models/user";
+import { EasterEggDialog } from "./EasterEggDialog";
 
 /** Strips the leading `-` (exclusion) so the remainder can be looked up as a plain tag name;
  *  meta search operators (`rating:safe`, `user:foo`, `order:score`, ...) aren't real e621 tags
@@ -12,6 +13,16 @@ import { tagSuggestionCategory } from "../../models/user";
 function tagLookupName(tag: string): string | null {
   const name = tag.replace(/^-/, "");
   return name.includes(":") ? null : name;
+}
+
+// Ported from the reference Android app's PostGridScreen.kt - "cooter" isn't a real e621 tag,
+// it only ever triggers EasterEggDialog, whether typed live or finalized as a token (a fast
+// paste can skip the live check below, landing straight on a finalized "cooter " - so both
+// paths guard against it, same as there).
+const EASTER_EGG_WORD = "cooter";
+
+function isEasterEggToken(token: string): boolean {
+  return token.trim().replace(/^-/, "").toLowerCase() === EASTER_EGG_WORD;
 }
 
 interface SearchBarProps {
@@ -30,6 +41,7 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
   const [draft, setDraft] = useState("");
   const [highlighted, setHighlighted] = useState(0);
   const [open, setOpen] = useState(false);
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -40,8 +52,31 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
     setDraft("");
   }, [activeQuery]);
 
+  // Live typing straight into "cooter" (no space needed) triggers the egg immediately and clears
+  // the field, so the word itself never lingers as a fake search chip.
+  useEffect(() => {
+    if (isEasterEggToken(draft)) {
+      setShowEasterEgg(true);
+      setDraft("");
+      setOpen(false);
+    }
+  }, [draft]);
+
+  // Close to (but not yet) the magic word: tease it instead of showing real suggestions, without
+  // ever revealing/offering the word itself - same thresholds as the reference app (a prefix of
+  // "cooter" at least 4 characters long, i.e. its length minus 2).
+  const eggPrefix = draft.replace(/^-/, "").trim().toLowerCase();
+  const almostThereEgg =
+    eggPrefix.length > 0 &&
+    EASTER_EGG_WORD.startsWith(eggPrefix) &&
+    eggPrefix.length >= EASTER_EGG_WORD.length - 2 &&
+    eggPrefix !== EASTER_EGG_WORD;
+
   const { data: suggestions } = useTagAutocomplete(site, draft);
-  const shownSuggestions = useMemo(() => suggestions?.slice(0, 8) ?? [], [suggestions]);
+  const shownSuggestions = useMemo(
+    () => (almostThereEgg ? [] : (suggestions?.slice(0, 8) ?? [])),
+    [suggestions, almostThereEgg],
+  );
 
   useEffect(() => {
     suggestions?.forEach((s) => cacheTagCategory(s.name, tagSuggestionCategory(s)));
@@ -64,6 +99,12 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
   function commitDraft(rawTag?: string) {
     const value = (rawTag ?? draft).trim();
     if (!value) return;
+    if (isEasterEggToken(value)) {
+      setShowEasterEgg(true);
+      setDraft("");
+      setOpen(false);
+      return;
+    }
     const next = [...tags, value];
     setTags(next);
     setDraft("");
@@ -92,7 +133,11 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      if (open && shownSuggestions.length > 0) {
+      // Also re-checked here (not just in useTagAutocomplete's `enabled`) because the dropdown's
+      // suggestions lag the debounce by up to 200ms - typing a meta operator like "score:>1500"
+      // fast enough and hitting Enter within that window could otherwise still auto-select a
+      // suggestion left over from an earlier, still-plain-tag-shaped prefix.
+      if (open && shownSuggestions.length > 0 && tagLookupName(draft) !== null) {
         const chosen = shownSuggestions[highlighted];
         const prefix = draft.startsWith("-") ? "-" : "";
         const next = [...tags, prefix + chosen.name];
@@ -103,6 +148,11 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
         return;
       }
       if (draft.trim()) {
+        if (isEasterEggToken(draft)) {
+          setShowEasterEgg(true);
+          setDraft("");
+          return;
+        }
         const next = [...tags, draft.trim()];
         setTags(next);
         setDraft("");
@@ -178,7 +228,16 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
           className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-0.5"
         />
       </div>
-      {open && shownSuggestions.length > 0 && (
+      {open && almostThereEgg && (
+        <div
+          className="absolute z-20 mt-1 w-full rounded-[var(--radius-md)] border border-black/10
+                     dark:border-white/10 bg-[rgb(250,250,250)] dark:bg-[rgb(38,38,38)] px-3 py-2
+                     text-sm italic opacity-70 shadow-lg"
+        >
+          Almost there…
+        </div>
+      )}
+      {open && !almostThereEgg && shownSuggestions.length > 0 && (
         <ul
           className="absolute z-20 mt-1 w-full max-h-80 overflow-auto rounded-[var(--radius-md)]
                      border border-black/10 dark:border-white/10 bg-[rgb(250,250,250)] dark:bg-[rgb(38,38,38)] shadow-lg"
@@ -216,6 +275,8 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
           })}
         </ul>
       )}
+
+      {showEasterEgg && <EasterEggDialog onClose={() => setShowEasterEgg(false)} />}
     </div>
   );
 }
