@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { getVersion } from "@tauri-apps/api/app";
 import { FolderOpen, X } from "lucide-react";
 import {
   DEFAULT_THUMBNAIL_SIZE_PX,
@@ -245,8 +247,35 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
               )}
             </div>
           </Section>
+
+          <CreditsFooter />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Matches the reference Android app's Settings footer (app name + version, copyright, and a
+ *  link to the developer's handle). The version comes from `getVersion()` rather than being
+ *  hardcoded, so it always matches whatever's actually declared in tauri.conf.json/Cargo.toml. */
+function CreditsFooter() {
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getVersion().then(setVersion);
+  }, []);
+
+  return (
+    <div className="mt-2 flex flex-col items-center gap-0.5 pb-2 text-center text-xs opacity-60">
+      <p>e621 Desktop{version ? ` v${version}` : ""}</p>
+      <p>© {new Date().getFullYear()} Procione DeConti</p>
+      <button
+        type="button"
+        onClick={() => void openUrl("https://t.me/ProcioneDeConti")}
+        className="text-[rgb(var(--accent))] underline-offset-2 hover:underline"
+      >
+        @ProcioneDeConti
+      </button>
     </div>
   );
 }
