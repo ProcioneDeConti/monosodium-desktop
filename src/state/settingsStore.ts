@@ -15,6 +15,9 @@ const DEFAULT_RATINGS: Rating[] = ["s", "q", "e"];
 export const DEFAULT_THUMBNAIL_SIZE_PX = 220;
 export const MIN_THUMBNAIL_SIZE_PX = 120;
 export const MAX_THUMBNAIL_SIZE_PX = 420;
+export const MIN_VIDEO_SPEED = 0.25;
+export const MAX_VIDEO_SPEED = 2.0;
+export const STEP_VIDEO_SPEED = 0.25;
 export const DEFAULT_VIDEO_SPEED = 1;
 
 interface SettingsState {

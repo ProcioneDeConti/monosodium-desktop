@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "./components/shell/AppShell";
 import { PostGrid } from "./components/PostGrid/PostGrid";
+import { PostViewer } from "./components/PostViewer/PostViewer";
 import { usePostsQuery } from "./queries/usePostsQuery";
 import { loadSettings, useSettingsStore } from "./state/settingsStore";
 import { loadAllAccounts } from "./state/accountStore";
-import { parseBlacklist } from "./lib/blacklist";
+import { parseBlacklist, visiblePosts } from "./lib/blacklist";
 import { hexToRgbTriplet } from "./lib/color";
 
 function App() {
   const [booted, setBooted] = useState(false);
   const [activeQuery, setActiveQuery] = useState("");
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([loadSettings(), loadAllAccounts()]).finally(() => setBooted(true));
@@ -19,6 +21,7 @@ function App() {
   const blacklist = useSettingsStore((s) => s.blacklist);
   const blacklistDisabled = useSettingsStore((s) => s.blacklistDisabled);
   const setBlacklistDisabled = useSettingsStore((s) => s.setBlacklistDisabled);
+  const setBlacklist = useSettingsStore((s) => s.setBlacklist);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
   const accentColor = useSettingsStore((s) => s.accentColor);
   const ratingTagFilter = useSettingsStore((s) => s.ratingTagFilter);
@@ -34,20 +37,28 @@ function App() {
     return [activeQuery, ratingFilter].filter(Boolean).join(" ").trim();
   }, [activeQuery, ratingTagFilter]);
 
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    isError,
-    error,
-  } = usePostsQuery(site, effectiveTags, blacklistEntries, booted);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, error } =
+    usePostsQuery(site, effectiveTags, blacklistEntries, booted);
 
   const posts = useMemo(() => data?.pages.flatMap((p) => p.posts) ?? [], [data]);
+  const shownPosts = useMemo(
+    () => visiblePosts(posts, blacklistEntries, blacklistDisabled),
+    [posts, blacklistEntries, blacklistDisabled],
+  );
+
+  // Closing the search bar's query invalidates whatever the viewer was showing (a fresh result
+  // set), so any tag action that changes the search closes the viewer along with it.
+  function runNewSearch(query: string) {
+    setActiveQuery(query);
+    setViewerIndex(null);
+  }
+
+  function addTagToBlacklist(tag: string) {
+    setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`);
+  }
 
   return (
-    <AppShell activeQuery={activeQuery} onSearch={setActiveQuery}>
+    <AppShell activeQuery={activeQuery} onSearch={runNewSearch}>
       {!booted || isLoading ? (
         <div className="flex h-full items-center justify-center text-sm opacity-60">Loading…</div>
       ) : isError ? (
@@ -78,13 +89,28 @@ function App() {
               isFetchingNextPage={isFetchingNextPage}
               hasNextPage={!!hasNextPage}
               onLoadMore={fetchNextPage}
-              onPostClick={(index) => {
-                // Post viewer lands in the next milestone.
-                console.log("open post", posts[index]?.id);
-              }}
+              onPostClick={setViewerIndex}
             />
           </div>
         </div>
+      )}
+
+      {viewerIndex !== null && (
+        <PostViewer
+          site={site}
+          posts={shownPosts}
+          index={viewerIndex}
+          hasNextPage={!!hasNextPage}
+          blacklistEntries={blacklistEntries}
+          blacklistDisabled={blacklistDisabled}
+          onIndexChange={setViewerIndex}
+          onLoadMore={fetchNextPage}
+          onClose={() => setViewerIndex(null)}
+          onSearchTag={runNewSearch}
+          onAddTagToSearch={(tag) => runNewSearch(`${activeQuery} ${tag}`.trim())}
+          onExcludeTag={(tag) => runNewSearch(`${activeQuery} -${tag}`.trim())}
+          onBlacklistTag={addTagToBlacklist}
+        />
       )}
     </AppShell>
   );

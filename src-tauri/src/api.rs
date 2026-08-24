@@ -223,14 +223,17 @@ pub async fn unfavorite(
     state: tauri::State<'_, AppState>,
     site: Site,
     post_id: i64,
-) -> Result<(), String> {
+) -> Result<FavoriteResponse, String> {
     let response = request(&state, site, Method::DELETE, &format!("favorites/{post_id}.json"))
         .await?
         .send()
         .await
         .map_err(|e| e.to_string())?;
-    ensure_success(response).await?;
-    Ok(())
+    ensure_success(response)
+        .await?
+        .json::<FavoriteResponse>()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Lightweight reachability check for the active site - same rate-limited/UA'd path as every

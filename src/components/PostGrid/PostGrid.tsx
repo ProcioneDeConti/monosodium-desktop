@@ -2,7 +2,7 @@ import { forwardRef, useMemo } from "react";
 import { VirtuosoGrid, type GridComponents } from "react-virtuoso";
 import type { Post } from "../../models/post";
 import { PostThumbnail } from "./PostThumbnail";
-import { isBlacklisted, type BlacklistEntries } from "../../lib/blacklist";
+import { isBlacklisted, visiblePosts, type BlacklistEntries } from "../../lib/blacklist";
 
 interface PostGridProps {
   posts: Post[];
@@ -54,10 +54,10 @@ export function PostGrid({
 }: PostGridProps) {
   const components = useGridComponents(thumbnailSizePx);
 
-  const visible = useMemo(() => {
-    if (blacklistDisabled || blacklistEntries.length === 0) return posts;
-    return posts.filter((p) => !isBlacklisted(blacklistEntries, p));
-  }, [posts, blacklistEntries, blacklistDisabled]);
+  const visible = useMemo(
+    () => visiblePosts(posts, blacklistEntries, blacklistDisabled),
+    [posts, blacklistEntries, blacklistDisabled],
+  );
 
   if (visible.length === 0 && !isFetchingNextPage) {
     return (

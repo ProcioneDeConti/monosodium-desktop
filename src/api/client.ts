@@ -41,7 +41,7 @@ export const e621Api = {
     return invoke("favorite", { site, postId });
   },
 
-  unfavorite(site: Site, postId: number): Promise<void> {
+  unfavorite(site: Site, postId: number): Promise<FavoriteResponse> {
     return invoke("unfavorite", { site, postId });
   },
 

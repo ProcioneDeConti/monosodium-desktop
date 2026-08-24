@@ -36,3 +36,11 @@ export function isBlacklisted(entries: BlacklistEntries, post: Post): boolean {
 export function matchingBlacklistTags(entries: BlacklistEntries, post: Post): Set<string> {
   return new Set(matchingEntries(entries, post).flat());
 }
+
+/** The post list as actually displayed: unfiltered while the blacklist is disabled (posts get a
+ *  caution-stripe instead), otherwise blacklisted posts removed entirely. Shared between PostGrid
+ *  and the post viewer so both index into the exact same array. */
+export function visiblePosts(posts: Post[], entries: BlacklistEntries, disabled: boolean): Post[] {
+  if (disabled || entries.length === 0) return posts;
+  return posts.filter((p) => !isBlacklisted(entries, p));
+}
