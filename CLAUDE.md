@@ -66,7 +66,8 @@ src/
                   accountStore.ts (credentials, loaded from Windows Credential Manager)
   queries/        TanStack Query: usePostsQuery.ts (keyset pagination + blacklist-aware page
                   skipping - see doc comment), usePostMutations.ts (vote/favorite, patches
-                  postCache.ts so grid + viewer update instantly), useTagAutocomplete.ts
+                  postCache.ts so grid + viewer update instantly), useTagAutocomplete.ts,
+                  useHealthCheck.ts (60s poll, drives the shell's connection dot)
   lib/            blacklist.ts (port of the Android app's blacklist matching logic - keep in
                   sync if that logic ever changes; also owns visiblePosts(), the single
                   filtered-list function shared by PostGrid and PostViewer so click-to-open
@@ -120,8 +121,15 @@ and `PostViewer` so click-to-open indices line up exactly.
       grid/viewer) + downloads (`downloads.rs`'s `download_post_file` fetches the same CDN URL
       the webview shows and saves it via a download button in the viewer header; defaults to
       Pictures/Videos/e621 Desktop, or the folder set in Settings)
-- [ ] **M7** Polish pass (site toggle end-to-end re-search, connection health indicator,
-      empty/error states, keyboard shortcuts)
+- [x] **M7** Polish pass — site toggle already re-searched end-to-end for free (site is part of
+      `usePostsQuery`'s query key); added a green/amber/red connection health dot on the site
+      button (`queries/useHealthCheck.ts`, polls `health_check` every 60s), a Retry button on
+      the error state, and a `/` shortcut to focus the search box from anywhere (skipped when
+      already typing in an input/textarea/contenteditable)
+
+**Phase 1 (core browsing) is now complete.** Everything above compiles clean (`tsc`/`cargo
+check`); not yet exercised live end-to-end by a human (see memory:
+feedback_no_manual_app_testing).
 
 **Deferred to a later phase, not started:** comments, Dmail/messages, forum, user profiles,
 saved searches, encrypted backup/restore, on-disk image cache management UI, update checker.

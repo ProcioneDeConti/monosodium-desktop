@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { SearchBar } from "../SearchBar/SearchBar";
 import {
@@ -6,6 +6,7 @@ import {
   MIN_THUMBNAIL_SIZE_PX,
   useSettingsStore,
 } from "../../state/settingsStore";
+import { useHealthCheck } from "../../queries/useHealthCheck";
 
 interface AppShellProps {
   activeQuery: string;
@@ -31,6 +32,33 @@ export function AppShell({
     setSite(site === "e621" ? "e6ai" : "e621");
   }
 
+  const health = useHealthCheck(site);
+  const healthColor =
+    health.status === "error" ? "bg-red-500" : health.status === "success" ? "bg-green-500" : "bg-amber-400";
+  const healthTitle =
+    health.status === "error"
+      ? `${SITE_DISPLAY_NAME[site]} unreachable: ${(health.error as Error)?.message ?? "unknown error"}`
+      : health.status === "success"
+        ? `${SITE_DISPLAY_NAME[site]} reachable`
+        : `Checking ${SITE_DISPLAY_NAME[site]}…`;
+
+  // "/" focuses the search box from anywhere, unless the user is already typing somewhere else.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "/") return;
+      const active = document.activeElement;
+      const isEditing =
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        (active instanceof HTMLElement && active.isContentEditable);
+      if (isEditing) return;
+      e.preventDefault();
+      document.getElementById("post-search-input")?.focus();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <div className="flex h-full flex-col">
       <header
@@ -46,10 +74,11 @@ export function AppShell({
         <button
           type="button"
           onClick={toggleSite}
-          title="Switch active site"
-          className="shrink-0 rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10
+          title={`Switch active site · ${healthTitle}`}
+          className="shrink-0 flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10
                      bg-white/60 dark:bg-black/30 px-2.5 py-1.5 text-xs font-semibold hover:bg-[rgb(var(--accent))]/15"
         >
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${healthColor}`} />
           {SITE_DISPLAY_NAME[site]}
         </button>
 

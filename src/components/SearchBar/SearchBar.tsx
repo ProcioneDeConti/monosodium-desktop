@@ -149,6 +149,7 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
         })}
         <input
           ref={inputRef}
+          id="post-search-input"
           value={draft}
           onChange={(e) => {
             setDraft(e.target.value);

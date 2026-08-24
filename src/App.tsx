@@ -40,7 +40,7 @@ function App() {
     return [activeQuery, ratingFilter].filter(Boolean).join(" ").trim();
   }, [activeQuery, ratingTagFilter]);
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, error } =
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, error, refetch } =
     usePostsQuery(site, effectiveTags, blacklistEntries, booted);
 
   const posts = useMemo(() => data?.pages.flatMap((p) => p.posts) ?? [], [data]);
@@ -70,8 +70,17 @@ function App() {
       {!booted || isLoading ? (
         <div className="flex h-full items-center justify-center text-sm opacity-60">Loading…</div>
       ) : isError ? (
-        <div className="flex h-full flex-col items-center justify-center gap-2 text-sm">
-          <span className="text-red-500">{(error as Error)?.message ?? "Something went wrong."}</span>
+        <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
+          <span className="max-w-md text-center text-red-500">
+            {(error as Error)?.message ?? "Something went wrong."}
+          </span>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 px-3 py-1.5 text-xs hover:bg-black/5 dark:hover:bg-white/5"
+          >
+            Retry
+          </button>
         </div>
       ) : (
         <div className="flex h-full flex-col">
