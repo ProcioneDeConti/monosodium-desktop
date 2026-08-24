@@ -55,6 +55,8 @@ src-tauri/src/
   rate_limit.rs   per-site governor rate limiter
   credentials.rs  Windows Credential Manager (keyring crate, v1 API) - username+api_key per site
   api.rs          AppState (http client + limiters) + all e621 API Tauri commands
+  downloads.rs    download_post_file - fetches a post's CDN URL and writes it to disk
+                  (Pictures/Videos/"e621 Desktop" by default, or the Settings-configured folder)
   lib.rs          plugin/window/command wiring, Mica backdrop setup
 
 src/
@@ -112,7 +114,12 @@ and `PostViewer` so click-to-open indices line up exactly.
       folder picker, ratings/adult-mode, blacklist editor with import/push, accent color,
       thumbnail size + video defaults) — compiles clean (`tsc`/`cargo check`), not yet run live
       (see memory: feedback_no_manual_app_testing - user tests it themselves now)
-- [ ] **M6** Favorites screen (reuse PostGrid) + downloads (Rust command to save original file)
+- [x] **M6** Favorites (no separate screen needed - e621 favorites are just `posts.json?tags=
+      fav:<username>`, confirmed from the reference app's own FavoritesViewModel comment, so a
+      "♥ Favorites" shell button just runs that as a normal search through the existing
+      grid/viewer) + downloads (`downloads.rs`'s `download_post_file` fetches the same CDN URL
+      the webview shows and saves it via a download button in the viewer header; defaults to
+      Pictures/Videos/e621 Desktop, or the folder set in Settings)
 - [ ] **M7** Polish pass (site toggle end-to-end re-search, connection health indicator,
       empty/error states, keyboard shortcuts)
 

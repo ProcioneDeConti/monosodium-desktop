@@ -11,10 +11,17 @@ interface AppShellProps {
   activeQuery: string;
   onSearch: (query: string) => void;
   onOpenSettings: () => void;
+  onOpenFavorites: (() => void) | null;
   children: ReactNode;
 }
 
-export function AppShell({ activeQuery, onSearch, onOpenSettings, children }: AppShellProps) {
+export function AppShell({
+  activeQuery,
+  onSearch,
+  onOpenSettings,
+  onOpenFavorites,
+  children,
+}: AppShellProps) {
   const site = useSettingsStore((s) => s.site);
   const setSite = useSettingsStore((s) => s.setSite);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
@@ -44,6 +51,17 @@ export function AppShell({ activeQuery, onSearch, onOpenSettings, children }: Ap
                      bg-white/60 dark:bg-black/30 px-2.5 py-1.5 text-xs font-semibold hover:bg-[rgb(var(--accent))]/15"
         >
           {SITE_DISPLAY_NAME[site]}
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenFavorites ?? undefined}
+          disabled={!onOpenFavorites}
+          title={onOpenFavorites ? "Your favorites" : "Sign in (Settings) to view favorites"}
+          className="shrink-0 rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10
+                     bg-white/60 dark:bg-black/30 px-2.5 py-1.5 text-xs font-semibold hover:bg-[rgb(var(--accent))]/15 disabled:opacity-40"
+        >
+          ♥ Favorites
         </button>
 
         <div className="hidden sm:flex items-center gap-1.5 shrink-0" title="Thumbnail size">

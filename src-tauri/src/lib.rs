@@ -1,5 +1,6 @@
 mod api;
 mod credentials;
+mod downloads;
 mod models;
 mod rate_limit;
 mod site;
@@ -31,6 +32,7 @@ pub fn run() {
             api::favorite,
             api::unfavorite,
             api::health_check,
+            downloads::download_post_file,
             credentials::save_credentials,
             credentials::load_credentials,
             credentials::delete_credentials,

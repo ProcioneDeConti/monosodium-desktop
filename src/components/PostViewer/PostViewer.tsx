@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Post } from "../../models/post";
-import { isDeleted, isVideo, playableUrl } from "../../models/post";
+import { downloadFileName, isDeleted, isVideo, playableUrl } from "../../models/post";
 import type { Site } from "../../models/site";
 import { ZoomableImage } from "./ZoomableImage";
 import { VideoPlayer } from "./VideoPlayer";
@@ -10,6 +10,7 @@ import { usePostMutations } from "../../queries/usePostMutations";
 import { useAccountStore } from "../../state/accountStore";
 import { useSettingsStore } from "../../state/settingsStore";
 import { matchingBlacklistTags, type BlacklistEntries } from "../../lib/blacklist";
+import { e621Api } from "../../api/client";
 
 interface PostViewerProps {
   site: Site;
@@ -50,6 +51,29 @@ export function PostViewer({
   const videoLoopEnabled = useSettingsStore((s) => s.videoLoopEnabled);
   const videoPlaybackSpeed = useSettingsStore((s) => s.videoPlaybackSpeed);
   const videoAutoplayEnabled = useSettingsStore((s) => s.videoAutoplayEnabled);
+  const downloadDir = useSettingsStore((s) => s.downloadDir);
+  const [downloadStatus, setDownloadStatus] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
+  );
+
+  useEffect(() => {
+    setDownloadStatus("idle");
+  }, [post?.id]);
+
+  async function handleDownload() {
+    if (!post) return;
+    const fileUrl = playableUrl(post);
+    if (!fileUrl) return;
+    setDownloadStatus("saving");
+    try {
+      await e621Api.downloadPostFile(fileUrl, downloadFileName(post), downloadDir, isVideo(post));
+      setDownloadStatus("saved");
+      setTimeout(() => setDownloadStatus("idle"), 1500);
+    } catch {
+      setDownloadStatus("error");
+      setTimeout(() => setDownloadStatus("idle"), 2000);
+    }
+  }
 
   const canGoPrev = index > 0;
   const canGoNext = index < posts.length - 1 || hasNextPage;
@@ -92,6 +116,7 @@ export function PostViewer({
 
   const url = playableUrl(post);
   const deleted = isDeleted(post);
+  const deletedOrMissing = deleted || !url;
   const voteTitle = isAuthenticated ? undefined : "Sign in (Settings) to vote";
   const favTitle = isAuthenticated ? undefined : "Sign in (Settings) to favorite";
 
@@ -144,6 +169,21 @@ export function PostViewer({
             }`}
           >
             {post.is_favorited ? "♥" : "♡"}
+          </button>
+          <button
+            type="button"
+            disabled={downloadStatus === "saving" || deletedOrMissing}
+            title={
+              downloadStatus === "saved"
+                ? "Saved"
+                : downloadStatus === "error"
+                  ? "Download failed"
+                  : "Download original file"
+            }
+            onClick={() => void handleDownload()}
+            className="ml-1 rounded px-2 py-1 text-lg hover:bg-white/10 disabled:opacity-30"
+          >
+            {downloadStatus === "saving" ? "…" : downloadStatus === "saved" ? "✓" : downloadStatus === "error" ? "!" : "⭳"}
           </button>
         </div>
       </div>

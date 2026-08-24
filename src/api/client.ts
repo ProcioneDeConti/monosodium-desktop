@@ -49,6 +49,16 @@ export const e621Api = {
     return invoke("health_check", { site });
   },
 
+  /** Downloads a post's media to disk; resolves to the saved file's full path. */
+  downloadPostFile(
+    url: string,
+    fileName: string,
+    targetDir: string | null,
+    isVideo: boolean,
+  ): Promise<string> {
+    return invoke("download_post_file", { url, fileName, targetDir, isVideo });
+  },
+
   saveCredentials(site: Site, username: string, apiKey: string): Promise<void> {
     return invoke("save_credentials", { site, username, apiKey });
   },

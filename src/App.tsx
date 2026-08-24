@@ -5,7 +5,7 @@ import { PostViewer } from "./components/PostViewer/PostViewer";
 import { SettingsPanel } from "./components/Settings/SettingsPanel";
 import { usePostsQuery } from "./queries/usePostsQuery";
 import { loadSettings, useSettingsStore } from "./state/settingsStore";
-import { loadAllAccounts } from "./state/accountStore";
+import { loadAllAccounts, useAccountStore } from "./state/accountStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
 import { hexToRgbTriplet } from "./lib/color";
 
@@ -27,6 +27,7 @@ function App() {
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
   const accentColor = useSettingsStore((s) => s.accentColor);
   const ratingTagFilter = useSettingsStore((s) => s.ratingTagFilter);
+  const account = useAccountStore((s) => s.accounts[site]);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--accent", hexToRgbTriplet(accentColor));
@@ -64,6 +65,7 @@ function App() {
       activeQuery={activeQuery}
       onSearch={runNewSearch}
       onOpenSettings={() => setSettingsOpen(true)}
+      onOpenFavorites={account?.username ? () => runNewSearch(`fav:${account.username}`) : null}
     >
       {!booted || isLoading ? (
         <div className="flex h-full items-center justify-center text-sm opacity-60">Loading…</div>
