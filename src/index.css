@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light dark;
+  --accent: 99 102 241; /* indigo-500, default accent - overridden by Settings via --accent */
+  --radius-lg: 12px;
+  --radius-md: 8px;
+  --radius-sm: 6px;
+}
+
+/* The Tauri window is created transparent with Mica applied (see src-tauri/src/lib.rs), so the
+   page background must stay translucent for the backdrop to actually show through - an opaque
+   body here would just paint over it. */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: rgb(243 243 243 / 0.6);
+  color: rgb(20 20 20);
+  font-family:
+    "Segoe UI Variable",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  overflow: hidden;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: rgb(32 32 32 / 0.6);
+    color: rgb(240 240 240);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(128 128 128 / 0.4);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(128 128 128 / 0.6);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Marks a post that would normally be hidden by the blacklist but is shown anyway because
+   filtering is currently disabled - mirrors the reference app's caution-stripe border. */
+.caution-stripe {
+  border: 2px solid transparent;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgb(234 179 8 / 0.9) 0 10px,
+    rgb(20 20 20 / 0.9) 10px 20px
+  );
+  background-origin: border-box;
+  background-clip: border-box;
+  padding: 2px;
+}
+
+.caution-stripe > img {
+  border-radius: calc(var(--radius-md) - 2px);
+}
