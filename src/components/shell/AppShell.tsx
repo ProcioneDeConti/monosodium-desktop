@@ -4,6 +4,7 @@ import {
   Bookmark,
   Heart,
   Mail,
+  MessagesSquare,
   Minus,
   Play,
   Plus,
@@ -36,6 +37,8 @@ interface AppShellProps {
   onOpenProfile: (() => void) | null;
   onOpenMessages: (() => void) | null;
   unreadMessageCount: number;
+  onOpenForum: () => void;
+  forumUnread: boolean;
   onOpenSavedSearches: () => void;
   onStartSlideshow: (() => void) | null;
   onRefresh: () => void;
@@ -52,6 +55,8 @@ export function AppShell({
   onOpenProfile,
   onOpenMessages,
   unreadMessageCount,
+  onOpenForum,
+  forumUnread,
   onOpenSavedSearches,
   onStartSlideshow,
   onRefresh,
@@ -240,6 +245,15 @@ export function AppShell({
                 Start
               </Button>
             </div>
+          )}
+        </div>
+
+        <div className="relative">
+          <IconButton onClick={onOpenForum} title="Forum">
+            <MessagesSquare size={17} />
+          </IconButton>
+          {forumUnread && (
+            <span className="pointer-events-none absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[rgb(var(--accent))]" />
           )}
         </div>
 

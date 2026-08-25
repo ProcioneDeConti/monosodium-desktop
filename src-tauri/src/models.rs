@@ -301,6 +301,51 @@ pub struct CreateDmailFields {
     pub respond_to_id: Option<i64>,
 }
 
+/// https://e621.net/forum_topics.json - browsing is public, no auth required.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForumTopic {
+    pub id: i64,
+    #[serde(default)]
+    pub title: String,
+    pub category_id: Option<i64>,
+    #[serde(default)]
+    pub response_count: i64,
+    #[serde(default)]
+    pub is_sticky: bool,
+    #[serde(default)]
+    pub is_locked: bool,
+    pub creator_id: Option<i64>,
+    pub creator_name: Option<String>,
+    pub updated_at: Option<String>,
+}
+
+/// https://e621.net/forum_posts.json?search[topic_id]=<id> - one reply within a topic (the
+/// topic's own opening post is just the first of these, same as e621's own site). Browsing is
+/// public; posting (`create_forum_post`) requires Basic Auth + an e621 member account and is
+/// rejected server-side on locked topics or logged-out requests.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForumPost {
+    pub id: i64,
+    #[serde(default)]
+    pub topic_id: i64,
+    #[serde(default)]
+    pub body: String,
+    pub creator_id: Option<i64>,
+    pub creator_name: Option<String>,
+    pub created_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateForumPostRequest {
+    pub forum_post: CreateForumPostFields,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateForumPostFields {
+    pub topic_id: i64,
+    pub body: String,
+}
+
 /// A single result from e621's live tag-autocomplete endpoint. `name` is always the
 /// canonical tag - when the search prefix matched via an alias, e621 already resolves it
 /// and reports the alias that matched in `antecedent_name`.

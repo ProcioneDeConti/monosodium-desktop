@@ -10,6 +10,7 @@ import type { Comment } from "../models/comment";
 import type { Dmail } from "../models/dmail";
 import type { CacheInfo } from "../models/cache";
 import type { UpdateCheckResult } from "../models/update";
+import type { ForumPost, ForumTopic } from "../models/forum";
 
 export interface SiteCredentials {
   username: string;
@@ -120,6 +121,23 @@ export const e621Api = {
    *  lib/backup.ts's isSettingsBackup/applyBackup. */
   importBackup(path: string, password: string | null): Promise<string> {
     return invoke("import_backup", { path, password });
+  },
+
+  getForumTopics(site: Site, page?: string): Promise<ForumTopic[]> {
+    return invoke("get_forum_topics", { site, page: page ?? null });
+  },
+
+  /** Used to check is_locked/is_sticky before allowing a reply. */
+  getForumTopic(site: Site, id: number): Promise<ForumTopic> {
+    return invoke("get_forum_topic", { site, id });
+  },
+
+  getForumPosts(site: Site, topicId: number, page?: string): Promise<ForumPost[]> {
+    return invoke("get_forum_posts", { site, topicId, page: page ?? null });
+  },
+
+  createForumPost(site: Site, topicId: number, body: string): Promise<ForumPost> {
+    return invoke("create_forum_post", { site, topicId, body });
   },
 
   /** Manual-only (Settings > Updates) - checks this app's own GitHub repo, wholly separate from

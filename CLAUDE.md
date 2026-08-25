@@ -23,10 +23,11 @@ or a rule, check there before guessing.
   every format e621 serves (jpg/png/gif/apng/webp/webm/mp4) natively with zero extra
   dependencies — the native-Windows alternatives all need a bundled video engine
   (LibVLCSharp, ~100MB+) just to play webm.
-- **Scope: core browsing first, Phase 2 nearly done.** User profiles, saved searches, the
-  slideshow, comments, dmail/messages, on-disk cache management, an update checker, and encrypted
-  backup/restore have all landed (see Progress). Forum is the only Phase 2 item still explicitly
-  deferred — not built yet, not stubbed.
+- **Scope: core browsing first, Phase 2 complete.** User profiles, saved searches, the slideshow,
+  comments, dmail/messages, on-disk cache management, an update checker, encrypted backup/
+  restore, and the forum have all landed (see Progress) - every item originally queued for Phase
+  2 is done. An EULA gate (not part of that original queue - added on direct request, see
+  Progress) also landed along the way.
 
 ## Critical constraint: e621 API rules — do not relax these
 
@@ -551,8 +552,33 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       the EULA gate itself was ported. Not yet live-tested - the disagree-then-exit path and a
       restored-backup's `eulaAcceptedHash` correctly skipping the gate both still need a hands-on
       pass.
-
-**Deferred to a later phase, not started:** Forum.
+- [x] **Forum** `ForumPanel` (topics list with sticky-pin/lock icons, a topic detail view, and a
+      reply composer) - the last item on Phase 2's original list. Backend: `ForumTopic`/
+      `ForumPost`/`CreateForumPostRequest` models plus `get_forum_topics`/`get_forum_topic`/
+      `get_forum_posts`/`create_forum_post` Tauri commands in `api.rs`/`models.rs`, all through
+      the existing rate-limited `request()` helper. **Browsing is public** (no site credentials
+      required, unlike Messages) - only the reply composer is gated on being signed in, matching
+      the reference app's own `ForumViewModel` comment ("Browsing is public - no e621 account
+      required, unlike Messages"). **No topic creation**: e621's own API surface this was ported
+      from (`E621ApiService.kt`) only exposes reading topics and replying to an existing one
+      (`POST forum_posts.json`) - there's no `POST forum_topics.json` anywhere in the reference
+      app, so this app doesn't invent one either. The shell's new Forum button (a `MessagesSquare`
+      icon, always enabled) shows a plain notification dot - not a count - sourced from the same
+      `forum_notification_dot` field on `UserProfile` that already existed (added earlier
+      alongside `unread_dmail_count`, unused until now), reusing `App.tsx`'s existing polled
+      "me" profile query rather than a second one.
+      - **Found and fixed before it shipped**: `TopicDetail`'s "sync the header title once the
+        full topic loads" effect initially called its `onTitleChange` prop directly from
+        `ForumPanel`'s render body (an inline arrow function recreated every render) - since
+        calling it updates `ForumPanel`'s own state, that recreates the same inline callback,
+        which the effect's dependency array picks up as "changed," re-firing it immediately: a
+        tight infinite render loop. Fixed by giving `ForumPanel` a `useCallback`-stabilized
+        `updateTopicTitle` (also short-circuiting via `Object.is`-safe state-updater when the
+        title's already current) instead of a fresh closure per render - caught via review before
+        ever running the app, not via a live crash.
+      - Not yet live-tested - topic browsing, opening a topic, replying (including against a
+        locked topic and while signed out), and the forum notification dot all still need a
+        hands-on pass.
 
 ## Running it
 

@@ -7,6 +7,7 @@ import { SettingsPanel } from "./components/Settings/SettingsPanel";
 import { ProfilePanel } from "./components/Profile/ProfilePanel";
 import { SavedSearchesPanel } from "./components/SavedSearches/SavedSearchesPanel";
 import { MessagesPanel } from "./components/Messages/MessagesPanel";
+import { ForumPanel } from "./components/Forum/ForumPanel";
 import { EulaScreen } from "./components/Eula/EulaScreen";
 import { Button } from "./components/ui/Button";
 import { Spinner } from "./components/ui/Spinner";
@@ -30,6 +31,7 @@ function App() {
   const [profileTarget, setProfileTarget] = useState<number | "me" | null>(null);
   const [savedSearchesOpen, setSavedSearchesOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
+  const [forumOpen, setForumOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([loadSettings(), loadAllAccounts(), loadSavedSearches()]).finally(() => setBooted(true));
@@ -53,6 +55,7 @@ function App() {
   // fetch, just with polling turned on here so the badge stays current without opening Settings.
   const { data: ownProfile } = useUserProfileQuery(site, "me", !!account?.username, 60_000);
   const unreadMessageCount = ownProfile?.unread_dmail_count ?? 0;
+  const forumUnread = ownProfile?.forum_notification_dot ?? false;
 
   useEffect(() => {
     document.documentElement.style.setProperty("--accent", hexToRgbTriplet(accentColor));
@@ -138,6 +141,8 @@ function App() {
       onOpenProfile={account?.username ? () => setProfileTarget("me") : null}
       onOpenMessages={account?.username ? () => setMessagesOpen(true) : null}
       unreadMessageCount={unreadMessageCount}
+      onOpenForum={() => setForumOpen(true)}
+      forumUnread={forumUnread}
       onOpenSavedSearches={() => setSavedSearchesOpen(true)}
       onStartSlideshow={shownPosts.length > 0 ? startSlideshow : null}
       onRefresh={() => void refresh()}
@@ -238,6 +243,18 @@ function App() {
         <MessagesPanel
           site={site}
           onClose={() => setMessagesOpen(false)}
+          onOpenProfile={(id) => setProfileTarget(id)}
+        />
+      )}
+
+      {forumOpen && (
+        <ForumPanel
+          site={site}
+          onClose={() => setForumOpen(false)}
+          onOpenSettings={() => {
+            setForumOpen(false);
+            setSettingsOpen(true);
+          }}
           onOpenProfile={(id) => setProfileTarget(id)}
         />
       )}

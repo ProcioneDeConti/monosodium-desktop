@@ -3,9 +3,10 @@ use reqwest::Method;
 use crate::credentials;
 use crate::models::{
     Comment, CreateCommentFields, CreateCommentRequest, CreateDmailFields, CreateDmailRequest,
-    CreateTicketFields, CreateTicketRequest, Dmail, FavoriteRequest, FavoriteResponse,
-    PostsResponse, TagSuggestion, UpdateCommentFields, UpdateCommentRequest, UpdateUserFields,
-    UpdateUserRequest, UserProfile, VoteRequest, VoteResponse,
+    CreateForumPostFields, CreateForumPostRequest, CreateTicketFields, CreateTicketRequest, Dmail,
+    FavoriteRequest, FavoriteResponse, ForumPost, ForumTopic, PostsResponse, TagSuggestion,
+    UpdateCommentFields, UpdateCommentRequest, UpdateUserFields, UpdateUserRequest, UserProfile,
+    VoteRequest, VoteResponse,
 };
 use crate::rate_limit::SiteRateLimiters;
 use crate::site::Site;
@@ -432,6 +433,101 @@ pub async fn create_dmail(
     ensure_success(response)
         .await?
         .json::<Dmail>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Public; no auth required to browse. `page` is a keyset cursor (`b<id>`), same convention as
+/// `get_posts`/`get_dmails`.
+#[tauri::command]
+pub async fn get_forum_topics(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    page: Option<String>,
+) -> Result<Vec<ForumTopic>, String> {
+    let mut query: Vec<(&str, String)> = vec![("limit", "50".to_string())];
+    if let Some(p) = page {
+        query.push(("page", p));
+    }
+    let response = request(&state, site, Method::GET, "forum_topics.json")
+        .await?
+        .query(&query)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Vec<ForumTopic>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Public; used to check is_locked/is_sticky before allowing a reply.
+#[tauri::command]
+pub async fn get_forum_topic(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    id: i64,
+) -> Result<ForumTopic, String> {
+    let response = request(&state, site, Method::GET, &format!("forum_topics/{id}.json"))
+        .await?
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<ForumTopic>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Public; no auth required to browse.
+#[tauri::command]
+pub async fn get_forum_posts(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    topic_id: i64,
+    page: Option<String>,
+) -> Result<Vec<ForumPost>, String> {
+    let mut query: Vec<(&str, String)> =
+        vec![("search[topic_id]", topic_id.to_string()), ("limit", "50".to_string())];
+    if let Some(p) = page {
+        query.push(("page", p));
+    }
+    let response = request(&state, site, Method::GET, "forum_posts.json")
+        .await?
+        .query(&query)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Vec<ForumPost>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Requires Basic Auth + an e621 member account; rejected on locked topics or for logged-out
+/// requests (surfaced as a normal API error, same convention as every other write command here).
+#[tauri::command]
+pub async fn create_forum_post(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    topic_id: i64,
+    body: String,
+) -> Result<ForumPost, String> {
+    let payload = CreateForumPostRequest {
+        forum_post: CreateForumPostFields { topic_id, body },
+    };
+    let response = request(&state, site, Method::POST, "forum_posts.json")
+        .await?
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<ForumPost>()
         .await
         .map_err(|e| e.to_string())
 }
