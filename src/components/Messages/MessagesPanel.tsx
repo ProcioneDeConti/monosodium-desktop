@@ -3,6 +3,7 @@ import { ChevronLeft, Pencil, Reply, Send, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Dmail } from "../../models/dmail";
 import type { Site } from "../../models/site";
+import { errorMessage } from "../../lib/errors";
 import { markDmailReadInCache, useDmailsQuery, useDmailQuery } from "../../queries/useDmailsQuery";
 import { useSendDmail } from "../../queries/useDmailMutations";
 import { Avatar } from "../ui/Avatar";
@@ -140,7 +141,7 @@ function MessagesList({
   if (isError) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
-        <span className="max-w-xs text-center text-red-500">{(error as Error)?.message ?? "Something went wrong."}</span>
+        <span className="max-w-xs text-center text-red-500">{errorMessage(error)}</span>
         <Button onClick={() => void refetch()}>Retry</Button>
       </div>
     );
@@ -199,7 +200,7 @@ function MessageDetail({
   if (isError || !dmail) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
-        <span className="max-w-xs text-center text-red-500">{(error as Error)?.message ?? "Something went wrong."}</span>
+        <span className="max-w-xs text-center text-red-500">{errorMessage(error)}</span>
         <Button onClick={() => void refetch()}>Retry</Button>
       </div>
     );
@@ -294,7 +295,7 @@ function MessageCompose({
       />
       <div className="flex items-center justify-end gap-2">
         {send.isError && (
-          <span className="text-xs text-red-500">{(send.error as Error)?.message ?? "Failed to send."}</span>
+          <span className="text-xs text-red-500">{errorMessage(send.error)}</span>
         )}
         <Button icon={send.isPending ? <Spinner size={13} /> : <Send size={13} strokeWidth={2.5} />} onClick={submit} disabled={!canSend}>
           Send

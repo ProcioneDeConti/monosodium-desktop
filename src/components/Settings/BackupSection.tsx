@@ -3,6 +3,7 @@ import { FileDown, FileUp, TriangleAlert } from "lucide-react";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { e621Api } from "../../api/client";
 import { applyBackup, buildBackup, isSettingsBackup } from "../../lib/backup";
+import { errorMessage } from "../../lib/errors";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
 
@@ -38,7 +39,7 @@ export function BackupSection() {
       setMessage("Backup exported.");
       setMode({ type: "idle" });
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Export failed.");
+      setMessage(errorMessage(e, "Export failed."));
     } finally {
       setBusy(false);
     }
@@ -57,7 +58,7 @@ export function BackupSection() {
         await finishImport(path, null);
       }
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Not a valid backup file.");
+      setMessage(errorMessage(e, "Not a valid backup file."));
     } finally {
       setBusy(false);
     }
@@ -76,7 +77,7 @@ export function BackupSection() {
       setMessage("Settings imported.");
       setMode({ type: "idle" });
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Import failed.");
+      setMessage(errorMessage(e, "Import failed."));
       throw e;
     } finally {
       setBusy(false);

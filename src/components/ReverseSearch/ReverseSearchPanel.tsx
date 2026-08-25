@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useReverseImageSearch } from "../../queries/useReverseImageSearch";
+import { errorMessage } from "../../lib/errors";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Spinner } from "../ui/Spinner";
@@ -66,7 +67,7 @@ export function ReverseSearchPanel({ filePath, apiKey, onClose, onOpenSettings }
           ) : search.isError ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
               <span className="max-w-xs text-center text-red-500">
-                {(search.error as Error)?.message ?? "Search failed."}
+                {errorMessage(search.error, "Search failed.")}
               </span>
               <Button onClick={() => search.mutate({ apiKey, filePath })}>Retry</Button>
             </div>

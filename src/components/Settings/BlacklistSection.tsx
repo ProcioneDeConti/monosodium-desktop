@@ -4,6 +4,7 @@ import { e621Api } from "../../api/client";
 import type { Site } from "../../models/site";
 import { useAccountStore } from "../../state/accountStore";
 import { useSettingsStore } from "../../state/settingsStore";
+import { errorMessage } from "../../lib/errors";
 import { Button } from "../ui/Button";
 
 interface BlacklistSectionProps {
@@ -33,7 +34,7 @@ export function BlacklistSection({ site }: BlacklistSectionProps) {
       setBlacklist(imported);
       setMessage("Imported from account.");
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Import failed.");
+      setMessage(errorMessage(e, "Import failed."));
     } finally {
       setBusy(null);
     }
@@ -47,7 +48,7 @@ export function BlacklistSection({ site }: BlacklistSectionProps) {
       await e621Api.updateBlacklist(site, profile.id, draft);
       setMessage("Pushed to account.");
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Push failed.");
+      setMessage(errorMessage(e, "Push failed."));
     } finally {
       setBusy(null);
     }

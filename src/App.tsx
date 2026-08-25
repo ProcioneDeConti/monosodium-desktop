@@ -25,6 +25,7 @@ import { hexToRgbTriplet } from "./lib/color";
 import { cacheTagCategory } from "./lib/tagCategoryCache";
 import { CURRENT_EULA_HASH } from "./lib/eula";
 import { notify } from "./lib/notifications";
+import { errorMessage } from "./lib/errors";
 import { categorizedTags } from "./models/post";
 
 function App() {
@@ -202,7 +203,7 @@ function App() {
       ) : isError ? (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
           <span className="max-w-md text-center text-red-500">
-            {(error as Error)?.message ?? "Something went wrong."}
+            {errorMessage(error)}
           </span>
           <Button icon={<RefreshCw size={13} />} onClick={() => void refresh()}>
             Retry

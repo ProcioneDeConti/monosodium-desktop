@@ -1,6 +1,7 @@
 import { CheckCircle2, ExternalLink } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useUpdateCheck } from "../../queries/useUpdateCheck";
+import { errorMessage } from "../../lib/errors";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
 
@@ -23,7 +24,7 @@ export function UpdateSection() {
       </Button>
 
       {check.isError && (
-        <p className="text-xs text-red-500">{(check.error as Error)?.message ?? "Update check failed."}</p>
+        <p className="text-xs text-red-500">{errorMessage(check.error, "Update check failed.")}</p>
       )}
 
       {result?.update_available && (

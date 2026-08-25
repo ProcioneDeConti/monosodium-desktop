@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, Send, X } from "lucide-react";
 import type { Site } from "../../models/site";
+import { errorMessage } from "../../lib/errors";
 import { useForumPostsQuery, useForumReply, useForumTopicQuery, useForumTopicsQuery } from "../../queries/useForumQuery";
 import { useAccountStore } from "../../state/accountStore";
 import { Button } from "../ui/Button";
@@ -89,7 +90,7 @@ function TopicsList({ site, onOpenTopic }: { site: Site; onOpenTopic: (id: numbe
   if (isError) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
-        <span className="max-w-xs text-center text-red-500">{(error as Error)?.message ?? "Something went wrong."}</span>
+        <span className="max-w-xs text-center text-red-500">{errorMessage(error)}</span>
         <Button onClick={() => void refetch()}>Retry</Button>
       </div>
     );
@@ -166,7 +167,7 @@ function TopicDetail({
           </div>
         ) : isError ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
-            <span className="max-w-xs text-center text-red-500">{(error as Error)?.message ?? "Something went wrong."}</span>
+            <span className="max-w-xs text-center text-red-500">{errorMessage(error)}</span>
             <Button onClick={() => void refetch()}>Retry</Button>
           </div>
         ) : (

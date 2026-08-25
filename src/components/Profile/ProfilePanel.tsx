@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Heart, Images, X } from "lucide-react";
 import type { Site } from "../../models/site";
 import { userLevelLabel, type UserProfile } from "../../models/user";
+import { errorMessage } from "../../lib/errors";
 import { useUserProfileQuery } from "../../queries/useUserProfileQuery";
 import { useAvatarUrl } from "../../queries/useAvatarUrl";
 import { Avatar } from "../ui/Avatar";
@@ -72,7 +73,7 @@ export function ProfilePanel({ site, userId, onClose, onSearch }: ProfilePanelPr
           ) : isError || !profile ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
               <span className="max-w-xs text-center text-red-500">
-                {(error as Error)?.message ?? "Something went wrong."}
+                {errorMessage(error)}
               </span>
               <Button onClick={() => void refetch()}>Retry</Button>
             </div>

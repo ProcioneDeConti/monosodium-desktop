@@ -13,6 +13,7 @@ import {
   User,
 } from "lucide-react";
 import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
+import { errorMessage } from "../../lib/errors";
 import { SearchBar } from "../SearchBar/SearchBar";
 import {
   MAX_THUMBNAIL_SIZE_PX,
@@ -102,7 +103,7 @@ export function AppShell({
     health.status === "error" ? "bg-red-500" : health.status === "success" ? "bg-green-500" : "bg-amber-400";
   const healthTitle =
     health.status === "error"
-      ? `${SITE_DISPLAY_NAME[site]} unreachable: ${(health.error as Error)?.message ?? "unknown error"}`
+      ? `${SITE_DISPLAY_NAME[site]} unreachable: ${errorMessage(health.error, "unknown error")}`
       : health.status === "success"
         ? `${SITE_DISPLAY_NAME[site]} reachable`
         : `Checking ${SITE_DISPLAY_NAME[site]}…`;

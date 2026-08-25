@@ -749,6 +749,40 @@ checking off a pre-existing item.
 
 All eleven items from the user's brainstormed post-Phase-2 list are now done.
 
+- [x] **Fixed live: every error message in the app was silently replaced by a generic fallback**
+      Found via a dmail send that showed "Failed to send." no matter what actually went wrong.
+      Root cause: `@tauri-apps/api`'s `invoke()` rejects with a **plain string** when a Rust
+      command returns `Err(String)` (confirmed against the installed package - there's no `Error`
+      wrapper), but every error-display site in this app was written as `(error as
+      Error)?.message ?? "fallback"` or `e instanceof Error ? e.message : "fallback"` - both
+      patterns that only work on a real `Error` object, so both *always* fell through to the
+      generic fallback for the overwhelming majority of this app's own errors (any Tauri command
+      failure), discarding the real backend message every time. This wasn't a one-off - it was in
+      **15 call sites across 9 files**: `App.tsx`, `AppShell.tsx`, `ForumPanel.tsx` (×2),
+      `MessagesPanel.tsx` (×3), `ProfilePanel.tsx`, `ReverseSearchPanel.tsx`, `UpdateSection.tsx`,
+      `BackupSection.tsx` (×3), `BlacklistSection.tsx` (×2). Fixed with one shared
+      `lib/errors.ts`'s `errorMessage(error, fallback?)` - handles a raw string, a real `Error`,
+      or anything else - used at every one of those sites instead of the ad-hoc pattern each had
+      independently reinvented. Worth remembering for any future error-display code in this app:
+      a Tauri command's error is a string, not an `Error` - never write `(e as Error)?.message`
+      against one.
+- [x] **Fixed live (in progress): `create_dmail`'s response parsing** Confirmed independently of
+      the above - the dmail send the user tested with actually succeeded server-side (visible on
+      the real e621 website) even though the app reported failure, meaning the bug is in parsing
+      the *response*, not the request. Two changes: (1) `CreateDmailFields.respond_to_id` now
+      omits itself from the JSON entirely for a fresh (non-reply) message instead of serializing
+      an explicit `null` (`#[serde(skip_serializing_if = "Option::is_none")]`) - it was the only
+      optional field in any write payload anywhere in this codebase to serialize that way, and
+      e621ng's controller may not treat `null` and "key absent" the same for an association
+      lookup like this; (2) `create_dmail` temporarily reads the response as text and attempts
+      `serde_json::from_str::<Dmail>` itself, including a snippet of the raw body in the error on
+      a parse failure - both this app's and the reference Android app's `Dmail` model (identical
+      field set) have *never* been confirmed against a live response, so the next failed attempt
+      (if the `respond_to_id` fix alone doesn't resolve it) will finally show what e621's real
+      response shape is instead of an opaque serde error. Once confirmed, this should revert to
+      the plain `.json::<Dmail>()` every other command here uses - it's deliberately more verbose
+      than this codebase's norm only as a diagnostic, not a pattern to imitate elsewhere.
+
 ## Running it
 
 **The user runs/tests the app themselves — don't launch it or drive the GUI to verify changes**

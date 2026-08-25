@@ -438,6 +438,15 @@ pub async fn get_dmail(state: tauri::State<'_, AppState>, site: Site, id: i64) -
 }
 
 /// Requires Basic Auth; posting anonymously is rejected server-side.
+///
+/// **Diagnostic note (temporary)**: confirmed live that the dmail is actually created server-side
+/// even when this command reports failure - the create request itself succeeds, so whatever's
+/// wrong is in parsing the response body as `Dmail`, not the request. Reads the body as text and
+/// includes a snippet of it in the error on a parse failure (instead of the opaque serde error
+/// alone) specifically to capture what e621's real response shape is, since neither this nor the
+/// reference Android app's identical assumption (same field set) has ever been confirmed against
+/// a live response - once that's known this can go back to the plain `.json::<Dmail>()` every
+/// other command here uses.
 #[tauri::command]
 pub async fn create_dmail(
     state: tauri::State<'_, AppState>,
@@ -456,11 +465,14 @@ pub async fn create_dmail(
         .send()
         .await
         .map_err(|e| e.to_string())?;
-    ensure_success(response)
-        .await?
-        .json::<Dmail>()
-        .await
-        .map_err(|e| e.to_string())
+    let response = ensure_success(response).await?;
+    let text = response.text().await.map_err(|e| e.to_string())?;
+    serde_json::from_str::<Dmail>(&text).map_err(|e| {
+        format!(
+            "Dmail sent, but the response couldn't be read: {e} - response body: {}",
+            text.chars().take(500).collect::<String>()
+        )
+    })
 }
 
 /// Public; no auth required to browse. `page` is a keyset cursor (`b<id>`), same convention as

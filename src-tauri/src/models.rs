@@ -298,6 +298,9 @@ pub struct CreateDmailFields {
     pub title: String,
     pub body: String,
     pub to_name: String,
+    /// Omitted entirely for a fresh (non-reply) message rather than sent as an explicit `null` -
+    /// e621ng's controller may not treat those the same for an association lookup like this.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub respond_to_id: Option<i64>,
 }
 
