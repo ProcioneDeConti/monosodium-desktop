@@ -659,6 +659,24 @@ checking off a pre-existing item.
       the popover is actually opened, not eagerly for every wiki link in a block of text. Not yet
       live-tested - a real `[[wiki]]` link's preview (both hit and miss) and the recursive DText
       rendering of a real wiki page body still need a hands-on pass.
+- [x] **Phase 3: Global hotkey, system tray, and native notifications** Three desktop-native
+      pieces built together since they share one `lib.rs` window-visibility change: `Ctrl+Shift+E`
+      (`tauri-plugin-global-shortcut`) toggles the main window's visibility from anywhere, even
+      without focus - the desktop answer to "just switch apps" on mobile, which needs no such
+      thing. A tray icon (`tauri::tray::TrayIconBuilder`, Tauri core's own `tray-icon` cargo
+      feature - not a separate plugin) gets a "Show Monosodium Desktop"/"Quit" menu and toggles
+      the window on a left-click. **Closing the window now hides it to the tray instead of
+      quitting** (`window.on_window_event` intercepts `WindowEvent::CloseRequested` and calls
+      `api.prevent_close()`) - confirmed directly with the user before building it, since it's a
+      real behavior change from every prior milestone: the app now keeps running in the
+      background until "Quit" from the tray menu, which is also *why* notifications are worth
+      having (a fully-quit app can't notify). Native notifications (`tauri-plugin-notification`,
+      `lib/notifications.ts`) fire for new dmail/forum activity, reusing `App.tsx`'s existing
+      60s-polled "me" profile query rather than a dedicated one - gated on `document.hasFocus()`
+      being false, so a user already looking at the app doesn't get a redundant popup on top of
+      the shell's own badges. Not yet live-tested - the hotkey actually registering globally, the
+      tray icon/menu, close-to-tray, and a real notification firing while unfocused all still
+      need a hands-on pass; none of this can be exercised via `cargo check` alone.
 
 ## Running it
 
@@ -673,7 +691,10 @@ cd src-tauri && cargo check  # Rust compile-check (fast after first build)
 
 If the user asks you to run it yourself: `npm run tauri dev` starts Vite + `cargo run`, opens a
 live window titled "Monosodium Desktop - e621" (title bar swaps to "- e6AI" when you toggle
-sites).
+sites). **The window's close (X) button now hides it to the tray instead of quitting** (see
+Progress' "Global hotkey, system tray, and native notifications" entry) - to actually stop a dev
+instance, use the tray icon's "Quit" item, `Ctrl+C` in the terminal running `tauri dev`, or kill
+the `cargo run`/`monosodium-desktop.exe` process directly.
 
 Rust and cargo were installed via winget mid-session — if `rustc`/`cargo` aren't on `PATH` in a
 fresh shell, refresh from the User+Machine PATH env vars (a plain new terminal should already

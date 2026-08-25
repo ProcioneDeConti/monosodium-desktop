@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { AppShell } from "./components/shell/AppShell";
 import { PostGrid } from "./components/PostGrid/PostGrid";
@@ -21,6 +21,7 @@ import { parseBlacklist, visiblePosts } from "./lib/blacklist";
 import { hexToRgbTriplet } from "./lib/color";
 import { cacheTagCategory } from "./lib/tagCategoryCache";
 import { CURRENT_EULA_HASH } from "./lib/eula";
+import { notify } from "./lib/notifications";
 import { categorizedTags } from "./models/post";
 
 function App() {
@@ -58,6 +59,26 @@ function App() {
   const { data: ownProfile } = useUserProfileQuery(site, "me", !!account?.username, 60_000);
   const unreadMessageCount = ownProfile?.unread_dmail_count ?? 0;
   const forumUnread = ownProfile?.forum_notification_dot ?? false;
+
+  // Native notifications for new dmail/forum activity while the window is unfocused (e.g.
+  // minimized to the tray) - see lib/notifications.ts.
+  const prevUnreadMessageCount = useRef(unreadMessageCount);
+  const prevForumUnread = useRef(forumUnread);
+  useEffect(() => {
+    if (unreadMessageCount > prevUnreadMessageCount.current) {
+      void notify(
+        "New message",
+        unreadMessageCount === 1 ? "You have a new message." : `You have ${unreadMessageCount} unread messages.`,
+      );
+    }
+    prevUnreadMessageCount.current = unreadMessageCount;
+  }, [unreadMessageCount]);
+  useEffect(() => {
+    if (forumUnread && !prevForumUnread.current) {
+      void notify("Forum activity", "There's new activity on a forum topic you've posted in.");
+    }
+    prevForumUnread.current = forumUnread;
+  }, [forumUnread]);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--accent", hexToRgbTriplet(accentColor));

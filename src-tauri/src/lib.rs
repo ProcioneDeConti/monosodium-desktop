@@ -8,7 +8,30 @@ mod rate_limit;
 mod site;
 mod update_check;
 
-use tauri::Manager;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::TrayIconBuilder;
+use tauri::{Manager, WindowEvent};
+use tauri_plugin_global_shortcut::ShortcutState;
+
+/// Summons/hides the main window from anywhere, even while another app has focus - the desktop
+/// equivalent of the reference Android app's "just switch apps" (which needs no such thing).
+const TOGGLE_SHORTCUT: &str = "ctrl+shift+e";
+
+fn toggle_main_window(app: &tauri::AppHandle) {
+    let Some(window) = app.get_webview_window("main") else { return };
+    if window.is_visible().unwrap_or(false) {
+        let _ = window.hide();
+    } else {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+fn show_main_window(app: &tauri::AppHandle) {
+    let Some(window) = app.get_webview_window("main") else { return };
+    let _ = window.show();
+    let _ = window.set_focus();
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -20,6 +43,18 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_shortcuts([TOGGLE_SHORTCUT])
+                .expect("TOGGLE_SHORTCUT is a valid shortcut string")
+                .with_handler(|app, _shortcut, event| {
+                    if event.state == ShortcutState::Pressed {
+                        toggle_main_window(app);
+                    }
+                })
+                .build(),
+        )
         .manage(api::AppState::new())
         .setup(|app| {
             let window = app.get_webview_window("main").expect("main window");
@@ -27,6 +62,44 @@ pub fn run() {
             // Best-effort: older Windows builds without Mica support just keep the plain
             // background, so a failure here shouldn't prevent the app from starting.
             let _ = window_vibrancy::apply_mica(&window, None);
+
+            // Closing the window hides it to the tray instead of quitting, so the tray icon and
+            // notifications mean something (a fully-quit app can't notify) - "Quit" in the tray
+            // menu below is the real exit path.
+            let window_for_close = window.clone();
+            window.on_window_event(move |event| {
+                if let WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window_for_close.hide();
+                }
+            });
+
+            let show_item = MenuItem::with_id(app, "show", "Show Monosodium Desktop", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let tray_menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+            TrayIconBuilder::new()
+                .icon(app.default_window_icon().expect("app has a default icon").clone())
+                .menu(&tray_menu)
+                .show_menu_on_left_click(false)
+                .tooltip("Monosodium Desktop")
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => show_main_window(app),
+                    "quit" => app.exit(0),
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::Click {
+                        button: tauri::tray::MouseButton::Left,
+                        button_state: tauri::tray::MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        toggle_main_window(tray.app_handle());
+                    }
+                })
+                .build(app)?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
