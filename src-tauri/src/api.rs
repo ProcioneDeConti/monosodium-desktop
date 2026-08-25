@@ -6,7 +6,7 @@ use crate::models::{
     CreateForumPostFields, CreateForumPostRequest, CreateTicketFields, CreateTicketRequest, Dmail,
     FavoriteRequest, FavoriteResponse, ForumPost, ForumTopic, Pool, PostNote, PostsResponse,
     TagSuggestion, UpdateCommentFields, UpdateCommentRequest, UpdateUserFields, UpdateUserRequest,
-    UserProfile, VoteRequest, VoteResponse,
+    UserProfile, VoteRequest, VoteResponse, WikiPage,
 };
 use crate::rate_limit::SiteRateLimiters;
 use crate::site::Site;
@@ -591,6 +591,28 @@ pub async fn get_post_notes(
         .json::<Vec<PostNote>>()
         .await
         .map_err(|e| e.to_string())
+}
+
+/// Public; no auth required. Returns `None` if no wiki page has that exact title (a broken/
+/// nonexistent `[[wiki]]` link target), rather than an error.
+#[tauri::command]
+pub async fn get_wiki_page(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    title: String,
+) -> Result<Option<WikiPage>, String> {
+    let response = request(&state, site, Method::GET, "wiki_pages.json")
+        .await?
+        .query(&[("search[title]", title), ("limit", "1".to_string())])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut pages = ensure_success(response)
+        .await?
+        .json::<Vec<WikiPage>>()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(if pages.is_empty() { None } else { Some(pages.remove(0)) })
 }
 
 /// Lightweight reachability check for the active site - same rate-limited/UA'd path as every

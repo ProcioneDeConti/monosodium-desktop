@@ -24,6 +24,7 @@ export type DInline =
   | { type: "text"; text: string }
   | { type: "styled"; tag: string; children: DInline[] }
   | { type: "link"; label: string; url: string }
+  | { type: "wiki"; label: string; page: string; url: string }
   | { type: "mention"; name: string };
 
 export interface DSegment {
@@ -311,7 +312,12 @@ function parseInline(text: string, webBaseUrl: string): DInline[] {
       const display = wikiMatch[2] ?? wikiMatch[1];
       candidates.push({
         index: wikiMatch.index,
-        make: () => ({ type: "link", label: display, url: wikiPageUrl(page, webBaseUrl) }),
+        make: () => ({
+          type: "wiki",
+          label: display,
+          page: page.trim(),
+          url: wikiPageUrl(page, webBaseUrl),
+        }),
         rest: remaining.slice(wikiMatch.index + wikiMatch[0].length),
       });
     }

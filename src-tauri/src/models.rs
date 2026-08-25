@@ -399,6 +399,19 @@ fn default_true() -> bool {
     true
 }
 
+/// https://e621.net/wiki_pages.json?search[title]=<title> - looked up by exact title (tags and
+/// `[[wiki]]` link targets both use underscore-separated titles as their canonical identifier),
+/// public/no auth required.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WikiPage {
+    pub id: i64,
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub body: String,
+    pub updated_at: Option<String>,
+}
+
 /// A single result from e621's live tag-autocomplete endpoint. `name` is always the
 /// canonical tag - when the search prefix matched via an alias, e621 already resolves it
 /// and reports the alias that matched in `antecedent_name`.

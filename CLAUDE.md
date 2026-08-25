@@ -640,6 +640,25 @@ checking off a pre-existing item.
       mutation alongside vote/favorite/unfavorite, no cache patch needed. Not yet live-tested -
       submitting a real report (or at least watching the network response) still needs a hands-on
       pass, same caveat `report_comment` already carries.
+- [x] **Phase 3: Inline wiki previews** `[[wiki]]` links used to just open the browser, same as
+      any other DText link - clicking one now opens a click-to-preview popover instead
+      (`DText.tsx`'s new `WikiLink`), showing the target page's own DText-rendered body inline
+      (recursing back into `<DText>` itself), with "No wiki page found"/"Open in browser"
+      fallbacks. Backend: `WikiPage` model + `get_wiki_page` (`GET wiki_pages.json?
+      search[title]=<title>&limit=1`, public) in `api.rs`/`models.rs`, returning `None` rather
+      than an error for a nonexistent title (a broken link target, not a failure).
+      **`lib/dtext.ts` gained a distinct `wiki` node type**: previously `[[page]]` parsed into
+      the exact same generic `{type: "link", ...}` node as a plain `"label":url`, with no way to
+      tell them apart downstream - fine when both just opened a URL, but fetching page content
+      needs the raw title, not just a resolved URL, so this had to become its own variant.
+      Threading that through required adding a `site` parameter to every one of `DText.tsx`'s
+      internal `Block`/`Segment`/`Inline`/`StyledInline` render functions (previously none of
+      them needed it - links carried a pre-resolved absolute URL from parse time, mentions/
+      styling don't touch the network at all) - the widest-reaching, most mechanical change in
+      this batch, but the more contained `useWikiPageQuery(site, page, open)` only fetches once
+      the popover is actually opened, not eagerly for every wiki link in a block of text. Not yet
+      live-tested - a real `[[wiki]]` link's preview (both hit and miss) and the recursive DText
+      rendering of a real wiki page body still need a hands-on pass.
 
 ## Running it
 

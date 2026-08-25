@@ -13,6 +13,7 @@ import type { UpdateCheckResult } from "../models/update";
 import type { ForumPost, ForumTopic } from "../models/forum";
 import type { Pool } from "../models/pool";
 import type { PostNote } from "../models/note";
+import type { WikiPage } from "../models/wiki";
 
 export interface SiteCredentials {
   username: string;
@@ -135,6 +136,10 @@ export const e621Api = {
 
   getPostNotes(site: Site, postId: number): Promise<PostNote[]> {
     return invoke("get_post_notes", { site, postId });
+  },
+
+  getWikiPage(site: Site, title: string): Promise<WikiPage | null> {
+    return invoke("get_wiki_page", { site, title });
   },
 
   getForumTopics(site: Site, page?: string): Promise<ForumTopic[]> {
