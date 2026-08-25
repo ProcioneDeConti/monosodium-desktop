@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AppWindow,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
   ThumbsUp,
   X,
 } from "lucide-react";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Post } from "../../models/post";
 import { downloadFileName, isDeleted, isVideo, playableUrl } from "../../models/post";
 import type { Site } from "../../models/site";
@@ -123,6 +125,17 @@ export function PostViewer({
     }
   }
 
+  function popOutWindow() {
+    if (!post) return;
+    const label = `post-${post.id}-${Date.now()}`;
+    new WebviewWindow(label, {
+      url: `index.html?post=${post.id}&site=${site}`,
+      title: `Post #${post.id} - Monosodium Desktop`,
+      width: 900,
+      height: 700,
+    });
+  }
+
   const canGoPrev = index > 0;
   const canGoNext = index < posts.length - 1 || hasNextPage;
 
@@ -207,6 +220,10 @@ export function PostViewer({
           <X size={18} />
         </IconButton>
         <span className="text-sm opacity-70">#{post.id}</span>
+
+        <IconButton tone="invert" onClick={popOutWindow} title="Open in new window">
+          <AppWindow size={16} />
+        </IconButton>
 
         <IconButton
           tone="invert"

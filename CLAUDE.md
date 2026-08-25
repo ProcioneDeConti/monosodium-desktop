@@ -677,6 +677,32 @@ checking off a pre-existing item.
       the shell's own badges. Not yet live-tested - the hotkey actually registering globally, the
       tray icon/menu, close-to-tray, and a real notification firing while unfocused all still
       need a hands-on pass; none of this can be exercised via `cargo check` alone.
+- [x] **Phase 3: Pop a post into its own window** `PostViewer`'s new `AppWindow` toolbar button
+      opens the current post in a standalone OS window (`@tauri-apps/api/webviewWindow`'s
+      `WebviewWindow`, no new Tauri command needed - created straight from JS) - multi-window
+      isn't a mobile concept at all, so there's nothing to port here, only to design fresh.
+      **This app has no client-side router anywhere** (`App.tsx` has always rendered one
+      unconditional tree), so the popped-out window can't be given a "route" - instead it loads
+      the same `index.html` with `?post=<id>&site=<site>` in the URL, and `main.tsx` branches on
+      those params at the one shared entry point: present, render the new minimal
+      `PostWindow.tsx`; absent, render `App` exactly as before. Needed a new
+      `core:webview:allow-create-webview-window` capability, and widening
+      `capabilities/default.json`'s `windows` match from `["main"]` to `["main", "post-*"]` -
+      window labels are `post-<id>-<timestamp>`, so every popped-out window gets its own
+      capability grant (Tauri locks an unmatched window label to zero permissions by default).
+      **Known, accepted limitation**: a separate window is a separate webview process with its
+      own `QueryClient` instance entirely - `PostWindow` does its own minimal boot
+      (settings/credentials, no saved searches) rather than sharing `App.tsx`'s, and a vote/
+      favorite made in the popped-out window won't live-update the main window's grid/viewer the
+      way two panels *within* the same window already do (`postCache.ts`) until that window's own
+      query happens to revalidate - real cross-window state sync would need Tauri's event system
+      to broadcast mutations between windows, well beyond this feature's scope. Tag actions that
+      would normally start a new search in the main grid instead open that search on the real
+      e621 website in the OS browser, since there's no grid to run it in here and no reliable way
+      to know whether a main window is even still open; opening a post's uploader profile or a
+      pool similarly opens the real website rather than an in-app panel. Not yet live-tested -
+      actually popping a window out, its own boot sequence, and the tag-action browser fallbacks
+      all still need a hands-on pass.
 
 ## Running it
 
