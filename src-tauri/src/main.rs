@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    e621_desktop_lib::run()
+    monosodium_desktop_lib::run()
 }

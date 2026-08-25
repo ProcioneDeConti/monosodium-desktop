@@ -8,6 +8,7 @@ import type { PostsResponse } from "../models/post";
 import type { TagSuggestion, UserProfile, VoteResponse, FavoriteResponse } from "../models/user";
 import type { Comment } from "../models/comment";
 import type { Dmail } from "../models/dmail";
+import type { CacheInfo } from "../models/cache";
 
 export interface SiteCredentials {
   username: string;
@@ -87,6 +88,20 @@ export const e621Api = {
     respondToId?: number | null,
   ): Promise<Dmail> {
     return invoke("create_dmail", { site, toName, title, body, respondToId: respondToId ?? null });
+  },
+
+  getCacheInfo(): Promise<CacheInfo> {
+    return invoke("get_cache_info");
+  },
+
+  /** Doesn't take effect until the next launch - see src-tauri/src/cache.rs's doc comment. */
+  setCacheLimitMb(limitMb: number | null): Promise<void> {
+    return invoke("set_cache_limit_mb", { limitMb });
+  },
+
+  /** Doesn't clear immediately - marks the cache for deletion at the next launch. */
+  requestCacheClear(): Promise<void> {
+    return invoke("request_cache_clear");
   },
 
   healthCheck(site: Site): Promise<void> {

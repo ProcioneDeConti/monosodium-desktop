@@ -15,6 +15,7 @@ import type { Rating } from "../../models/post";
 import { randomGreeting } from "../../lib/greetings";
 import { SiteAccountCard } from "./SiteAccountCard";
 import { BlacklistSection } from "./BlacklistSection";
+import { CacheSection } from "./CacheSection";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Section } from "../ui/Section";
@@ -248,6 +249,10 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
             </div>
           </Section>
 
+          <Section title="Cache">
+            <CacheSection />
+          </Section>
+
           <CreditsFooter />
         </div>
       </div>
@@ -267,7 +272,7 @@ function CreditsFooter() {
 
   return (
     <div className="mt-2 flex flex-col items-center gap-0.5 pb-2 text-center text-xs opacity-60">
-      <p>e621 Desktop{version ? ` v${version}` : ""}</p>
+      <p>Monosodium Desktop{version ? ` v${version}` : ""}</p>
       <p>© {new Date().getFullYear()} Procione DeConti</p>
       <button
         type="button"

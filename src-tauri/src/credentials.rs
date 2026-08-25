@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::site::Site;
 
-const KEYRING_SERVICE: &str = "com.e621desktop.app";
+const KEYRING_SERVICE: &str = "com.monosodiumdesktop.app";
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SiteCredentials {

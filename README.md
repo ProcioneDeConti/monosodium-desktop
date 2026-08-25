@@ -1,12 +1,12 @@
-# e621 Desktop
+# Monosodium Desktop
 
-An unofficial Windows desktop client for [e621](https://e621.net) and [e6AI](https://e6ai.net), built with Tauri and React. The desktop counterpart to [MonosodiumPDC](https://github.com/ProcioneDeConti/MonosodiumPDC), the same author's Android client.
+An unofficial Windows desktop client for [e621](https://e621.net) and [e6AI](https://e6ai.net), built with Tauri and React. The desktop counterpart to [MonosodiumPDC](https://github.com/ProcioneDeConti/MonosodiumPDC), the same author's Android client - the name's a nod to that project's own codename.
 
 This is a personal project, not affiliated with or endorsed by e621 or e6AI. It talks to them exclusively through their official public API, respecting its rate limits and User-Agent requirements.
 
 ## Features
 
-- **e621 and e6AI, one app** - switch between e621 and e6AI (e621's AI-generated content sister site) with a single toggle, each keeping its own separate login. A health-check dot next to the toggle shows whether the active site is reachable (green/checking/red), and the shell's title always reflects which one you're browsing - click it to jump back to the default search from anywhere.
+- **e621 and e6AI, one app** - switch between e621 and e6AI (e621's AI-generated content sister site) with a single toggle, each keeping its own separate login. A health-check dot next to the toggle shows whether the active site is reachable (green/checking/red), and both the window's title bar and the shell's own site button always reflect which one you're browsing - click the latter to jump back to the default search from anywhere.
 - **Browsing & search** - tag-chip search bar with live, category-colored autocomplete suggestions. A Pinterest-style masonry grid keeps each post's real aspect ratio instead of cropping to a square, with an always-visible info dock (rating, score, favorite status, filetype) on every thumbnail and a movie-icon badge with duration for video/animated posts. A dedicated refresh button resets to the first page rather than re-validating a long scroll history.
 - **Post viewer** - full-screen viewer for images, GIFs, APNGs, and video (native WebView2 decoding, no bundled video engine needed), with wheel-zoom/drag-to-pan on images, custom loop/speed/mute video controls, voting, favoriting, tag actions (search, add to search, exclude, add to blacklist) via a category-colored tag chip menu, and a detailed info panel (score, dimensions, MD5, uploader, sources, etc. - click any value to copy it).
 - **Blacklist** - client-side blacklist filtering with a quick disable/re-enable toggle (temporarily unhidden posts get a caution-stripe border), plus import/export against your account's saved e621 blacklist.

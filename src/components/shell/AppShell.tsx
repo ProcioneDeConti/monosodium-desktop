@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   Bookmark,
   Heart,
@@ -101,6 +102,13 @@ export function AppShell({
         ? `${SITE_DISPLAY_NAME[site]} reachable`
         : `Checking ${SITE_DISPLAY_NAME[site]}…`;
 
+  // Keeps the OS window title in sync with the active site - the shell's own title button next
+  // to the search bar just shows the bare site name ("e621"/"e6AI"); the app's actual branding
+  // ("Monosodium Desktop") plus which site you're browsing lives in the title bar instead.
+  useEffect(() => {
+    void getCurrentWindow().setTitle(`Monosodium Desktop - ${SITE_DISPLAY_NAME[site]}`);
+  }, [site]);
+
   // "/" focuses the search box from anywhere, unless the user is already typing somewhere else.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -132,7 +140,7 @@ export function AppShell({
                      tracking-tight text-[rgb(var(--accent))] transition-opacity hover:opacity-80
                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent))]"
         >
-          {SITE_DISPLAY_NAME[site]} Desktop
+          {SITE_DISPLAY_NAME[site]}
         </button>
 
         <SearchBar site={site as Site} activeQuery={activeQuery} onSearch={onSearch} />

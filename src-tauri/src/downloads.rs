@@ -10,7 +10,7 @@ fn default_download_dir(is_video: bool) -> Result<PathBuf, String> {
     let base = if is_video { dirs::video_dir() } else { dirs::picture_dir() }
         .or_else(dirs::download_dir)
         .ok_or("Could not resolve a default downloads folder")?;
-    Ok(base.join("e621 Desktop"))
+    Ok(base.join("Monosodium Desktop"))
 }
 
 /// Fetches a post's media file (the same CDN URL the webview would otherwise load directly -

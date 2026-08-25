@@ -1,4 +1,5 @@
 mod api;
+mod cache;
 mod credentials;
 mod downloads;
 mod models;
@@ -9,10 +10,14 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Must run before the webview is created - see cache.rs's module doc comment.
+    cache::bootstrap();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
         .manage(api::AppState::new())
         .setup(|app| {
             let window = app.get_webview_window("main").expect("main window");
@@ -41,6 +46,9 @@ pub fn run() {
             api::get_dmail,
             api::create_dmail,
             api::health_check,
+            cache::get_cache_info,
+            cache::set_cache_limit_mb,
+            cache::request_cache_clear,
             downloads::download_post_file,
             credentials::save_credentials,
             credentials::load_credentials,

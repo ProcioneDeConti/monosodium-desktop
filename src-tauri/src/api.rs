@@ -32,7 +32,7 @@ fn user_agent(site: Site, username: Option<&str>) -> String {
         .filter(|u| !u.is_empty())
         .unwrap_or("anonymous");
     format!(
-        "e621Desktop/{} (by {} on {})",
+        "MonosodiumDesktop/{} (by {} on {})",
         env!("CARGO_PKG_VERSION"),
         who,
         site.api_host()

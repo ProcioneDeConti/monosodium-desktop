@@ -1,5 +1,5 @@
 {
-  "name": "e621-desktop",
+  "name": "monosodium-desktop",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -15,6 +15,7 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.2",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-store": "^2.4.4",
     "lucide-react": "^1.33.0",
     "masonic": "^4.1.0",

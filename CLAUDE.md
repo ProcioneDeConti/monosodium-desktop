@@ -1,4 +1,4 @@
-# e621 Desktop
+# Monosodium Desktop
 
 A standalone Windows 11 desktop e621/e6AI browser (tag search, resizable post grid, full post
 viewer, voting, favorites, client-side blacklist, account settings). Built as the desktop
@@ -33,7 +33,7 @@ or a rule, check there before guessing.
 Confirmed directly from e621's API help page (via web search, Aug 2026):
 - **Hard rate limit: 2 req/sec** (503 if exceeded). Best-effort target: **≤1 req/sec sustained**.
 - **Non-empty, descriptive User-Agent required on every request.** Never impersonate a browser
-  UA. Format used here: `e621Desktop/{version} (by {username} on {host})`, falling back to
+  UA. Format used here: `MonosodiumDesktop/{version} (by {username} on {host})`, falling back to
   `anonymous` when signed out.
 - The frontend **never** calls e621 directly — browsers can't set a custom `User-Agent` via
   fetch/XHR. All API calls are Tauri commands in `src-tauri/src/api.rs`, which route through a
@@ -57,7 +57,8 @@ src-tauri/src/
   credentials.rs  Windows Credential Manager (keyring crate, v1 API) - username+api_key per site
   api.rs          AppState (http client + limiters) + all e621 API Tauri commands
   downloads.rs    download_post_file - fetches a post's CDN URL and writes it to disk
-                  (Pictures/Videos/"e621 Desktop" by default, or the Settings-configured folder)
+                  (Pictures/Videos/"Monosodium Desktop" by default, or the Settings-configured
+                  folder)
   lib.rs          plugin/window/command wiring, Mica backdrop setup
 
 src/
@@ -158,7 +159,7 @@ and `PostViewer` so click-to-open indices line up exactly.
       "♥ Favorites" shell button just runs that as a normal search through the existing
       grid/viewer) + downloads (`downloads.rs`'s `download_post_file` fetches the same CDN URL
       the webview shows and saves it via a download button in the viewer header; defaults to
-      Pictures/Videos/e621 Desktop, or the folder set in Settings)
+      Pictures/Videos/Monosodium Desktop, or the folder set in Settings)
 - [x] **M7** Polish pass — site toggle already re-searched end-to-end for free (site is part of
       `usePostsQuery`'s query key); added a green/amber/red connection health dot on the site
       button (`queries/useHealthCheck.ts`, polls `health_check` every 60s), a Retry button on
@@ -192,8 +193,10 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       thumbnail-size slider (the part that couldn't be checked with `tsc`/`cargo check` alone) -
       confirmed working, no further changes needed here.
 - [x] **Site-aware title + welcome greeting** The shell's top-left label now shows the active
-      site ("e621 Desktop" / "e6AI Desktop", accent-colored) instead of a static string, matching
-      the reference app's `SiteBadge`. Settings also greets you with a random "{greeting}," atop
+      site ("e621" / "e6AI", accent-colored) instead of a static string, matching the reference
+      app's `SiteBadge` (the label's exact text later changed with the app's rename to Monosodium
+      Desktop - see that entry near the end of this list; the site-aware behavior itself hasn't).
+      Settings also greets you with a random "{greeting}," atop
       the panel, re-rolled every time it's opened - `lib/greetings.ts` ports the reference app's
       `res/raw/hello.txt` list (hello in ~90 languages, plus its two joke entries) verbatim; the
       signed-in username underneath is clickable, opening your own profile, mirroring the
@@ -432,8 +435,51 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       `[list]` wrapper and treats a bare `*` line the same way, so that part is working as
       designed, not a second instance of this bug.)
 
-**Deferred to a later phase, not started:** Forum, encrypted backup/restore, on-disk image cache
-management UI, update checker.
+- [x] **On-disk image cache management** `Settings > Cache` (`components/Settings/CacheSection.tsx`)
+      shows current usage, a size-limit slider (100MB-4000MB step 50, or Unlimited - same bounds/
+      slider-index scheme as the reference app's `ImageCacheLimits.kt`, see `lib/cacheLimits.ts`),
+      and a Clear Cache button. **Architecturally different from the reference app on purpose**:
+      the reference app's Coil disk cache is same-process and self-managed, so a `.clear()` call
+      or an `ImageLoader` rebuild takes effect immediately. This app has no cache of its own -
+      per the critical-constraint section above, every thumbnail/sample/full image/video loads
+      directly in the webview, so what's actually being managed here is WebView2's own cache,
+      owned by an external browser process (`msedgewebview2.exe`) that holds file locks on it for
+      as long as the app runs. `src-tauri/src/cache.rs` handles this: `bootstrap()` runs at the
+      very top of `run()`, before the webview (and so that locking process) exists - the only
+      point a plain filesystem operation on the cache directory is safe. It pins WebView2's user
+      data folder to a known path (`WEBVIEW2_USER_DATA_FOLDER`) so the cache is somewhere this
+      module can find and measure it, applies a pending-clear marker file left by
+      `request_cache_clear` (`fs::remove_dir_all`), and, if a limit was persisted by
+      `set_cache_limit_mb`, passes `--disk-cache-size=<bytes>` via WebView2's own
+      `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` bootstrap env var (both are documented WebView2
+      Runtime Loader env vars, not anything Tauri-specific). Net effect: both the size limit and
+      Clear Cache take effect on the *next launch*, not live - the UI says so, and Clear Cache
+      offers a one-click Restart Now (`tauri-plugin-process`'s `relaunch()`) rather than leaving
+      the user to close and reopen the app manually. Not yet live-tested - the actual size-limit
+      enforcement and a real clear-then-restart cycle both still need a hands-on pass (`tsc`/
+      `cargo check` alone can't confirm WebView2 honors either env var as expected).
+- [x] **Renamed to Monosodium Desktop** The app's branding - window title, package/crate names,
+      bundle identifier, User-Agent, credits footer, default download folder, cache app-data
+      folder - changed from "e621 Desktop" to "Monosodium Desktop", pairing it with the reference
+      Android app's own codename (`MonosodiumPDC`). Split across three distinct pieces of UI,
+      each intentionally different now: the shell's top-left button (next to the search bar)
+      shows just the bare active site name ("e621" / "e6AI", unchanged behavior - click to reset
+      to the default search); the OS window title bar shows "Monosodium Desktop - e621" /
+      "Monosodium Desktop - e6AI", kept in sync with the active site by a new effect in
+      `AppShell.tsx` calling `getCurrentWindow().setTitle(...)` (needed a new
+      `core:window:allow-set-title` capability - the narrowest permission for it, not the whole
+      `core:window:default` bundle); and Settings' credits footer/the User-Agent sent to e621
+      just say "Monosodium Desktop" outright. **Deliberately not touched**: the bundle identifier
+      change (`com.e621desktop.app` -> `com.monosodiumdesktop.app`, also updated in
+      `credentials.rs`'s `KEYRING_SERVICE`) was explicitly requested despite orphaning whatever
+      settings/credentials were already saved locally under the old identifier - a fresh start,
+      not a migration, since Windows Credential Manager entries and `tauri-plugin-store`'s
+      settings.json are both keyed off it. The actual GitHub repo (`ProcioneDeConti/e621-desktop`)
+      was deliberately left un-renamed - that's an external, shared-state rename this session
+      didn't have standing instruction to make; README's clone instructions still point at its
+      real current name.
+
+**Deferred to a later phase, not started:** Forum, encrypted backup/restore, update checker.
 
 ## Running it
 
@@ -447,7 +493,8 @@ cd src-tauri && cargo check  # Rust compile-check (fast after first build)
 ```
 
 If the user asks you to run it yourself: `npm run tauri dev` starts Vite + `cargo run`, opens a
-live window titled "e621 Desktop".
+live window titled "Monosodium Desktop - e621" (title bar swaps to "- e6AI" when you toggle
+sites).
 
 Rust and cargo were installed via winget mid-session — if `rustc`/`cargo` aren't on `PATH` in a
 fresh shell, refresh from the User+Machine PATH env vars (a plain new terminal should already
