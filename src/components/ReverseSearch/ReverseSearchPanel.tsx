@@ -10,16 +10,20 @@ interface ReverseSearchPanelProps {
   filePath: string;
   apiKey: string | null;
   onClose: () => void;
+  onOpenSettings: () => void;
 }
 
 /** Drag-and-drop a local image file onto the window (see App.tsx's onDragDropEvent listener) to
  *  search it against SauceNAO - desktop-native, no counterpart in the reference Android app
- *  (drag-and-drop isn't a mobile interaction at all). */
-export function ReverseSearchPanel({ filePath, apiKey, onClose }: ReverseSearchPanelProps) {
+ *  (drag-and-drop isn't a mobile interaction at all). An API key is required (SauceNAO rejects
+ *  anonymous API requests outright, confirmed live - see src-tauri/src/saucenao.rs's doc
+ *  comment), so this checks for one up front rather than firing a request guaranteed to fail. */
+export function ReverseSearchPanel({ filePath, apiKey, onClose, onOpenSettings }: ReverseSearchPanelProps) {
   const search = useReverseImageSearch();
+  const hasKey = !!apiKey;
 
   useEffect(() => {
-    search.mutate({ apiKey, filePath });
+    if (hasKey) search.mutate({ apiKey, filePath });
     // Only ever runs once per panel instance (a fresh drop mounts a fresh panel) -
     // intentionally not re-running on prop changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -46,7 +50,15 @@ export function ReverseSearchPanel({ filePath, apiKey, onClose }: ReverseSearchP
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4">
-          {search.isPending ? (
+          {!hasKey ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
+              <span className="max-w-xs text-center opacity-70">
+                SauceNAO requires an API key - it rejects anonymous requests outright, not just at
+                a lower rate limit.
+              </span>
+              <Button onClick={onOpenSettings}>Add key in Settings</Button>
+            </div>
+          ) : search.isPending ? (
             <div className="flex h-full items-center justify-center gap-2 text-sm opacity-60">
               <Spinner size={15} />
               Searching SauceNAO…

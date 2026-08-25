@@ -720,15 +720,31 @@ checking off a pre-existing item.
       fields (`similarity`, `thumbnail`, `title`, `ext_urls`) rather than a struct this app has no
       way to enumerate exhaustively; not independently verified against a live response.
       **The API key choice was confirmed with the user directly** (SauceNAO over e621's own
-      built-in IQDB search) before building this, since it means requiring your own API key for a
-      good rate limit rather than a keyless, e621-only alternative - works without one too, just
-      more rate-limited. The key itself goes through Windows Credential Manager
-      (`credentials.rs`'s new `save`/`load`/`delete_saucenao_key`, `state/saucenaoStore.ts`),
-      same treatment as e621/e6AI credentials - not the plain settings.json store, and not part
-      of `lib/backup.ts`'s snapshot either, both on purpose (a third-party secret, not an e621
-      one). Not yet live-tested - dropping a real image, a real SauceNAO response actually
-      matching the loosely-typed extraction above, and the with-and-without-API-key paths all
-      still need a hands-on pass.
+      built-in IQDB search) before building this, since it means requiring your own API key
+      rather than a keyless, e621-only alternative. The key itself goes through Windows
+      Credential Manager (`credentials.rs`'s new `save`/`load`/`delete_saucenao_key`,
+      `state/saucenaoStore.ts`), same treatment as e621/e6AI credentials - not the plain
+      settings.json store, and not part of `lib/backup.ts`'s snapshot either, both on purpose (a
+      third-party secret, not an e621 one).
+
+      **Fixed live - "works without a key at a lower rate limit" was wrong; a key is mandatory**:
+      the user reported "SauceNao search failed" right after this shipped. Rather than guess,
+      curled `search.php` directly (no key, a throwaway 1x1 PNG) and got back HTTP 200 with
+      `{"header":{"status":-1,"message":"The anonymous account type does not permit API
+      usage."}}` - SauceNAO rejects anonymous API requests outright, it was never just a lower
+      rate limit without one. Two real bugs followed from that wrong assumption: (1)
+      `reverse_image_search` only checked HTTP status, so this 200-with-embedded-error response
+      deserialized straight past it into a silently empty result list (`RawResponse.results`
+      defaulted via `#[serde(default)]`) instead of surfacing the real message - fixed by parsing
+      the top-level `header.status`/`message` and erroring out when `status < 0`; (2) the command
+      now fails fast client-side with "SauceNAO requires an API key - add one in Settings" when
+      none is configured, rather than round-tripping a request guaranteed to be rejected -
+      `ReverseSearchPanel` checks for a key up front and shows that state immediately (with an
+      "Add key in Settings" button) instead of ever showing a loading spinner for it. Settings'
+      own copy and `state/saucenaoStore.ts`'s doc comment were both corrected to match. Still not
+      live-tested with an actual key - a real SauceNAO response actually matching the loosely-
+      typed result extraction (`similarity`/`thumbnail`/`title`/`ext_urls`) is the remaining
+      unverified piece, now that the anonymous-request path is confirmed and handled correctly.
 
 All eleven items from the user's brainstormed post-Phase-2 list are now done.
 

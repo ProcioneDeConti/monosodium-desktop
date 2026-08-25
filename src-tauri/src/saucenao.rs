@@ -8,12 +8,22 @@ use crate::api::AppState;
 /// multipart form data. Wholly separate from api.rs's e621/e6AI `request()` helper - a different
 /// host entirely, with its own unrelated API key and rate limit (SauceNAO's own, not e621's).
 ///
-/// **Confidence caveat**: SauceNAO's `output_type=2` JSON response varies its `data` object's
-/// exact fields by which index matched (booru, Pixiv, Twitter, ...) - deserialized loosely via
-/// `serde_json::Value` here and only the handful of broadly-common fields (`similarity`,
-/// `thumbnail`, `title`, `ext_urls`) are pulled out, rather than a strict per-index-type struct
-/// this app has no way to enumerate exhaustively. Not independently verified against a live
-/// response.
+/// **An API key is mandatory, not just a rate-limit nicety** - confirmed live (curl, no key):
+/// `output_type=2` unconditionally rejects anonymous requests with
+/// `{"header":{"status":-1,"message":"The anonymous account type does not permit API usage."}}`,
+/// HTTP 200. The original design here assumed keyless requests just ran at a lower rate limit
+/// (wrong); `reverse_image_search` now fails fast client-side rather than round-tripping a
+/// request guaranteed to be rejected, and treats a negative `header.status` in a 200 response as
+/// an error - `ensure_success`-style HTTP-status checking alone would have silently swallowed
+/// this into an empty result list (SauceNAO reports API errors this way, not via HTTP status).
+///
+/// **Confidence caveat**: SauceNAO's `output_type=2` JSON response varies its per-result `data`
+/// object's exact fields by which index matched (booru, Pixiv, Twitter, ...) - deserialized
+/// loosely via `serde_json::Value` here and only the handful of broadly-common fields
+/// (`similarity`, `thumbnail`, `title`, `ext_urls`) are pulled out, rather than a strict per-
+/// index-type struct this app has no way to enumerate exhaustively. The success-path shape
+/// (`results`, per-result `header`/`data`) is *not* independently verified against a live
+/// response, unlike the error-path shape above - only a real key can confirm it.
 const SAUCENAO_URL: &str = "https://saucenao.com/search.php";
 
 #[derive(Debug, Clone, Serialize)]
@@ -26,19 +36,27 @@ pub struct SauceResult {
 
 #[derive(Debug, Deserialize)]
 struct RawResponse {
+    header: RawTopHeader,
     #[serde(default)]
     results: Vec<RawResult>,
 }
 
 #[derive(Debug, Deserialize)]
+struct RawTopHeader {
+    #[serde(default)]
+    status: i64,
+    message: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct RawResult {
-    header: RawHeader,
+    header: RawResultHeader,
     #[serde(default)]
     data: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]
-struct RawHeader {
+struct RawResultHeader {
     similarity: String,
     thumbnail: Option<String>,
 }
@@ -49,6 +67,10 @@ pub async fn reverse_image_search(
     api_key: Option<String>,
     file_path: String,
 ) -> Result<Vec<SauceResult>, String> {
+    let api_key = api_key
+        .filter(|k| !k.is_empty())
+        .ok_or_else(|| "SauceNAO requires an API key - add one in Settings".to_string())?;
+
     let bytes = std::fs::read(&file_path).map_err(|e| e.to_string())?;
     let file_name = std::path::Path::new(&file_path)
         .file_name()
@@ -59,10 +81,11 @@ pub async fn reverse_image_search(
     let part = reqwest::multipart::Part::bytes(bytes).file_name(file_name);
     let form = reqwest::multipart::Form::new().part("file", part);
 
-    let mut query: Vec<(&str, String)> = vec![("output_type", "2".to_string()), ("numres", "8".to_string())];
-    if let Some(key) = api_key.filter(|k| !k.is_empty()) {
-        query.push(("api_key", key));
-    }
+    let query = [
+        ("output_type", "2"),
+        ("numres", "8"),
+        ("api_key", api_key.as_str()),
+    ];
 
     let response = state
         .http
@@ -78,6 +101,13 @@ pub async fn reverse_image_search(
     }
 
     let parsed: RawResponse = response.json().await.map_err(|e| e.to_string())?;
+    if parsed.header.status < 0 {
+        return Err(parsed
+            .header
+            .message
+            .unwrap_or_else(|| format!("SauceNAO error (status {})", parsed.header.status)));
+    }
+
     Ok(parsed
         .results
         .into_iter()

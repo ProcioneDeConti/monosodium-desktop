@@ -1,7 +1,9 @@
-// The user's own SauceNAO API key (Settings > Reverse Image Search) - optional, works without
-// one at a much lower rate limit. Goes through Windows Credential Manager (src-tauri/src/
-// credentials.rs's save/load/delete_saucenao_key), same as e621/e6AI credentials - not the plain
-// settings.json store, and not part of lib/backup.ts's snapshot either.
+// The user's own SauceNAO API key (Settings > Reverse Image Search) - required, not optional:
+// SauceNAO's API rejects anonymous requests outright (confirmed live - see saucenao.rs's doc
+// comment), it isn't just a lower rate limit without one. Goes through Windows Credential
+// Manager (src-tauri/src/credentials.rs's save/load/delete_saucenao_key), same as e621/e6AI
+// credentials - not the plain settings.json store, and not part of lib/backup.ts's snapshot
+// either.
 
 import { create } from "zustand";
 import { e621Api } from "../api/client";

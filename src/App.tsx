@@ -320,6 +320,10 @@ function App() {
           filePath={droppedImagePath}
           apiKey={saucenaoApiKey}
           onClose={() => setDroppedImagePath(null)}
+          onOpenSettings={() => {
+            setDroppedImagePath(null);
+            setSettingsOpen(true);
+          }}
         />
       )}
     </AppShell>

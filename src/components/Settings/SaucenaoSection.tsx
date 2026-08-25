@@ -46,8 +46,9 @@ export function SaucenaoSection() {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs opacity-60">
-        Drag and drop an image file onto the window to search it against SauceNAO. Works without
-        an API key at a much lower rate limit.
+        Drag and drop an image file onto the window to search it against SauceNAO. An API key is
+        required - SauceNAO rejects anonymous API requests outright, it isn't just a lower rate
+        limit without one.
       </p>
       <div className="flex gap-1">
         <input
