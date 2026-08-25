@@ -766,22 +766,31 @@ All eleven items from the user's brainstormed post-Phase-2 list are now done.
       independently reinvented. Worth remembering for any future error-display code in this app:
       a Tauri command's error is a string, not an `Error` - never write `(e as Error)?.message`
       against one.
-- [x] **Fixed live (in progress): `create_dmail`'s response parsing** Confirmed independently of
-      the above - the dmail send the user tested with actually succeeded server-side (visible on
-      the real e621 website) even though the app reported failure, meaning the bug is in parsing
-      the *response*, not the request. Two changes: (1) `CreateDmailFields.respond_to_id` now
-      omits itself from the JSON entirely for a fresh (non-reply) message instead of serializing
-      an explicit `null` (`#[serde(skip_serializing_if = "Option::is_none")]`) - it was the only
-      optional field in any write payload anywhere in this codebase to serialize that way, and
-      e621ng's controller may not treat `null` and "key absent" the same for an association
-      lookup like this; (2) `create_dmail` temporarily reads the response as text and attempts
-      `serde_json::from_str::<Dmail>` itself, including a snippet of the raw body in the error on
-      a parse failure - both this app's and the reference Android app's `Dmail` model (identical
-      field set) have *never* been confirmed against a live response, so the next failed attempt
-      (if the `respond_to_id` fix alone doesn't resolve it) will finally show what e621's real
-      response shape is instead of an opaque serde error. Once confirmed, this should revert to
-      the plain `.json::<Dmail>()` every other command here uses - it's deliberately more verbose
-      than this codebase's norm only as a diagnostic, not a pattern to imitate elsewhere.
+- [x] **Fixed live (in progress): `create_dmail` reported failure on a request that actually
+      succeeded server-side** Multi-step live investigation, confirmed independently of the error-
+      message bug above - a test dmail (to the user's own account, which works fine on the real
+      website - self-messaging isn't disallowed) was visible in the inbox on e621's own site every
+      single time, even when this app reported failure. That ruled out both of the first two
+      theories in order: (1) `CreateDmailFields.respond_to_id` serializing as an explicit `null`
+      instead of being omitted for a fresh message (still fixed regardless -
+      `#[serde(skip_serializing_if = "Option::is_none")]` - it was the only optional field in any
+      write payload here to serialize that way, and is more correct either way) - didn't fix it;
+      (2) a `Dmail`-shape mismatch in the response body - ruled out once the *actual* error surfaced
+      (thanks to the error-message-bug fix above finally showing real text): `e621 API error 406
+      Not Acceptable` with an HTML "Unexpected Error" body, meaning `ensure_success` was rejecting
+      the response by HTTP status before parsing ever ran, not a JSON shape problem at all.
+      **Root cause**: `request()` (the shared helper every command goes through) never sent an
+      `Accept` header - `reqwest`'s `.json(&payload)` only sets the *request* body's
+      `Content-Type`, never a response-format `Accept`, so every command here relied solely on the
+      `.json` URL suffix for Rails to resolve the response format. That's apparently not reliable
+      for every route: `POST dmails.json` returned a 406 (`ActionController::UnknownFormat`'s
+      standard Rails→406 mapping) even on a request e621 fully processed and saved. Fixed at the
+      shared `request()` helper - every request through it now explicitly sends `Accept:
+      application/json` - not special-cased to dmails, since correct REST clients should declare
+      this regardless, and any other write endpoint could plausibly have had the same latent
+      gap without yet being hit. `create_dmail` still has its temporary raw-body-on-parse-failure
+      diagnostic in place for one more confirming test before reverting to the plain
+      `.json::<Dmail>()` every other command uses.
 
 ## Running it
 

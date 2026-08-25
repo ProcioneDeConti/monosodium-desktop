@@ -41,9 +41,20 @@ fn user_agent(site: Site, username: Option<&str>) -> String {
 }
 
 /// Builds a request against `site`'s API: waits for that site's rate-limit slot, sets the
-/// required User-Agent, and attaches HTTP Basic Auth (username + API key) if credentials are
-/// stored for this site. Never call `state.http` directly from a command - always go through
-/// this so every request is rate-limited and correctly identified.
+/// required User-Agent and an explicit `Accept: application/json`, and attaches HTTP Basic Auth
+/// (username + API key) if credentials are stored for this site. Never call `state.http`
+/// directly from a command - always go through this so every request is rate-limited and
+/// correctly identified.
+///
+/// **The explicit `Accept` header is load-bearing, not decorative** - found live: `create_dmail`
+/// (`POST dmails.json`) actually succeeded server-side while this app reported a `406 Not
+/// Acceptable` with an HTML "Unexpected Error" body, even for a case (messaging yourself) that
+/// works fine on the real website. Every other endpoint here relies on the `.json` URL suffix
+/// alone for Rails to resolve the response format, with no `Accept` header sent at all
+/// (`reqwest`'s `.json()` only sets the *request* body's `Content-Type`, never a response-format
+/// `Accept`); that apparently isn't reliable for every route. Declaring the desired format
+/// explicitly is correct baseline REST client behavior regardless, so this is applied to every
+/// request through here, not special-cased to dmails.
 async fn request(
     state: &AppState,
     site: Site,
@@ -56,7 +67,8 @@ async fn request(
     let mut builder = state
         .http
         .request(method, url)
-        .header("User-Agent", user_agent(site, creds.as_ref().map(|c| c.username.as_str())));
+        .header("User-Agent", user_agent(site, creds.as_ref().map(|c| c.username.as_str())))
+        .header("Accept", "application/json");
     if let Some(c) = creds.filter(|c| !c.username.is_empty() && !c.api_key.is_empty()) {
         builder = builder.basic_auth(c.username, Some(c.api_key));
     }
