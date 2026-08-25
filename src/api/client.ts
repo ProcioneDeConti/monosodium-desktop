@@ -52,6 +52,10 @@ export const e621Api = {
     return invoke("unfavorite", { site, postId });
   },
 
+  reportPost(site: Site, postId: number, reason: string): Promise<void> {
+    return invoke("report_post", { site, postId, reason });
+  },
+
   getComments(site: Site, postId: number): Promise<Comment[]> {
     return invoke("get_comments", { site, postId });
   },

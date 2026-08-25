@@ -38,6 +38,7 @@ pub fn run() {
             api::vote,
             api::favorite,
             api::unfavorite,
+            api::report_post,
             api::get_comments,
             api::create_comment,
             api::update_comment,

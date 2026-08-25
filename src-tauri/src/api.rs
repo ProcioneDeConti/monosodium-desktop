@@ -350,6 +350,32 @@ pub async fn report_comment(
     Ok(())
 }
 
+/// Files a moderation report against a post - same `tickets.json` endpoint and confidence
+/// caveat as `report_comment`, just `qtype: "post"`.
+#[tauri::command]
+pub async fn report_post(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    post_id: i64,
+    reason: String,
+) -> Result<(), String> {
+    let payload = CreateTicketRequest {
+        ticket: CreateTicketFields {
+            disp_id: post_id,
+            qtype: "post".to_string(),
+            reason,
+        },
+    };
+    let response = request(&state, site, Method::POST, "tickets.json")
+        .await?
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response).await?;
+    Ok(())
+}
+
 /// Same request/response shape as post voting (`vote` above) - e621 shares one voting
 /// controller across scorable types.
 #[tauri::command]

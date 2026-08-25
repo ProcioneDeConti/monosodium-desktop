@@ -42,5 +42,10 @@ export function usePostMutations(site: Site) {
     },
   });
 
-  return { vote, favorite, unfavorite };
+  const report = useMutation({
+    mutationFn: ({ postId, reason }: { postId: number; reason: string }) =>
+      e621Api.reportPost(site, postId, reason),
+  });
+
+  return { vote, favorite, unfavorite, report };
 }

@@ -629,6 +629,17 @@ checking off a pre-existing item.
         panning, and on a post whose displayed resolution differs from its original) still needs
         a hands-on pass; this is the one piece in this batch where a subtle math error would be
         genuinely hard to catch from a code read alone.
+- [x] **Phase 3: Post reporting** A Flag button in `PostViewer`'s toolbar (`ReportPostButton.tsx`,
+      a popover form - same outside-click/Escape convention as `AppShell`'s slideshow menu)
+      files a moderation ticket against a post. Comments already had this (`CommentRow.tsx`,
+      from the Comments round-2 pass); posts didn't. Backend is a two-line addition: `report_post`
+      in `api.rs` reuses the exact same `CreateTicketRequest`/`tickets.json` machinery
+      `report_comment` already established, just `qtype: "post"` - inherits that struct's own
+      confidence caveat (field names inferred from the Danbooru-family ticket convention, not
+      independently verified). `usePostMutations.ts` gained a plain fire-and-forget `report`
+      mutation alongside vote/favorite/unfavorite, no cache patch needed. Not yet live-tested -
+      submitting a real report (or at least watching the network response) still needs a hands-on
+      pass, same caveat `report_comment` already carries.
 
 ## Running it
 

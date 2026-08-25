@@ -21,6 +21,7 @@ import { ZoomableImage } from "./ZoomableImage";
 import { VideoPlayer } from "./VideoPlayer";
 import { TagsPanel } from "./TagsPanel";
 import { InfoPanel } from "./InfoPanel";
+import { ReportPostButton } from "./ReportPostButton";
 import { CommentsPanel } from "./CommentsPanel";
 import { usePostMutations } from "../../queries/usePostMutations";
 import { usePostNotesQuery } from "../../queries/usePostNotesQuery";
@@ -86,7 +87,7 @@ export function PostViewer({
   const post = posts[index];
   const { data: notes } = usePostNotesQuery(site, post.id, post.has_notes);
   const isAuthenticated = useAccountStore((s) => s.isAuthenticated(site));
-  const { vote, favorite, unfavorite } = usePostMutations(site);
+  const { vote, favorite, unfavorite, report } = usePostMutations(site);
   const videoLoopEnabled = useSettingsStore((s) => s.videoLoopEnabled);
   const videoPlaybackSpeed = useSettingsStore((s) => s.videoPlaybackSpeed);
   const videoAutoplayEnabled = useSettingsStore((s) => s.videoAutoplayEnabled);
@@ -266,6 +267,7 @@ export function PostViewer({
           >
             {downloadStatus === "saved" ? <Check size={16} /> : <Download size={16} />}
           </IconButton>
+          <ReportPostButton postId={post.id} isAuthenticated={isAuthenticated} report={report} />
         </div>
       </div>
 
