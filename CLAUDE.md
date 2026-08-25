@@ -23,9 +23,9 @@ or a rule, check there before guessing.
   every format e621 serves (jpg/png/gif/apng/webp/webm/mp4) natively with zero extra
   dependencies — the native-Windows alternatives all need a bundled video engine
   (LibVLCSharp, ~100MB+) just to play webm.
-- **Scope: core browsing first, Phase 2 in progress.** User profiles, saved searches, the
-  slideshow, comments, and dmail/messages have landed (see Progress). Forum, encrypted
-  backup/restore, on-disk image cache management, and the update checker are still explicitly
+- **Scope: core browsing first, Phase 2 nearly done.** User profiles, saved searches, the
+  slideshow, comments, dmail/messages, on-disk cache management, an update checker, and encrypted
+  backup/restore have all landed (see Progress). Forum is the only Phase 2 item still explicitly
   deferred — not built yet, not stubbed.
 
 ## Critical constraint: e621 API rules — do not relax these
@@ -502,7 +502,33 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       "up to date" (this app's own version has since moved past it), but the "update available"
       path itself still needs a newer release actually published to confirm end to end.
 
-**Deferred to a later phase, not started:** Forum, encrypted backup/restore.
+- [x] **Encrypted backup/restore** `Settings > Backup & Restore` (`components/Settings/BackupSection.tsx`)
+      exports/imports a portable JSON snapshot of settings plus both sites' credentials
+      (`lib/backup.ts`'s `buildBackup`/`applyBackup`) - optionally AES-256-GCM-encrypted, keyed by
+      a PBKDF2-HMAC-SHA256 (210,000 iterations, OWASP's 2023-current minimum) stretch of a
+      user-chosen password. This is a straight port of the reference app's
+      `SettingsBackupManager`/`BackupCrypto` - same envelope shape (`{version, encrypted, salt?,
+      iv?, payload}`, payload base64), same crypto parameters, same UX (export: encrypt checkbox
+      + password/confirm-password with a plain-text warning when unchecked; import: password
+      prompt that retries in place on a wrong one rather than re-picking the file) - except for
+      **where the shape lives**: the reference app's `SettingsBackup` is a fixed Kotlin struct
+      mirroring its own `UserSettings` one-for-one; porting that field-for-field into a Rust
+      struct here would mean maintaining the same field list twice (once in
+      `state/settingsStore.ts`, which already owns it, and again in Rust). Instead
+      `src-tauri/src/backup.rs` knows nothing about *what* it's encrypting - `export_backup`/
+      `import_backup`/`is_backup_encrypted` take a path and an opaque plaintext JSON string (or
+      return one), doing only the envelope framing, crypto, and file I/O; `lib/backup.ts` is the
+      only place that knows the actual field list, matching this codebase's existing boundary
+      (Rust does things TS categorically can't - rate-limited API calls, Credential Manager,
+      filesystem access - TS owns application/domain shapes). **Deliberately excluded**: the
+      reference app's cloud-backup toggle (Android's system-level Auto Backup opt-out, via a
+      dedicated `BackupAgent` - no Windows equivalent to hook into) and saved searches
+      (`state/savedSearchesStore.ts` - the reference app's own `SettingsBackup` doesn't cover its
+      `SavedSearchStore` either, so this matches that existing boundary, not a new one). Not yet
+      live-tested - export/import round-tripping (with and without a password, including the
+      wrong-password retry-in-place path) all still need a hands-on pass.
+
+**Deferred to a later phase, not started:** Forum.
 
 ## Running it
 

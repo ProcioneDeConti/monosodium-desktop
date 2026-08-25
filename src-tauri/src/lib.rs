@@ -1,4 +1,5 @@
 mod api;
+mod backup;
 mod cache;
 mod credentials;
 mod downloads;
@@ -51,6 +52,9 @@ pub fn run() {
             cache::set_cache_limit_mb,
             cache::request_cache_clear,
             update_check::check_for_update,
+            backup::export_backup,
+            backup::is_backup_encrypted,
+            backup::import_backup,
             downloads::download_post_file,
             credentials::save_credentials,
             credentials::load_credentials,

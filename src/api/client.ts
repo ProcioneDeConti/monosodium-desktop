@@ -105,6 +105,23 @@ export const e621Api = {
     return invoke("request_cache_clear");
   },
 
+  /** Writes an AES-256-GCM-encrypted (or, with a null/blank password, plain) backup envelope to
+   *  `path` - see src-tauri/src/backup.rs's doc comment. `plaintext` is a JSON string assembled
+   *  by lib/backup.ts's buildBackup(). */
+  exportBackup(path: string, plaintext: string, password: string | null): Promise<void> {
+    return invoke("export_backup", { path, plaintext, password });
+  },
+
+  isBackupEncrypted(path: string): Promise<boolean> {
+    return invoke("is_backup_encrypted", { path });
+  },
+
+  /** Returns the decrypted backup's plaintext JSON string - parse it and pass through
+   *  lib/backup.ts's isSettingsBackup/applyBackup. */
+  importBackup(path: string, password: string | null): Promise<string> {
+    return invoke("import_backup", { path, password });
+  },
+
   /** Manual-only (Settings > Updates) - checks this app's own GitHub repo, wholly separate from
    *  the rate-limited e621 client (see src-tauri/src/update_check.rs's doc comment). */
   checkForUpdate(): Promise<UpdateCheckResult> {

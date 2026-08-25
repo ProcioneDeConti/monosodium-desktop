@@ -15,6 +15,7 @@ import type { Rating } from "../../models/post";
 import { randomGreeting } from "../../lib/greetings";
 import { SiteAccountCard } from "./SiteAccountCard";
 import { BlacklistSection } from "./BlacklistSection";
+import { BackupSection } from "./BackupSection";
 import { CacheSection } from "./CacheSection";
 import { UpdateSection } from "./UpdateSection";
 import { Button } from "../ui/Button";
@@ -248,6 +249,10 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
                 </button>
               )}
             </div>
+          </Section>
+
+          <Section title="Backup & Restore">
+            <BackupSection />
           </Section>
 
           <Section title="Cache">
