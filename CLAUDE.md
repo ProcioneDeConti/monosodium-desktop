@@ -600,9 +600,8 @@ checking off a pre-existing item.
       than e621's 320-post-per-request cap only shows its first 320, a known limitation rather
       than a paginated fetch of an otherwise-fixed, already-small list. Opening a pool from a post
       that's itself in another pool stacks a second `PoolPanel` on top via plain component
-      recursion - arbitrary depth for free, no dedicated navigation stack needed. Not yet
-      live-tested - fetching a real pool, its posts landing in the correct order, and the nested-
-      pool nesting case all still need a hands-on pass.
+      recursion - arbitrary depth for free, no dedicated navigation stack needed. **Live-verified**
+      (confirmed by the user) - a real pool fetches and browses correctly.
 - [x] **Phase 3: Post notes** Translation/annotation boxes overlaid on the image in `PostViewer`
       (`ZoomableImage.tsx`'s new `NoteOverlay`) - like Pools, neither app has ever surfaced these
       before; `has_notes` sat unused on `Post` since M2. Backend: `PostNote` model + a
@@ -636,9 +635,10 @@ checking off a pre-existing item.
       `report_comment` already established, just `qtype: "post"` - inherits that struct's own
       confidence caveat (field names inferred from the Danbooru-family ticket convention, not
       independently verified). `usePostMutations.ts` gained a plain fire-and-forget `report`
-      mutation alongside vote/favorite/unfavorite, no cache patch needed. Not yet live-tested -
-      submitting a real report (or at least watching the network response) still needs a hands-on
-      pass, same caveat `report_comment` already carries.
+      mutation alongside vote/favorite/unfavorite, no cache patch needed. **Unverified, assumed
+      working** - the user can't/won't submit a real report right now (understandably, filing a
+      moderation ticket isn't something to do just to test it) and asked to leave it as-is;
+      revisit if it turns out not to work, same caveat `report_comment` already carries.
 - [x] **Phase 3: Inline wiki previews** `[[wiki]]` links used to just open the browser, same as
       any other DText link - clicking one now opens a click-to-preview popover instead
       (`DText.tsx`'s new `WikiLink`), showing the target page's own DText-rendered body inline
