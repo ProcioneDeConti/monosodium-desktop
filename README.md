@@ -26,8 +26,8 @@ This is a personal project, not affiliated with or endorsed by e621 or e6AI. It 
 Requires [Rust](https://www.rust-lang.org/tools/install) and [Node.js](https://nodejs.org/).
 
 ```
-git clone https://github.com/ProcioneDeConti/e621-desktop.git
-cd e621-desktop
+git clone https://github.com/ProcioneDeConti/monosodium-desktop.git
+cd monosodium-desktop
 npm install
 npm run tauri dev    # run in development
 npm run tauri build  # produce an installer

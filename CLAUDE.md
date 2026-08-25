@@ -474,10 +474,11 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       `credentials.rs`'s `KEYRING_SERVICE`) was explicitly requested despite orphaning whatever
       settings/credentials were already saved locally under the old identifier - a fresh start,
       not a migration, since Windows Credential Manager entries and `tauri-plugin-store`'s
-      settings.json are both keyed off it. The actual GitHub repo (`ProcioneDeConti/e621-desktop`)
-      was deliberately left un-renamed - that's an external, shared-state rename this session
-      didn't have standing instruction to make; README's clone instructions still point at its
-      real current name.
+      settings.json are both keyed off it. The GitHub repo itself
+      (`ProcioneDeConti/e621-desktop` -> `ProcioneDeConti/monosodium-desktop`, via `gh repo
+      rename`) was renamed too, on explicit follow-up instruction - the local `origin` remote and
+      README's clone instructions were updated to match (`gh repo rename` renames the repo
+      server-side but doesn't touch a local clone's remote URL itself).
 
 **Deferred to a later phase, not started:** Forum, encrypted backup/restore, update checker.
 
