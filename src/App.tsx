@@ -6,9 +6,11 @@ import { PostViewer } from "./components/PostViewer/PostViewer";
 import { SettingsPanel } from "./components/Settings/SettingsPanel";
 import { ProfilePanel } from "./components/Profile/ProfilePanel";
 import { SavedSearchesPanel } from "./components/SavedSearches/SavedSearchesPanel";
+import { MessagesPanel } from "./components/Messages/MessagesPanel";
 import { Button } from "./components/ui/Button";
 import { Spinner } from "./components/ui/Spinner";
 import { usePostsQuery } from "./queries/usePostsQuery";
+import { useUserProfileQuery } from "./queries/useUserProfileQuery";
 import { loadSettings, useSettingsStore } from "./state/settingsStore";
 import { loadAllAccounts, useAccountStore } from "./state/accountStore";
 import { loadSavedSearches } from "./state/savedSearchesStore";
@@ -21,9 +23,11 @@ function App() {
   const [booted, setBooted] = useState(false);
   const [activeQuery, setActiveQuery] = useState("");
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [slideshowActive, setSlideshowActive] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileTarget, setProfileTarget] = useState<number | "me" | null>(null);
   const [savedSearchesOpen, setSavedSearchesOpen] = useState(false);
+  const [messagesOpen, setMessagesOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([loadSettings(), loadAllAccounts(), loadSavedSearches()]).finally(() => setBooted(true));
@@ -40,6 +44,11 @@ function App() {
   const adultModeEnabled = useSettingsStore((s) => s.adultModeEnabled);
   const enabledRatings = useSettingsStore((s) => s.enabledRatings);
   const account = useAccountStore((s) => s.accounts[site]);
+
+  // Backs AppShell's Messages badge - shares its cache/query key with ProfilePanel's own-profile
+  // fetch, just with polling turned on here so the badge stays current without opening Settings.
+  const { data: ownProfile } = useUserProfileQuery(site, "me", !!account?.username, 60_000);
+  const unreadMessageCount = ownProfile?.unread_dmail_count ?? 0;
 
   useEffect(() => {
     document.documentElement.style.setProperty("--accent", hexToRgbTriplet(accentColor));
@@ -91,6 +100,17 @@ function App() {
   function runNewSearch(query: string) {
     setActiveQuery(query);
     setViewerIndex(null);
+    setSlideshowActive(false);
+  }
+
+  function closeViewer() {
+    setViewerIndex(null);
+    setSlideshowActive(false);
+  }
+
+  function startSlideshow() {
+    setViewerIndex(0);
+    setSlideshowActive(true);
   }
 
   function addTagToBlacklist(tag: string) {
@@ -104,7 +124,10 @@ function App() {
       onOpenSettings={() => setSettingsOpen(true)}
       onOpenFavorites={account?.username ? () => runNewSearch(`fav:${account.username}`) : null}
       onOpenProfile={account?.username ? () => setProfileTarget("me") : null}
+      onOpenMessages={account?.username ? () => setMessagesOpen(true) : null}
+      unreadMessageCount={unreadMessageCount}
       onOpenSavedSearches={() => setSavedSearchesOpen(true)}
+      onStartSlideshow={shownPosts.length > 0 ? startSlideshow : null}
       onRefresh={() => void refresh()}
       isRefreshing={isRefetching}
       isLoadingPosts={isLoading || isFetchingNextPage || isRefetching}
@@ -164,12 +187,14 @@ function App() {
           blacklistDisabled={blacklistDisabled}
           onIndexChange={setViewerIndex}
           onLoadMore={fetchNextPage}
-          onClose={() => setViewerIndex(null)}
+          onClose={closeViewer}
           onSearchTag={runNewSearch}
           onAddTagToSearch={(tag) => runNewSearch(`${activeQuery} ${tag}`.trim())}
           onExcludeTag={(tag) => runNewSearch(`${activeQuery} -${tag}`.trim())}
           onBlacklistTag={addTagToBlacklist}
           onOpenProfile={(id) => setProfileTarget(id)}
+          slideshowActive={slideshowActive}
+          onToggleSlideshow={() => setSlideshowActive((v) => !v)}
         />
       )}
 
@@ -194,6 +219,14 @@ function App() {
           currentQuery={activeQuery}
           onClose={() => setSavedSearchesOpen(false)}
           onApply={runNewSearch}
+        />
+      )}
+
+      {messagesOpen && (
+        <MessagesPanel
+          site={site}
+          onClose={() => setMessagesOpen(false)}
+          onOpenProfile={(id) => setProfileTarget(id)}
         />
       )}
     </AppShell>

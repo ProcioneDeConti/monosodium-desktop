@@ -2,7 +2,9 @@ use reqwest::Method;
 
 use crate::credentials;
 use crate::models::{
-    FavoriteRequest, FavoriteResponse, PostsResponse, TagSuggestion, UpdateUserFields,
+    Comment, CreateCommentFields, CreateCommentRequest, CreateDmailFields, CreateDmailRequest,
+    CreateTicketFields, CreateTicketRequest, Dmail, FavoriteRequest, FavoriteResponse,
+    PostsResponse, TagSuggestion, UpdateCommentFields, UpdateCommentRequest, UpdateUserFields,
     UpdateUserRequest, UserProfile, VoteRequest, VoteResponse,
 };
 use crate::rate_limit::SiteRateLimiters;
@@ -232,6 +234,204 @@ pub async fn unfavorite(
     ensure_success(response)
         .await?
         .json::<FavoriteResponse>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_comments(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    post_id: i64,
+) -> Result<Vec<Comment>, String> {
+    let response = request(&state, site, Method::GET, "comments.json")
+        .await?
+        .query(&[("search[post_id]", post_id.to_string())])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Vec<Comment>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Requires Basic Auth (an unauthenticated request is rejected server-side, surfaced as a normal
+/// API error - see the doc comment on `request()` for why this app doesn't gate the call itself).
+#[tauri::command]
+pub async fn create_comment(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    post_id: i64,
+    body: String,
+) -> Result<Comment, String> {
+    let payload = CreateCommentRequest {
+        comment: CreateCommentFields { post_id, body },
+    };
+    let response = request(&state, site, Method::POST, "comments.json")
+        .await?
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Comment>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Requires Basic Auth; e621 rejects editing another user's comment server-side (this app only
+/// shows the Edit control for comments whose `creator_id` matches the signed-in account - see
+/// CommentsPanel.tsx - but doesn't re-derive that check here, same as every other write command).
+#[tauri::command]
+pub async fn update_comment(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    comment_id: i64,
+    body: String,
+) -> Result<Comment, String> {
+    let payload = UpdateCommentRequest {
+        comment: UpdateCommentFields { body },
+    };
+    let response = request(&state, site, Method::PATCH, &format!("comments/{comment_id}.json"))
+        .await?
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Comment>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn delete_comment(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    comment_id: i64,
+) -> Result<(), String> {
+    let response = request(&state, site, Method::DELETE, &format!("comments/{comment_id}.json"))
+        .await?
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response).await?;
+    Ok(())
+}
+
+/// Files a moderation report against a comment - see `CreateTicketRequest`'s doc comment for the
+/// confidence caveat on this endpoint's exact field names.
+#[tauri::command]
+pub async fn report_comment(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    comment_id: i64,
+    reason: String,
+) -> Result<(), String> {
+    let payload = CreateTicketRequest {
+        ticket: CreateTicketFields {
+            disp_id: comment_id,
+            qtype: "comment".to_string(),
+            reason,
+        },
+    };
+    let response = request(&state, site, Method::POST, "tickets.json")
+        .await?
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response).await?;
+    Ok(())
+}
+
+/// Same request/response shape as post voting (`vote` above) - e621 shares one voting
+/// controller across scorable types.
+#[tauri::command]
+pub async fn vote_comment(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    comment_id: i64,
+    direction: i64,
+) -> Result<VoteResponse, String> {
+    let response = request(&state, site, Method::POST, &format!("comments/{comment_id}/votes.json"))
+        .await?
+        .json(&VoteRequest { score: direction })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<VoteResponse>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Requires Basic Auth. `page` is a keyset cursor (`b<id>`), same convention as `get_posts`.
+#[tauri::command]
+pub async fn get_dmails(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    page: Option<String>,
+) -> Result<Vec<Dmail>, String> {
+    let mut query: Vec<(&str, String)> = vec![("limit", "50".to_string())];
+    if let Some(p) = page {
+        query.push(("page", p));
+    }
+    let response = request(&state, site, Method::GET, "dmails.json")
+        .await?
+        .query(&query)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Vec<Dmail>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Requires Basic Auth; e621 marks the dmail read as a side effect of this call if you're the owner.
+#[tauri::command]
+pub async fn get_dmail(state: tauri::State<'_, AppState>, site: Site, id: i64) -> Result<Dmail, String> {
+    let response = request(&state, site, Method::GET, &format!("dmails/{id}.json"))
+        .await?
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Dmail>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Requires Basic Auth; posting anonymously is rejected server-side.
+#[tauri::command]
+pub async fn create_dmail(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    to_name: String,
+    title: String,
+    body: String,
+    respond_to_id: Option<i64>,
+) -> Result<Dmail, String> {
+    let payload = CreateDmailRequest {
+        dmail: CreateDmailFields { title, body, to_name, respond_to_id },
+    };
+    let response = request(&state, site, Method::POST, "dmails.json")
+        .await?
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Dmail>()
         .await
         .map_err(|e| e.to_string())
 }

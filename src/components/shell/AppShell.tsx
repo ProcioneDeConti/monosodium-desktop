@@ -1,5 +1,15 @@
-import { useEffect, type ReactNode } from "react";
-import { Bookmark, Heart, RefreshCw, Settings as SettingsIcon, User } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Bookmark,
+  Heart,
+  Mail,
+  Minus,
+  Play,
+  Plus,
+  RefreshCw,
+  Settings as SettingsIcon,
+  User,
+} from "lucide-react";
 import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { SearchBar } from "../SearchBar/SearchBar";
 import {
@@ -7,6 +17,11 @@ import {
   MIN_THUMBNAIL_SIZE_PX,
   useSettingsStore,
 } from "../../state/settingsStore";
+import {
+  MAX_SLIDESHOW_INTERVAL_SEC,
+  MIN_SLIDESHOW_INTERVAL_SEC,
+  SLIDESHOW_TRANSITIONS,
+} from "../../lib/slideshow";
 import { useHealthCheck } from "../../queries/useHealthCheck";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
@@ -18,7 +33,10 @@ interface AppShellProps {
   onOpenSettings: () => void;
   onOpenFavorites: (() => void) | null;
   onOpenProfile: (() => void) | null;
+  onOpenMessages: (() => void) | null;
+  unreadMessageCount: number;
   onOpenSavedSearches: () => void;
+  onStartSlideshow: (() => void) | null;
   onRefresh: () => void;
   isRefreshing: boolean;
   isLoadingPosts: boolean;
@@ -31,7 +49,10 @@ export function AppShell({
   onOpenSettings,
   onOpenFavorites,
   onOpenProfile,
+  onOpenMessages,
+  unreadMessageCount,
   onOpenSavedSearches,
+  onStartSlideshow,
   onRefresh,
   isRefreshing,
   isLoadingPosts,
@@ -41,6 +62,30 @@ export function AppShell({
   const setSite = useSettingsStore((s) => s.setSite);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
   const setGridThumbnailSizePx = useSettingsStore((s) => s.setGridThumbnailSizePx);
+  const slideshowIntervalSec = useSettingsStore((s) => s.slideshowIntervalSec);
+  const slideshowTransition = useSettingsStore((s) => s.slideshowTransition);
+  const setSlideshowIntervalSec = useSettingsStore((s) => s.setSlideshowIntervalSec);
+  const setSlideshowTransition = useSettingsStore((s) => s.setSlideshowTransition);
+  const [slideshowMenuOpen, setSlideshowMenuOpen] = useState(false);
+  const slideshowMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!slideshowMenuOpen) return;
+    function onOutside(e: MouseEvent) {
+      if (slideshowMenuRef.current && !slideshowMenuRef.current.contains(e.target as Node)) {
+        setSlideshowMenuOpen(false);
+      }
+    }
+    function onEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setSlideshowMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onOutside);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onOutside);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [slideshowMenuOpen]);
 
   function toggleSite() {
     setSite(site === "e621" ? "e6ai" : "e621");
@@ -117,6 +162,96 @@ export function AppShell({
         <IconButton onClick={onOpenSavedSearches} title="Saved searches">
           <Bookmark size={17} />
         </IconButton>
+
+        <div className="relative" ref={slideshowMenuRef}>
+          <IconButton
+            onClick={() => setSlideshowMenuOpen((v) => !v)}
+            disabled={!onStartSlideshow}
+            title={onStartSlideshow ? "Start slideshow" : "No results to show"}
+          >
+            <Play size={17} />
+          </IconButton>
+
+          {slideshowMenuOpen && (
+            <div
+              className="absolute right-0 top-full z-30 mt-1 w-56 animate-[scale-in_100ms_ease-out] origin-top-right
+                         rounded-[var(--radius-md)] border border-black/10 dark:border-white/10
+                         bg-[rgb(250,250,250)] dark:bg-[rgb(28,28,28)] p-3 text-xs shadow-xl shadow-black/20"
+            >
+              <p className="mb-2.5 font-semibold uppercase tracking-wide opacity-60">Slideshow</p>
+
+              <div className="mb-2.5 flex items-center justify-between gap-2">
+                <span className="opacity-80">Interval</span>
+                <div className="flex items-center gap-1">
+                  <IconButton
+                    onClick={() => setSlideshowIntervalSec(slideshowIntervalSec - 1)}
+                    disabled={slideshowIntervalSec <= MIN_SLIDESHOW_INTERVAL_SEC}
+                    title="Shorter interval"
+                    className="!p-1"
+                  >
+                    <Minus size={12} />
+                  </IconButton>
+                  <span className="w-9 text-center tabular-nums">{slideshowIntervalSec}s</span>
+                  <IconButton
+                    onClick={() => setSlideshowIntervalSec(slideshowIntervalSec + 1)}
+                    disabled={slideshowIntervalSec >= MAX_SLIDESHOW_INTERVAL_SEC}
+                    title="Longer interval"
+                    className="!p-1"
+                  >
+                    <Plus size={12} />
+                  </IconButton>
+                </div>
+              </div>
+
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="opacity-80">Transition</span>
+                <select
+                  value={slideshowTransition}
+                  onChange={(e) => setSlideshowTransition(e.target.value as typeof slideshowTransition)}
+                  className="rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10
+                             bg-white/60 dark:bg-black/30 px-1.5 py-1 text-xs outline-none
+                             focus:ring-2 focus:ring-[rgb(var(--accent))]"
+                >
+                  {SLIDESHOW_TRANSITIONS.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <Button
+                icon={<Play size={13} strokeWidth={2.5} />}
+                onClick={() => {
+                  setSlideshowMenuOpen(false);
+                  onStartSlideshow?.();
+                }}
+                disabled={!onStartSlideshow}
+                className="w-full justify-center"
+              >
+                Start
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="relative">
+          <IconButton
+            onClick={onOpenMessages ?? undefined}
+            disabled={!onOpenMessages}
+            title={onOpenMessages ? "Messages" : "Sign in (Settings) to view messages"}
+          >
+            <Mail size={17} />
+          </IconButton>
+          {unreadMessageCount > 0 && (
+            <span
+              className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center
+                         rounded-full bg-[rgb(var(--accent))] px-1 text-[10px] font-bold leading-none text-white"
+            >
+              {unreadMessageCount > 9 ? "9+" : unreadMessageCount}
+            </span>
+          )}
+        </div>
 
         <IconButton
           onClick={onOpenProfile ?? undefined}

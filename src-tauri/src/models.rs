@@ -207,6 +207,100 @@ pub struct FavoriteResponse {
     pub favorite_count: i64,
 }
 
+/// https://e621.net/comments.json?search[post_id]=<id> - `is_hidden` comments are moderator-only
+/// and filtered out client-side (see queries/useCommentsQuery.ts), matching the reference
+/// Android app's `PostActionsRepository.fetchComments`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Comment {
+    pub id: i64,
+    #[serde(default)]
+    pub post_id: i64,
+    pub creator_id: Option<i64>,
+    pub creator_name: Option<String>,
+    #[serde(default)]
+    pub body: String,
+    #[serde(default)]
+    pub score: i64,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
+    #[serde(default)]
+    pub is_hidden: bool,
+    /// The authenticated user's own vote on this comment: 1 up, -1 down, 0 none/not signed in.
+    /// Patched locally from a vote mutation's response too - see queries/useCommentMutations.ts.
+    #[serde(default)]
+    pub vote_by: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCommentRequest {
+    pub comment: CreateCommentFields,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCommentFields {
+    pub post_id: i64,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateCommentRequest {
+    pub comment: UpdateCommentFields,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateCommentFields {
+    pub body: String,
+}
+
+/// https://e621.net/tickets.json - e621ng's moderation-report system, shared across every
+/// reportable type (`qtype`: "comment", "user", "forum", "blip", "wiki", "pool", "set", ...).
+/// Field names follow the same `{ticket: {...}}` wrapping convention as every other write
+/// endpoint here (compare `CreateCommentRequest`/`UpdateUserRequest`) - not independently
+/// verified against a live report submission, unlike the rest of this file's request shapes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTicketRequest {
+    pub ticket: CreateTicketFields,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTicketFields {
+    pub disp_id: i64,
+    pub qtype: String,
+    pub reason: String,
+}
+
+/// https://e621.net/dmails.json - a private message. `folder` isn't modeled: this app only ever
+/// reads the inbox, matching the reference Android app's `MessagesRepository`, which never passes
+/// a non-default `folder` either.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Dmail {
+    pub id: i64,
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub body: String,
+    #[serde(default)]
+    pub is_read: bool,
+    pub created_at: Option<String>,
+    pub to_id: Option<i64>,
+    pub to_name: Option<String>,
+    pub from_id: Option<i64>,
+    pub from_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDmailRequest {
+    pub dmail: CreateDmailFields,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDmailFields {
+    pub title: String,
+    pub body: String,
+    pub to_name: String,
+    pub respond_to_id: Option<i64>,
+}
+
 /// A single result from e621's live tag-autocomplete endpoint. `name` is always the
 /// canonical tag - when the search prefix matched via an alias, e621 already resolves it
 /// and reports the alias that matched in `antecedent_name`.

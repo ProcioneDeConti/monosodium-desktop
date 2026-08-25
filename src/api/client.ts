@@ -6,6 +6,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Site } from "../models/site";
 import type { PostsResponse } from "../models/post";
 import type { TagSuggestion, UserProfile, VoteResponse, FavoriteResponse } from "../models/user";
+import type { Comment } from "../models/comment";
+import type { Dmail } from "../models/dmail";
 
 export interface SiteCredentials {
   username: string;
@@ -43,6 +45,48 @@ export const e621Api = {
 
   unfavorite(site: Site, postId: number): Promise<FavoriteResponse> {
     return invoke("unfavorite", { site, postId });
+  },
+
+  getComments(site: Site, postId: number): Promise<Comment[]> {
+    return invoke("get_comments", { site, postId });
+  },
+
+  createComment(site: Site, postId: number, body: string): Promise<Comment> {
+    return invoke("create_comment", { site, postId, body });
+  },
+
+  updateComment(site: Site, commentId: number, body: string): Promise<Comment> {
+    return invoke("update_comment", { site, commentId, body });
+  },
+
+  deleteComment(site: Site, commentId: number): Promise<void> {
+    return invoke("delete_comment", { site, commentId });
+  },
+
+  reportComment(site: Site, commentId: number, reason: string): Promise<void> {
+    return invoke("report_comment", { site, commentId, reason });
+  },
+
+  voteComment(site: Site, commentId: number, direction: 1 | -1): Promise<VoteResponse> {
+    return invoke("vote_comment", { site, commentId, direction });
+  },
+
+  getDmails(site: Site, page?: string): Promise<Dmail[]> {
+    return invoke("get_dmails", { site, page: page ?? null });
+  },
+
+  getDmail(site: Site, id: number): Promise<Dmail> {
+    return invoke("get_dmail", { site, id });
+  },
+
+  createDmail(
+    site: Site,
+    toName: string,
+    title: string,
+    body: string,
+    respondToId?: number | null,
+  ): Promise<Dmail> {
+    return invoke("create_dmail", { site, toName, title, body, respondToId: respondToId ?? null });
   },
 
   healthCheck(site: Site): Promise<void> {

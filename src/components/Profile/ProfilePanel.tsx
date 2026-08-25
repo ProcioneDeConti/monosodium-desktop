@@ -1,11 +1,12 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Heart, Images, User as UserIcon, X } from "lucide-react";
-import { e621Api } from "../../api/client";
+import { Heart, Images, X } from "lucide-react";
 import type { Site } from "../../models/site";
 import { userLevelLabel, type UserProfile } from "../../models/user";
 import { useUserProfileQuery } from "../../queries/useUserProfileQuery";
+import { useAvatarUrl } from "../../queries/useAvatarUrl";
+import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
+import { DText } from "../ui/DText";
 import { IconButton } from "../ui/IconButton";
 import { Section } from "../ui/Section";
 import { Spinner } from "../ui/Spinner";
@@ -27,20 +28,6 @@ const STAT_LABELS: Record<string, string> = {
   upload_slots: "Upload slots",
   flag_count: "Flags",
 };
-
-/** Profiles only carry an `avatar_id` (a post id) - resolve it to an image via the same
- *  rate-limited `get_posts` path everything else uses, rather than adding new backend surface. */
-function useAvatarUrl(site: Site, avatarId: number | null) {
-  return useQuery({
-    queryKey: ["avatar", site, avatarId],
-    queryFn: async () => {
-      const res = await e621Api.getPosts(site, `id:${avatarId}`, 1);
-      return res.posts[0]?.preview.url ?? null;
-    },
-    enabled: avatarId != null,
-    staleTime: 5 * 60_000,
-  });
-}
 
 export function ProfilePanel({ site, userId, onClose, onSearch }: ProfilePanelProps) {
   const { data: profile, isLoading, isError, error, refetch } = useUserProfileQuery(site, userId);
@@ -91,6 +78,7 @@ export function ProfilePanel({ site, userId, onClose, onSearch }: ProfilePanelPr
             </div>
           ) : (
             <ProfileContent
+              site={site}
               profile={profile}
               avatarUrl={avatarUrl ?? null}
               onOpenPosts={openPosts}
@@ -104,11 +92,13 @@ export function ProfilePanel({ site, userId, onClose, onSearch }: ProfilePanelPr
 }
 
 function ProfileContent({
+  site,
   profile,
   avatarUrl,
   onOpenPosts,
   onOpenFavorites,
 }: {
+  site: Site;
   profile: UserProfile;
   avatarUrl: string | null;
   onOpenPosts: () => void;
@@ -131,13 +121,7 @@ function ProfileContent({
           background: "linear-gradient(to bottom, rgb(var(--accent) / 0.25), transparent)",
         }}
       >
-        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-[rgb(var(--accent))] bg-black/10 dark:bg-white/10">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <UserIcon size={32} className="opacity-50" />
-          )}
-        </div>
+        <Avatar url={avatarUrl} name={profile.name} size={80} className="border-2 border-[rgb(var(--accent))]" />
         <h2 className="text-base font-bold">{profile.name}</h2>
         {userLevelLabel(profile.level) && (
           <span className="rounded-full bg-[rgb(var(--accent))] px-2.5 py-0.5 text-[11px] font-semibold text-white">
@@ -186,13 +170,13 @@ function ProfileContent({
 
       {profile.profile_about && (
         <Section title="About">
-          <p className="whitespace-pre-wrap text-sm">{profile.profile_about}</p>
+          <DText text={profile.profile_about} site={site} className="text-sm" />
         </Section>
       )}
 
       {profile.profile_artinfo && (
         <Section title="Artist info">
-          <p className="whitespace-pre-wrap text-sm">{profile.profile_artinfo}</p>
+          <DText text={profile.profile_artinfo} site={site} className="text-sm" />
         </Section>
       )}
     </div>

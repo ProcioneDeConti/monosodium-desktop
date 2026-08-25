@@ -9,6 +9,12 @@ import { load, type Store } from "@tauri-apps/plugin-store";
 import type { Rating } from "../models/post";
 import type { Site } from "../models/site";
 import { parseBlacklist, type BlacklistEntries } from "../lib/blacklist";
+import {
+  clampSlideshowInterval,
+  DEFAULT_SLIDESHOW_INTERVAL_SEC,
+  DEFAULT_SLIDESHOW_TRANSITION,
+  type SlideshowTransition,
+} from "../lib/slideshow";
 
 const STORE_FILE = "settings.json";
 const DEFAULT_RATINGS: Rating[] = ["s", "q", "e"];
@@ -35,6 +41,8 @@ interface SettingsState {
   videoPlaybackSpeed: number;
   videoAutoplayEnabled: boolean;
   downloadDir: string | null;
+  slideshowIntervalSec: number;
+  slideshowTransition: SlideshowTransition;
 
   setSite: (site: Site) => void;
   setEnabledRatings: (ratings: Rating[]) => void;
@@ -47,6 +55,8 @@ interface SettingsState {
   setVideoPlaybackSpeed: (speed: number) => void;
   setVideoAutoplayEnabled: (enabled: boolean) => void;
   setDownloadDir: (dir: string | null) => void;
+  setSlideshowIntervalSec: (seconds: number) => void;
+  setSlideshowTransition: (transition: SlideshowTransition) => void;
 
   /** e621 search syntax: leading `~` ORs ratings together; one enabled rating needs none; all enabled means no filter. */
   ratingTagFilter: () => string | null;
@@ -83,6 +93,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   videoPlaybackSpeed: DEFAULT_VIDEO_SPEED,
   videoAutoplayEnabled: true,
   downloadDir: null,
+  slideshowIntervalSec: DEFAULT_SLIDESHOW_INTERVAL_SEC,
+  slideshowTransition: DEFAULT_SLIDESHOW_TRANSITION,
 
   setSite: (site) => {
     set({ site });
@@ -126,6 +138,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ downloadDir });
     void persist("downloadDir", downloadDir);
   },
+  setSlideshowIntervalSec: (seconds) => {
+    const slideshowIntervalSec = clampSlideshowInterval(seconds);
+    set({ slideshowIntervalSec });
+    void persist("slideshowIntervalSec", slideshowIntervalSec);
+  },
+  setSlideshowTransition: (slideshowTransition) => {
+    set({ slideshowTransition });
+    void persist("slideshowTransition", slideshowTransition);
+  },
 
   ratingTagFilter: () => {
     const { adultModeEnabled, enabledRatings } = get();
@@ -156,6 +177,10 @@ export async function loadSettings(): Promise<void> {
       videoPlaybackSpeed: (values.videoPlaybackSpeed as number) ?? state.videoPlaybackSpeed,
       videoAutoplayEnabled: (values.videoAutoplayEnabled as boolean) ?? state.videoAutoplayEnabled,
       downloadDir: (values.downloadDir as string | null) ?? state.downloadDir,
+      slideshowIntervalSec:
+        (values.slideshowIntervalSec as number) ?? state.slideshowIntervalSec,
+      slideshowTransition:
+        (values.slideshowTransition as SlideshowTransition) ?? state.slideshowTransition,
       isLoaded: true,
     };
   });

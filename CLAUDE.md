@@ -23,10 +23,10 @@ or a rule, check there before guessing.
   every format e621 serves (jpg/png/gif/apng/webp/webm/mp4) natively with zero extra
   dependencies — the native-Windows alternatives all need a bundled video engine
   (LibVLCSharp, ~100MB+) just to play webm.
-- **Scope: core browsing first, Phase 2 in progress.** User profiles and saved searches have
-  landed (see Progress). Comments, Dmail/messages, forum, encrypted backup/restore, on-disk image
-  cache management, and the update checker are still explicitly deferred — not built yet, not
-  stubbed.
+- **Scope: core browsing first, Phase 2 in progress.** User profiles, saved searches, the
+  slideshow, comments, and dmail/messages have landed (see Progress). Forum, encrypted
+  backup/restore, on-disk image cache management, and the update checker are still explicitly
+  deferred — not built yet, not stubbed.
 
 ## Critical constraint: e621 API rules — do not relax these
 
@@ -119,8 +119,16 @@ src/
                                row (shown only while there's a non-blank query) plus a list of
                                saved {label, query} entries; clicking one runs it as a normal
                                search, same as Favorites/Profile's shortcuts
-  App.tsx         wires everything: search state, viewer/settings/profile/saved-searches
-                  open-close, blacklist actions
+    Messages/MessagesPanel.tsx  full-screen overlay for dmails (e621's private messages) - inbox
+                               list (keyset-paginated, same b<id> cursor convention as posts),
+                               a detail view, and compose (new or, from a detail view, a reply
+                               that prefills/locks the recipient - dmails aren't server-threaded,
+                               same as comments). Only reachable when signed in, gated the same
+                               way as Favorites/Profile; the shell's Mail button shows an unread
+                               badge from `users/me.json`'s `unread_dmail_count`, polled the same
+                               way as the connection dot
+  App.tsx         wires everything: search state, viewer/settings/profile/saved-searches/
+                  messages open-close, blacklist actions
 ```
 
 Data flow for a post list: `usePostsQuery` → raw `Post[]` (unfiltered, so the blacklist
@@ -284,8 +292,148 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       thresholds) shows an "Almost there…" tease in place of the real autocomplete dropdown,
       without ever revealing the word itself.
 
-**Deferred to a later phase, not started:** comments, Dmail/messages, forum, encrypted
-backup/restore, on-disk image cache management UI, update checker.
+- [x] **Slideshow** Desktop-only, no reference-app equivalent. `AppShell`'s new Play button opens
+      a popover (interval seconds + fade/slide/zoom/none transition, defaults persisted in
+      `settingsStore`) and starts `PostViewer` auto-advancing through the current search's visible
+      posts from post 1. `PostViewer` also gets its own start/stop toggle (so slideshow mode can
+      be entered from whatever post is already open, not just the beginning), a pause/resume
+      (Space), live interval/transition controls, and a countdown progress bar, all in a bottom
+      control bar shown only while active (`lib/slideshow.ts` has the shared constants/types).
+      Media re-keys on `post.id` so the configured transition (new `slideshow-slide`/
+      `slideshow-zoom`/`slideshow-countdown` keyframes in `index.css`, reusing the existing
+      `fade-in`) replays every advance; running out of posts (and no more pages) auto-stops
+      instead of idling on the last one. Not yet live-tested - the fade/slide/zoom transitions and
+      mixed image/video slideshows (a video gets the same fixed interval as everything else,
+      rather than waiting for it to finish) are the parts most worth checking by hand.
+- [x] **Phase 2: Comments** View/post/vote on a post's comment thread, reached via a new
+      Tags/Comments tab switcher above `TagsPanel` in `PostViewer`'s sidebar (comment count shown
+      in the tab label from `post.comment_count`). Backend: `Comment`/`CreateCommentRequest`
+      models plus `get_comments`/`create_comment`/`vote_comment` Tauri commands in
+      `api.rs`/`models.rs`, the latter reusing the existing `VoteRequest`/`VoteResponse` shapes
+      since e621 shares one voting controller across posts and comments. `useCommentsQuery.ts`
+      does a single unpaginated fetch per post (matching the reference app's
+      `PostActionsRepository.fetchComments` - posts rarely have enough comments to need cursor
+      pagination) and drops `is_hidden` (moderator-hidden) comments client-side, same as there;
+      `useCommentMutations.ts` patches that cache directly on post/vote (and bumps the shared post
+      cache's `comment_count` after posting), mirroring `usePostMutations.ts`'s pattern.
+      **Diverges from the reference app on purpose** (chosen over matching it exactly): comment
+      voting exists here even though the reference app has none (e621's API supports it
+      identically to post votes); the input is proactively disabled with a "Sign in (Settings) to
+      comment" tooltip when signed out, matching this app's own vote/favorite-button convention,
+      rather than the reference app's laissez-faire "always show it, fail server-side" approach.
+      Not yet live-tested - viewing an existing post's comments, posting one, and voting all still
+      need a real signed-in pass.
+- [x] **Phase 2: Comments, round 2 - DText, edit/delete/reply/report, avatars** Closes out every
+      simplification the first Comments pass above left open.
+      - **DText app-wide**: `lib/dtext.ts` is a from-scratch TS port of the reference app's
+        `data/dtext/DText.kt` parser (same AST shape: blocks of paragraph/heading/code/quote/list,
+        each holding spoiler-delimited segments of inline text/styled/link/mention nodes) and
+        deliberately matches its documented scope, not full DText - no tables, `[color]`, or
+        `>>123` post references (`[section]` was later added on top of that scope - see the
+        Dmail/messages entry below). `components/ui/DText.tsx` renders the AST: nested
+        `[quote]`, monospace `[code]`, `[list]`/`[*]`, tap-to-reveal `[spoiler]` (blurred until
+        clicked), `[b]/[i]/[u]/[s]/[sup]/[sub]/[tn]`, named `"label":url` and `[[wiki]]` links
+        (relative URLs resolved against `SITE_WEB_BASE_URL`) opened via `openUrl`, bare URLs, and
+        styled (non-interactive, matching the reference app) `@mentions`. Now used app-wide, not
+        just comments: `ProfilePanel`'s about/artist-info text, and a new Description section in
+        `InfoPanel` for `post.description` (the reference app itself skips DText there - a
+        deliberate improvement over it, not a divergence to flag as risky).
+      - **Edit/delete**: `update_comment`/`delete_comment` Tauri commands (PATCH/DELETE
+        `comments/:id.json`) - no prior art for these in the reference app (it has none), so the
+        `{comment: {body}}` PATCH wrapping follows this API's own established convention
+        (`CreateCommentRequest`) rather than a confirmed source. **Confidence caveat**: `update`'s
+        success path assumes the PATCH response body is the updated `Comment` JSON, same as
+        `create`/`vote`; if e621 actually returns an empty body, an edit that succeeded
+        server-side would still show as a failure in the UI until the comments panel is reopened
+        (a real signed-in edit is the way to confirm this one way or the other). Edit/delete only
+        show for comments whose `creator_id` matches the signed-in account's own id (from
+        `users/me.json`) - moderator-level permissions to edit/delete anyone's comment aren't
+        modeled.
+      - **Reply**: e621 comments have no server-side threading (confirmed: no `parent_id` in the
+        reference app's model, and its own forum-reply feature is flat too), so this is a
+        client-side DText `[quote]` insertion into the compose box (`{username} said:` + the
+        original body), same convention the real e621 website's own "Reply" link uses - not a
+        pattern that existed anywhere in the reference app already.
+      - **Report**: `report_comment` posts to e621ng's shared ticket system
+        (`tickets.json`, `{ticket: {disp_id, qtype: "comment", reason}}`). **Lowest-confidence
+        piece of this pass** - the reference app has zero reporting code anywhere (grepped for
+        "ticket", no matches), so this shape is inferred from the Danbooru-family API convention
+        generally, not verified against this codebase or a live call. Worth a real report
+        submission (or at least watching the network response) before trusting it.
+      - **Avatars**: `queries/useAvatarUrl.ts`'s `useAvatarUrl` (site, avatarId → image url) is
+        `ProfilePanel`'s original hook, extracted so it's shared; `useUserAvatarUrl` (site,
+        userId) adds the first hop (`users/:id.json` → `avatar_id`) for comments, which only carry
+        `creator_id`. Both hops are plain React Query hooks keyed by id, so - unlike the reference
+        app's own bespoke `AvatarRepository` (a hand-rolled `ConcurrentHashMap` cache, two
+        sequential per-user network calls with no batching) - repeat commenters and any user
+        already viewed via `ProfilePanel` cost at most one round trip each, shared across every
+        caller, for free from React Query's own cache. New `components/ui/Avatar.tsx` (circular,
+        person-glyph fallback) replaces `ProfilePanel`'s inline avatar markup and is now shared
+        with `CommentRow`. **Known simplification**: doesn't replicate the reference app's
+        permanently-hidden-post safety check (it re-verifies an avatar's source post isn't a
+        hidden post before showing its thumbnail) - a very old/deleted avatar could show a broken
+        image here instead of silently falling back.
+      - New `components/PostViewer/CommentRow.tsx` carries all of this per-comment (previously
+        inlined in `CommentsPanel.tsx`): avatar, DText body or edit textarea, vote arrows, and
+        reply/edit/delete/report controls, each gated the same way as the rest of this app's
+        write actions (disabled + "Sign in (Settings) to …" tooltip when signed out).
+      - Not yet live-tested, same as round 1 - this pass adds more surface (edit, delete, report,
+        DText rendering of real comment/profile/description content, avatar lookups) that all
+        still needs a real signed-in pass to confirm against the live API.
+- [x] **Phase 2: Dmail/messages** `MessagesPanel` (reached via a new shell Mail button, gated on
+      being signed in same as Favorites/Profile) - inbox list, detail view, and compose (new or
+      reply). Backend: `Dmail`/`CreateDmailRequest` models plus `get_dmails`/`get_dmail`/
+      `create_dmail` Tauri commands in `api.rs`/`models.rs`; `unread_dmail_count`/`has_mail` were
+      already on `UserProfile` (added earlier for Profile's own use, never surfaced in the UI
+      until now) so no model changes were needed there. Inbox pagination reuses the same `b<id>`
+      keyset-cursor convention as `usePostsQuery.ts`, without its blacklist-hop logic (an inbox
+      has nothing to filter) - see `useDmailsQuery.ts`. **Diverges from the reference app on
+      purpose**: the reference's `folder` query param (inbox vs. sent) exists in its API service
+      but the app itself never actually passes a non-default value anywhere, so this port skips
+      modeling `folder` at all rather than building a switch nobody asked for - same scope as
+      what's actually reachable in the reference app, not a cut corner.
+      - **Detail = read receipt**: e621 marks a dmail read as a side effect of `GET
+        dmails/:id.json`, same as the reference app documents. `MessageDetail`'s effect patches
+        the cached inbox row (`markDmailReadInCache`, mirroring `postCache.ts`'s
+        `updatePostInCache` pattern) and invalidates the signed-in account's profile query, so
+        both the inbox row and the shell's unread badge (`AppShell`'s new Mail button, sourced
+        from `App.tsx`'s own `useUserProfileQuery(site, "me", ..., 60_000)` - the `60_000` is a
+        new optional `refetchInterval` param on that hook, opt-in so it doesn't start polling
+        ProfilePanel's/CommentsPanel's existing "me" lookups) update immediately instead of
+        waiting for the next 60s poll.
+      - **Reply**: like comments, e621 dmails have no server-side threading, so this is a
+        prefilled compose (recipient locked, subject `Re: <original title>`) rather than a
+        real reply - same convention `MessageComposeScreen`'s `toEditable` flag already
+        establishes in the reference app, just ported field-for-field instead of invented here.
+      - **Body renders as DText** (`components/ui/DText.tsx`, already shared by comments/
+        profile text/post descriptions), reusing `useUserAvatarUrl` for the sender's avatar in
+        both the inbox row (`DmailRow.tsx`) and detail view.
+      - Not yet live-tested - sending a dmail, confirming the unread badge/read-receipt flow
+        against a real second account, and DText rendering of a real message body all still need
+        a signed-in pass (ideally with two accounts, so a sent message can be read back).
+- [x] **Fixed live: `[section]` unsupported by DText, showing as literal brackets** Found via a
+      real moderator feedback-record dmail (`TheGreatWolfgang created a neutral record for your
+      account...`), which e621 wraps in `[section=Title]...[/section]` to quote the relevant Code
+      of Conduct passage - the exact case the DText port's own scope note called out as
+      unsupported (matching the reference app, which doesn't handle it either). Real dmails/
+      feedback records use it often enough that the reference app's gap was worth closing here
+      rather than porting it as-is: `lib/dtext.ts`'s `splitBlockTags` (renamed from
+      `splitQuoteCode`, now generalized to a third region kind) recognizes `[section]`,
+      `[section=Title]`, `[section,expanded]`, and `[section=Title,expanded]`, nests and depth-
+      tracks the same way `[quote]` already did (just matched by tag *prefix* via a small
+      `matchFrom` regex-search helper, since `[section]`'s opening form is variable-length unlike
+      `[quote]`'s fixed string). `components/ui/DText.tsx`'s new `SectionBlock` renders it as a
+      collapsible region - collapsed by default, or open if the source used `,expanded` -
+      matching the click-to-reveal spirit `[spoiler]` already established here, with a
+      chevron-icon toggle rather than the emoji-glyph one this app's own visual-refresh pass
+      already moved away from elsewhere. (The same message's bare `* item` list lines, written
+      without a `[list]` wrapper, render as plain paragraph text starting with a literal `*` -
+      confirmed against the reference app's own `DText.kt`, which requires the same explicit
+      `[list]` wrapper and treats a bare `*` line the same way, so that part is working as
+      designed, not a second instance of this bug.)
+
+**Deferred to a later phase, not started:** Forum, encrypted backup/restore, on-disk image cache
+management UI, update checker.
 
 ## Running it
 

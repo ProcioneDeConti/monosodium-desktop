@@ -125,6 +125,34 @@ body {
   border-radius: calc(var(--radius-md) - 2px);
 }
 
+/* Slideshow mode (PostViewer.tsx) - the media wrapper is re-keyed on each post's id, replaying
+   whichever of these the user picked (or none) every time it advances. `slideshow-countdown`
+   drives the progress bar at the bottom of the slideshow control bar: a plain scaleX(1)->0 tween
+   whose `animation-duration` is set inline to the configured interval, restarted the same way
+   (re-keying on post id) and paused via `animation-play-state` when the user pauses. */
+@keyframes slideshow-slide {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+@keyframes slideshow-zoom {
+  from {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes slideshow-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
 /* Cooter easter egg (SearchBar.tsx / EasterEggDialog.tsx) - an infinitely scrolling ROYGBIV
    flag behind the egg image, same stripe colors as the reference app's RainbowStripeColors
    (shared there with its pull-to-refresh spinner). A repeating-linear-gradient background

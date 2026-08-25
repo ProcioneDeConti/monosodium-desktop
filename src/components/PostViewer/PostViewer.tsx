@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   ChevronLeft,
   ChevronRight,
   Download,
   Heart,
+  Minus,
+  Pause,
+  Play,
+  Plus,
+  Square,
   ThumbsDown,
   ThumbsUp,
   X,
@@ -16,12 +21,25 @@ import { ZoomableImage } from "./ZoomableImage";
 import { VideoPlayer } from "./VideoPlayer";
 import { TagsPanel } from "./TagsPanel";
 import { InfoPanel } from "./InfoPanel";
+import { CommentsPanel } from "./CommentsPanel";
 import { usePostMutations } from "../../queries/usePostMutations";
 import { useAccountStore } from "../../state/accountStore";
 import { useSettingsStore } from "../../state/settingsStore";
 import { matchingBlacklistTags, type BlacklistEntries } from "../../lib/blacklist";
+import {
+  MAX_SLIDESHOW_INTERVAL_SEC,
+  MIN_SLIDESHOW_INTERVAL_SEC,
+  SLIDESHOW_TRANSITIONS,
+} from "../../lib/slideshow";
 import { e621Api } from "../../api/client";
 import { IconButton } from "../ui/IconButton";
+
+const SLIDESHOW_TRANSITION_ANIMATION: Record<string, string> = {
+  fade: "animate-[fade-in_450ms_ease-out]",
+  slide: "animate-[slideshow-slide_450ms_ease-out]",
+  zoom: "animate-[slideshow-zoom_450ms_ease-out]",
+  none: "",
+};
 
 interface PostViewerProps {
   site: Site;
@@ -38,6 +56,8 @@ interface PostViewerProps {
   onExcludeTag: (tag: string) => void;
   onBlacklistTag: (tag: string) => void;
   onOpenProfile: (userId: number) => void;
+  slideshowActive: boolean;
+  onToggleSlideshow: () => void;
 }
 
 const LOAD_MORE_THRESHOLD = 6;
@@ -57,6 +77,8 @@ export function PostViewer({
   onExcludeTag,
   onBlacklistTag,
   onOpenProfile,
+  slideshowActive,
+  onToggleSlideshow,
 }: PostViewerProps) {
   const post = posts[index];
   const isAuthenticated = useAccountStore((s) => s.isAuthenticated(site));
@@ -65,9 +87,17 @@ export function PostViewer({
   const videoPlaybackSpeed = useSettingsStore((s) => s.videoPlaybackSpeed);
   const videoAutoplayEnabled = useSettingsStore((s) => s.videoAutoplayEnabled);
   const downloadDir = useSettingsStore((s) => s.downloadDir);
+  const slideshowIntervalSec = useSettingsStore((s) => s.slideshowIntervalSec);
+  const slideshowTransition = useSettingsStore((s) => s.slideshowTransition);
+  const setSlideshowIntervalSec = useSettingsStore((s) => s.setSlideshowIntervalSec);
+  const setSlideshowTransition = useSettingsStore((s) => s.setSlideshowTransition);
   const [downloadStatus, setDownloadStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
   );
+  const [slideshowPaused, setSlideshowPaused] = useState(false);
+  const [transitionMenuOpen, setTransitionMenuOpen] = useState(false);
+  const transitionMenuRef = useRef<HTMLDivElement>(null);
+  const [sidebarTab, setSidebarTab] = useState<"tags" | "comments">("tags");
 
   useEffect(() => {
     setDownloadStatus("idle");
@@ -110,15 +140,47 @@ export function PostViewer({
     }
   }, [index, posts.length, hasNextPage, onLoadMore]);
 
+  // Starting (or restarting) slideshow mode always resumes unpaused.
+  useEffect(() => {
+    if (slideshowActive) setSlideshowPaused(false);
+  }, [slideshowActive]);
+
+  // Auto-advance timer - restarts on every index/interval/pause change, so manual nav (arrow
+  // keys, the chevron buttons) naturally resets the countdown too. Runs out of posts and no more
+  // pages to load -> stop slideshow mode instead of sitting idle on the last post forever.
+  useEffect(() => {
+    if (!slideshowActive || slideshowPaused) return;
+    const timer = setTimeout(() => {
+      if (canGoNext) goNext();
+      else onToggleSlideshow();
+    }, slideshowIntervalSec * 1000);
+    return () => clearTimeout(timer);
+  }, [slideshowActive, slideshowPaused, index, slideshowIntervalSec, canGoNext, goNext, onToggleSlideshow]);
+
+  useEffect(() => {
+    if (!transitionMenuOpen) return;
+    function onOutside(e: MouseEvent) {
+      if (transitionMenuRef.current && !transitionMenuRef.current.contains(e.target as Node)) {
+        setTransitionMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [transitionMenuOpen]);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowLeft") goPrev();
       else if (e.key === "ArrowRight") goNext();
+      else if (e.key === " " && slideshowActive) {
+        e.preventDefault();
+        setSlideshowPaused((p) => !p);
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose, goPrev, goNext]);
+  }, [onClose, goPrev, goNext, slideshowActive]);
 
   const highlightedTags = useMemo(
     () => (post && blacklistDisabled ? matchingBlacklistTags(blacklistEntries, post) : new Set<string>()),
@@ -140,6 +202,19 @@ export function PostViewer({
           <X size={18} />
         </IconButton>
         <span className="text-sm opacity-70">#{post.id}</span>
+
+        <IconButton
+          tone="invert"
+          onClick={onToggleSlideshow}
+          title={slideshowActive ? "Stop slideshow" : "Start slideshow"}
+          className={slideshowActive ? "!text-[rgb(var(--accent))]" : ""}
+        >
+          {slideshowActive ? (
+            <Square size={16} className="fill-current" />
+          ) : (
+            <Play size={16} className="fill-current" />
+          )}
+        </IconButton>
 
         <div className="ml-auto flex items-center gap-0.5 rounded-[var(--radius-md)] bg-white/5 p-0.5">
           <IconButton
@@ -200,21 +275,123 @@ export function PostViewer({
           <ChevronLeft size={22} />
         </IconButton>
 
-        <div className="min-w-0 flex-1">
-          {deleted || !url ? (
-            <div className="flex h-full items-center justify-center text-sm text-white/60">
-              This post has been deleted.
+        <div className="relative min-w-0 flex-1 overflow-hidden">
+          <div
+            key={post.id}
+            className={`h-full w-full ${slideshowActive ? SLIDESHOW_TRANSITION_ANIMATION[slideshowTransition] : ""}`}
+          >
+            {deleted || !url ? (
+              <div className="flex h-full items-center justify-center text-sm text-white/60">
+                This post has been deleted.
+              </div>
+            ) : isVideo(post) ? (
+              <VideoPlayer
+                key={post.id}
+                src={url}
+                loopDefault={videoLoopEnabled}
+                speedDefault={videoPlaybackSpeed}
+                autoplayEnabled={videoAutoplayEnabled}
+              />
+            ) : (
+              <ZoomableImage key={post.id} src={url} alt={`Post ${post.id}`} />
+            )}
+          </div>
+
+          {slideshowActive && (
+            <div className="pointer-events-auto absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-gradient-to-t from-black/80 to-transparent px-3 pb-2 pt-6 text-white">
+              <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/15">
+                <div
+                  key={`${post.id}-${slideshowPaused}-${slideshowIntervalSec}`}
+                  className="h-full origin-left bg-[rgb(var(--accent))]"
+                  style={
+                    slideshowPaused
+                      ? { transform: "scaleX(1)" }
+                      : { animation: `slideshow-countdown ${slideshowIntervalSec}s linear` }
+                  }
+                />
+              </div>
+              <div className="flex items-center gap-3 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSlideshowPaused((p) => !p)}
+                  className="flex w-6 items-center justify-center rounded p-1 hover:bg-white/15"
+                  title={slideshowPaused ? "Resume" : "Pause (Space)"}
+                >
+                  {slideshowPaused ? (
+                    <Play size={14} className="fill-current" />
+                  ) : (
+                    <Pause size={14} className="fill-current" />
+                  )}
+                </button>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setSlideshowIntervalSec(slideshowIntervalSec - 1)}
+                    disabled={slideshowIntervalSec <= MIN_SLIDESHOW_INTERVAL_SEC}
+                    className="rounded p-1 hover:bg-white/15 disabled:opacity-30 disabled:pointer-events-none"
+                    title="Shorter interval"
+                  >
+                    <Minus size={12} />
+                  </button>
+                  <span className="w-8 text-center tabular-nums opacity-80">{slideshowIntervalSec}s</span>
+                  <button
+                    type="button"
+                    onClick={() => setSlideshowIntervalSec(slideshowIntervalSec + 1)}
+                    disabled={slideshowIntervalSec >= MAX_SLIDESHOW_INTERVAL_SEC}
+                    className="rounded p-1 hover:bg-white/15 disabled:opacity-30 disabled:pointer-events-none"
+                    title="Longer interval"
+                  >
+                    <Plus size={12} />
+                  </button>
+                </div>
+
+                <div className="relative" ref={transitionMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setTransitionMenuOpen((v) => !v)}
+                    className="rounded px-1.5 py-0.5 capitalize hover:bg-white/15"
+                    title="Transition"
+                  >
+                    {slideshowTransition}
+                  </button>
+                  {transitionMenuOpen && (
+                    <ul className="absolute bottom-full left-0 mb-1 w-28 overflow-hidden rounded-[var(--radius-sm)] bg-black/90 py-1 text-xs shadow-lg">
+                      {SLIDESHOW_TRANSITIONS.map((t) => (
+                        <li key={t.value}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSlideshowTransition(t.value);
+                              setTransitionMenuOpen(false);
+                            }}
+                            className={`block w-full px-3 py-1 text-left hover:bg-white/15 ${
+                              t.value === slideshowTransition ? "text-[rgb(var(--accent))]" : ""
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <span className="opacity-60 tabular-nums">
+                  {index + 1} / {posts.length}
+                  {hasNextPage ? "+" : ""}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={onToggleSlideshow}
+                  className="ml-auto rounded p-1 hover:bg-white/15"
+                  title="Stop slideshow"
+                >
+                  <Square size={14} />
+                </button>
+              </div>
             </div>
-          ) : isVideo(post) ? (
-            <VideoPlayer
-              key={post.id}
-              src={url}
-              loopDefault={videoLoopEnabled}
-              speedDefault={videoPlaybackSpeed}
-              autoplayEnabled={videoAutoplayEnabled}
-            />
-          ) : (
-            <ZoomableImage key={post.id} src={url} alt={`Post ${post.id}`} />
           )}
         </div>
 
@@ -230,18 +407,45 @@ export function PostViewer({
         <aside className="w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[rgb(20,20,20)]/95 px-3 py-3 text-white">
           <section className="mb-4">
             <h2 className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-60">Info</h2>
-            <InfoPanel post={post} onOpenProfile={onOpenProfile} />
+            <InfoPanel site={site} post={post} onOpenProfile={onOpenProfile} />
           </section>
           <section>
-            <h2 className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-60">Tags</h2>
-            <TagsPanel
-              post={post}
-              highlightedTags={highlightedTags}
-              onSearchTag={onSearchTag}
-              onAddTagToSearch={onAddTagToSearch}
-              onExcludeTag={onExcludeTag}
-              onBlacklistTag={onBlacklistTag}
-            />
+            <div className="mb-2 flex items-center gap-3 border-b border-white/10">
+              <button
+                type="button"
+                onClick={() => setSidebarTab("tags")}
+                className={`-mb-px border-b-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                  sidebarTab === "tags"
+                    ? "border-[rgb(var(--accent))] text-white"
+                    : "border-transparent opacity-60 hover:opacity-90"
+                }`}
+              >
+                Tags
+              </button>
+              <button
+                type="button"
+                onClick={() => setSidebarTab("comments")}
+                className={`-mb-px border-b-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                  sidebarTab === "comments"
+                    ? "border-[rgb(var(--accent))] text-white"
+                    : "border-transparent opacity-60 hover:opacity-90"
+                }`}
+              >
+                Comments{post.comment_count > 0 ? ` (${post.comment_count})` : ""}
+              </button>
+            </div>
+            {sidebarTab === "tags" ? (
+              <TagsPanel
+                post={post}
+                highlightedTags={highlightedTags}
+                onSearchTag={onSearchTag}
+                onAddTagToSearch={onAddTagToSearch}
+                onExcludeTag={onExcludeTag}
+                onBlacklistTag={onBlacklistTag}
+              />
+            ) : (
+              <CommentsPanel site={site} postId={post.id} onOpenProfile={onOpenProfile} />
+            )}
           </section>
         </aside>
       </div>
