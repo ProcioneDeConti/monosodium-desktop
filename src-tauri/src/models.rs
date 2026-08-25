@@ -366,6 +366,39 @@ pub struct Pool {
     pub post_count: i64,
 }
 
+/// https://e621.net/notes.json?search[post_id]=<id> - a translation/annotation box overlaid on
+/// a post's image. `x`/`y`/`width`/`height` are pixel coordinates against the post's *original*
+/// full-size image (`Post.file.width`/`height`), regardless of which resolution is actually being
+/// displayed - see `ZoomableImage.tsx` for how the frontend scales them to whatever's rendered.
+/// **Confidence caveat**: field names follow the general Danbooru-family note schema this API is
+/// derived from, not independently verified against a live e621 response - worth confirming on
+/// first real use, same caveat as `CreateTicketRequest`. View-only: creating/editing notes isn't
+/// implemented here.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PostNote {
+    pub id: i64,
+    #[serde(default)]
+    pub post_id: i64,
+    #[serde(default)]
+    pub x: i64,
+    #[serde(default)]
+    pub y: i64,
+    #[serde(default)]
+    pub width: i64,
+    #[serde(default)]
+    pub height: i64,
+    #[serde(default)]
+    pub body: String,
+    #[serde(default = "default_true")]
+    pub is_active: bool,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
 /// A single result from e621's live tag-autocomplete endpoint. `name` is always the
 /// canonical tag - when the search prefix matched via an alias, e621 already resolves it
 /// and reports the alias that matched in `antecedent_name`.

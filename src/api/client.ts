@@ -12,6 +12,7 @@ import type { CacheInfo } from "../models/cache";
 import type { UpdateCheckResult } from "../models/update";
 import type { ForumPost, ForumTopic } from "../models/forum";
 import type { Pool } from "../models/pool";
+import type { PostNote } from "../models/note";
 
 export interface SiteCredentials {
   username: string;
@@ -126,6 +127,10 @@ export const e621Api = {
 
   getPool(site: Site, id: number): Promise<Pool> {
     return invoke("get_pool", { site, id });
+  },
+
+  getPostNotes(site: Site, postId: number): Promise<PostNote[]> {
+    return invoke("get_post_notes", { site, postId });
   },
 
   getForumTopics(site: Site, page?: string): Promise<ForumTopic[]> {

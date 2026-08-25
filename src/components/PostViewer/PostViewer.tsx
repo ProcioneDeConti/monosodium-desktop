@@ -23,6 +23,7 @@ import { TagsPanel } from "./TagsPanel";
 import { InfoPanel } from "./InfoPanel";
 import { CommentsPanel } from "./CommentsPanel";
 import { usePostMutations } from "../../queries/usePostMutations";
+import { usePostNotesQuery } from "../../queries/usePostNotesQuery";
 import { useAccountStore } from "../../state/accountStore";
 import { useSettingsStore } from "../../state/settingsStore";
 import { matchingBlacklistTags, type BlacklistEntries } from "../../lib/blacklist";
@@ -83,6 +84,7 @@ export function PostViewer({
   onToggleSlideshow,
 }: PostViewerProps) {
   const post = posts[index];
+  const { data: notes } = usePostNotesQuery(site, post.id, post.has_notes);
   const isAuthenticated = useAccountStore((s) => s.isAuthenticated(site));
   const { vote, favorite, unfavorite } = usePostMutations(site);
   const videoLoopEnabled = useSettingsStore((s) => s.videoLoopEnabled);
@@ -295,7 +297,15 @@ export function PostViewer({
                 autoplayEnabled={videoAutoplayEnabled}
               />
             ) : (
-              <ZoomableImage key={post.id} src={url} alt={`Post ${post.id}`} />
+              <ZoomableImage
+                key={post.id}
+                src={url}
+                alt={`Post ${post.id}`}
+                site={site}
+                notes={notes}
+                imageWidth={post.file.width}
+                imageHeight={post.file.height}
+              />
             )}
           </div>
 

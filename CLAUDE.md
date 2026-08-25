@@ -603,6 +603,32 @@ checking off a pre-existing item.
       recursion - arbitrary depth for free, no dedicated navigation stack needed. Not yet
       live-tested - fetching a real pool, its posts landing in the correct order, and the nested-
       pool nesting case all still need a hands-on pass.
+- [x] **Phase 3: Post notes** Translation/annotation boxes overlaid on the image in `PostViewer`
+      (`ZoomableImage.tsx`'s new `NoteOverlay`) - like Pools, neither app has ever surfaced these
+      before; `has_notes` sat unused on `Post` since M2. Backend: `PostNote` model + a
+      `get_post_notes` command (`GET notes.json?search[post_id]=<id>`, public) in `api.rs`/
+      `models.rs` - **view-only**, no note creation/editing (a real write feature with its own
+      drag-to-create/resize-handle complexity that wasn't part of what was asked for). **Field
+      names carry the same confidence caveat as `CreateTicketRequest`**: inferred from the
+      general Danbooru-family note schema, not independently verified against a live e621
+      response.
+      - **Positioning is measured, not computed**: a note's `x`/`y`/`width`/`height` are pixel
+        coordinates against the post's *original* full-size image, but `ZoomableImage` displays
+        whatever resolution actually loaded, scaled to fit and further transformed by its own
+        wheel-zoom/drag-pan state. Rather than duplicating that transform math to place overlays,
+        `ZoomableImage` reads the `<img>` element's own `getBoundingClientRect()` (which already
+        reflects the applied CSS transform - the browser did the math) via a `useLayoutEffect`
+        keyed on `[loaded, scale, offset]`, then scales each note's coordinates by
+        `renderedWidth / imageWidth` - correct regardless of zoom/pan/`object-contain` fitting,
+        with no risk of the overlay math silently drifting out of sync with a future change to
+        the zoom/pan implementation.
+      - Numbered boxes (yellow outline, matching e621's own site convention) are click-to-reveal,
+        same spirit as `DText`'s `[spoiler]` tap-to-reveal, showing the note's DText-rendered body
+        in a small popover beneath the box.
+      - Not yet live-tested - overlay alignment on a real noted post (including after zooming/
+        panning, and on a post whose displayed resolution differs from its original) still needs
+        a hands-on pass; this is the one piece in this batch where a subtle math error would be
+        genuinely hard to catch from a code read alone.
 
 ## Running it
 
