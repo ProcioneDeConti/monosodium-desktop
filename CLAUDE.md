@@ -701,9 +701,9 @@ checking off a pre-existing item.
       would normally start a new search in the main grid instead open that search on the real
       e621 website in the OS browser, since there's no grid to run it in here and no reliable way
       to know whether a main window is even still open; opening a post's uploader profile or a
-      pool similarly opens the real website rather than an in-app panel. Not yet live-tested -
-      actually popping a window out, its own boot sequence, and the tag-action browser fallbacks
-      all still need a hands-on pass.
+      pool similarly opens the real website rather than an in-app panel. **Live-verified**
+      (confirmed by the user) - popping a window out and its own boot sequence both work; the
+      tag-action browser fallbacks specifically haven't come up yet.
 - [x] **Phase 3: Drag-and-drop reverse image search (SauceNAO)** The last of the brainstormed
       batch. Dragging a local image file onto the window (`App.tsx`'s `onDragDropEvent` listener,
       filtered to image extensions) opens `ReverseSearchPanel`, showing SauceNAO matches
