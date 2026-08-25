@@ -32,6 +32,7 @@ export interface SettingsBackup {
   downloadDir: string | null;
   slideshowIntervalSec: number;
   slideshowTransition: SlideshowTransition;
+  eulaAcceptedHash: string | null;
 }
 
 export function buildBackup(): SettingsBackup {
@@ -55,6 +56,7 @@ export function buildBackup(): SettingsBackup {
     downloadDir: settings.downloadDir,
     slideshowIntervalSec: settings.slideshowIntervalSec,
     slideshowTransition: settings.slideshowTransition,
+    eulaAcceptedHash: settings.eulaAcceptedHash,
   };
 }
 
@@ -84,6 +86,8 @@ export async function applyBackup(backup: SettingsBackup): Promise<void> {
   settings.setDownloadDir(backup.downloadDir);
   settings.setSlideshowIntervalSec(backup.slideshowIntervalSec);
   settings.setSlideshowTransition(backup.slideshowTransition);
+  // `?? null` for forward compatibility with a backup made before this field existed.
+  settings.setEulaAccepted(backup.eulaAcceptedHash ?? null);
 
   const accountStore = useAccountStore.getState();
   const tasks: Promise<void>[] = [];

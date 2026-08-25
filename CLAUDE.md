@@ -528,6 +528,30 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       live-tested - export/import round-tripping (with and without a password, including the
       wrong-password retry-in-place path) all still need a hands-on pass.
 
+- [x] **EULA** A first-launch gate (`components/Eula/EulaScreen.tsx`, wired in at the very top of
+      `App.tsx` - replaces the entire app, not just its content area, until agreed) plus a
+      read-only re-display from `Settings > Legal` (`EulaReadOnlyDialog.tsx`). Not something
+      CLAUDE.md's own Progress list had queued - the user asked for it directly, "exactly as it
+      is in the Android app," so this is a literal port rather than an adapted one: `assets/
+      eula.txt` is the reference app's own `res/raw/eula.txt` copied verbatim (same legal text,
+      "mobile application" phrasing and all - deliberately not reworded for desktop, since the
+      instruction was fidelity to the source, not a rewrite), and `lib/eula.ts`'s `eulaHash`
+      reimplements Java/Kotlin's exact `String.hashCode()` algorithm (`Math.imul` for the correct
+      32-bit signed overflow) rather than using any JS-native hash, so a locally-computed
+      fingerprint matches what the Kotlin `text.hashCode().toString()` this replaces would
+      produce for the same text. `eulaAcceptedHash` lives in `state/settingsStore.ts` (persisted,
+      and now included in `lib/backup.ts`'s backup shape too, matching the reference app's own
+      `SettingsBackup.eulaAcceptedHash` - restoring a backup shouldn't re-prompt an already-agreed
+      user) and gates `App.tsx`'s render: mismatched or absent shows `EulaScreen` (scroll to the
+      bottom to enable Agree; Disagree shows an error and calls `@tauri-apps/plugin-process`'s
+      `exit()` after 3 seconds, same as the reference app's `finishAffinity()`), matching shows
+      the normal app. **Deliberately excluded**: the reference app's "What's New" dialog and
+      `lastSeenVersionCode` tracking, which live in the same `MainActivity`/`SettingsViewModel`
+      files as the EULA gate but are a separate changelog feature the user didn't ask for - only
+      the EULA gate itself was ported. Not yet live-tested - the disagree-then-exit path and a
+      restored-backup's `eulaAcceptedHash` correctly skipping the gate both still need a hands-on
+      pass.
+
 **Deferred to a later phase, not started:** Forum.
 
 ## Running it

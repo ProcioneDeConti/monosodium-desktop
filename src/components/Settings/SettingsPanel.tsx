@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getVersion } from "@tauri-apps/api/app";
-import { FolderOpen, X } from "lucide-react";
+import { CheckCircle2, FolderOpen, X } from "lucide-react";
 import {
   DEFAULT_THUMBNAIL_SIZE_PX,
   MAX_VIDEO_SPEED,
@@ -18,6 +18,7 @@ import { BlacklistSection } from "./BlacklistSection";
 import { BackupSection } from "./BackupSection";
 import { CacheSection } from "./CacheSection";
 import { UpdateSection } from "./UpdateSection";
+import { EulaReadOnlyDialog } from "../Eula/EulaReadOnlyDialog";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Section } from "../ui/Section";
@@ -51,6 +52,7 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   // rendered while open) - mirrors the reference Android app's nav drawer, which re-rolls its
   // greeting every time it's opened rather than keeping the same one all session.
   const [greeting] = useState(randomGreeting);
+  const [showEula, setShowEula] = useState(false);
   const adultModeEnabled = useSettingsStore((s) => s.adultModeEnabled);
   const setAdultModeEnabled = useSettingsStore((s) => s.setAdultModeEnabled);
   const enabledRatings = useSettingsStore((s) => s.enabledRatings);
@@ -259,6 +261,16 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
             <CacheSection />
           </Section>
 
+          <Section title="Legal">
+            <div className="flex items-center gap-2 text-sm">
+              <CheckCircle2 size={16} className="text-[rgb(var(--accent))]" />
+              User has agreed to EULA
+            </div>
+            <Button onClick={() => setShowEula(true)} className="mt-2">
+              Read EULA Again
+            </Button>
+          </Section>
+
           <Section title="Updates">
             <UpdateSection />
           </Section>
@@ -266,6 +278,8 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
           <CreditsFooter />
         </div>
       </div>
+
+      {showEula && <EulaReadOnlyDialog onClose={() => setShowEula(false)} />}
     </div>
   );
 }

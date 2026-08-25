@@ -7,6 +7,7 @@ import { SettingsPanel } from "./components/Settings/SettingsPanel";
 import { ProfilePanel } from "./components/Profile/ProfilePanel";
 import { SavedSearchesPanel } from "./components/SavedSearches/SavedSearchesPanel";
 import { MessagesPanel } from "./components/Messages/MessagesPanel";
+import { EulaScreen } from "./components/Eula/EulaScreen";
 import { Button } from "./components/ui/Button";
 import { Spinner } from "./components/ui/Spinner";
 import { usePostsQuery } from "./queries/usePostsQuery";
@@ -17,6 +18,7 @@ import { loadSavedSearches } from "./state/savedSearchesStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
 import { hexToRgbTriplet } from "./lib/color";
 import { cacheTagCategory } from "./lib/tagCategoryCache";
+import { CURRENT_EULA_HASH } from "./lib/eula";
 import { categorizedTags } from "./models/post";
 
 function App() {
@@ -44,6 +46,8 @@ function App() {
   const adultModeEnabled = useSettingsStore((s) => s.adultModeEnabled);
   const enabledRatings = useSettingsStore((s) => s.enabledRatings);
   const account = useAccountStore((s) => s.accounts[site]);
+  const eulaAcceptedHash = useSettingsStore((s) => s.eulaAcceptedHash);
+  const setEulaAccepted = useSettingsStore((s) => s.setEulaAccepted);
 
   // Backs AppShell's Messages badge - shares its cache/query key with ProfilePanel's own-profile
   // fetch, just with polling turned on here so the badge stays current without opening Settings.
@@ -115,6 +119,14 @@ function App() {
 
   function addTagToBlacklist(tag: string) {
     setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`);
+  }
+
+  // First-launch (and re-launch-after-a-EULA-text-change) gate - replaces the entire app, not
+  // just its content area, matching the reference app's own EulaScreen/MainActivity wiring.
+  // Waits for `booted` so a not-yet-hydrated store's default `null` hash doesn't flash the EULA
+  // for a frame even for an already-agreed user.
+  if (booted && eulaAcceptedHash !== CURRENT_EULA_HASH) {
+    return <EulaScreen onAgree={() => setEulaAccepted(CURRENT_EULA_HASH)} />;
   }
 
   return (

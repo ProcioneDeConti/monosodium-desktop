@@ -43,6 +43,9 @@ interface SettingsState {
   downloadDir: string | null;
   slideshowIntervalSec: number;
   slideshowTransition: SlideshowTransition;
+  /** The hash (see lib/eula.ts) of whichever EULA text was last agreed to; null means never
+   *  agreed. Compared against CURRENT_EULA_HASH to gate the app behind EulaScreen. */
+  eulaAcceptedHash: string | null;
 
   setSite: (site: Site) => void;
   setEnabledRatings: (ratings: Rating[]) => void;
@@ -57,6 +60,8 @@ interface SettingsState {
   setDownloadDir: (dir: string | null) => void;
   setSlideshowIntervalSec: (seconds: number) => void;
   setSlideshowTransition: (transition: SlideshowTransition) => void;
+  /** Pass the hash of the EULA text just agreed to, or null to clear (un-accept). */
+  setEulaAccepted: (hash: string | null) => void;
 
   /** e621 search syntax: leading `~` ORs ratings together; one enabled rating needs none; all enabled means no filter. */
   ratingTagFilter: () => string | null;
@@ -95,6 +100,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   downloadDir: null,
   slideshowIntervalSec: DEFAULT_SLIDESHOW_INTERVAL_SEC,
   slideshowTransition: DEFAULT_SLIDESHOW_TRANSITION,
+  eulaAcceptedHash: null,
 
   setSite: (site) => {
     set({ site });
@@ -147,6 +153,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ slideshowTransition });
     void persist("slideshowTransition", slideshowTransition);
   },
+  setEulaAccepted: (eulaAcceptedHash) => {
+    set({ eulaAcceptedHash });
+    void persist("eulaAcceptedHash", eulaAcceptedHash);
+  },
 
   ratingTagFilter: () => {
     const { adultModeEnabled, enabledRatings } = get();
@@ -181,6 +191,7 @@ export async function loadSettings(): Promise<void> {
         (values.slideshowIntervalSec as number) ?? state.slideshowIntervalSec,
       slideshowTransition:
         (values.slideshowTransition as SlideshowTransition) ?? state.slideshowTransition,
+      eulaAcceptedHash: (values.eulaAcceptedHash as string | null) ?? state.eulaAcceptedHash,
       isLoaded: true,
     };
   });

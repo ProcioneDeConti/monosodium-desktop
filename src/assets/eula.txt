@@ -1,0 +1,37 @@
+END USER LICENSE AGREEMENT (EULA)
+[Last updated: 8/7/2026]
+
+This End User License Agreement ("Agreement") is a binding legal contract between you ("User") and Alias: Procione DeConti ("Developer") governing your use of this mobile application ("App"). By downloading, installing, or using the App, you agree to be bound by the terms of this Agreement.
+
+AGE RESTRICTION AND LEGAL CAPACITY
+By downloading, installing, or using this App, you explicitly represent and warrant that you are at least 18 years of age, or the legal age of majority in your jurisdiction, whichever is greater. You further affirm that you possess the legal capacity to enter into, or agree to, binding contracts and are legally permitted to view adult content under the laws applicable to you. If you do not meet these requirements, you are prohibited from using the App and must immediately uninstall it.
+
+OPEN SOURCE MODIFICATION AND REDISTRIBUTION
+The source code for this App is provided openly. You are granted the freedom to use, modify, alter, create derivative works from, and redistribute the App or its source code as you see fit. However, as an express condition of this permission, you must retain, strictly unaltered and intact, all original copyright notices, author attributions (including "Alias: Procione DeConti"), and this permission notice in all copies, modified versions, or substantial portions of the software.
+
+1. LICENSE GRANT
+Developer grants you a revocable, non-exclusive, non-transferable, limited license to download, install, and use the App for your personal, non-commercial purposes strictly in accordance with this Agreement.
+
+2. THIRD-PARTY SERVICES & CONTENT
+The App interfaces with the official e621 API, using official, sanctioned API calls to fetch, display, POST, PATCH, or GET (or any other HTTP-standard server/website/web app command) third-party content, or content created by you. Developer has no control over, does not endorse, and assumes no responsibility for the nature, legality, or quality of the content provided by e621, or provided by you. You acknowledge that you access and view such content entirely at your own risk and must adhere to e621's own Terms of Service. The developer does not make any claims to your content you may post, including, but not limited to: comments, media, jokes, forum posts, or ideas. Your property remains your property, in perpetuity.
+
+3. MOBILE DATA & CARRIER CHARGES
+This App requires an active internet connection to function and may use significant amounts of mobile data to retrieve images and media. You are solely responsible for any mobile data, roaming, or other carrier charges incurred during its use.
+
+4. DISCLAIMER OF WARRANTIES
+The App is provided "AS IS" and "AS AVAILABLE" without warranties of any kind, whether express or implied. Developer explicitly disclaims all warranties, including but not limited to implied warranties of merchantability, fitness for a particular purpose, and non-infringement.
+
+5. LIMITATION OF LIABILITY
+To the maximum extent permitted by applicable law, in no event shall Alias: Procione DeConti, their affiliates, partners, or any of their interests be held liable for any direct, indirect, incidental, special, consequential, or punitive damages arising out of or related to your use of, or inability to use, the App. This includes, without limitation, damages for hardware failure, data loss, or emotional distress, regardless of whether Developer was advised of the possibility of such damages.
+
+6. INDEMNIFICATION
+You agree to indemnify, defend, and hold harmless Developer and their interests from and against any and all claims, damages, obligations, losses, liabilities, costs, or debt, and expenses (including but not limited to attorney's fees) arising from: (a) your use of and access to the App; (b) your violation of any term of this Agreement; or (c) your violation of any third-party right, including without limitation any copyright, property, or privacy right.
+
+7. TERMINATION
+Developer reserves the right to terminate this Agreement and suspend or revoke your access to the App at any time, without notice or liability, for any reason whatsoever.
+
+8. GOVERNING LAW
+This Agreement shall be governed by and construed in accordance with applicable state and federal laws, excluding its conflicts of law rules.
+
+9. DATA PRIVACY AND TELEMETRY
+Developer respects your privacy. The App does not collect, track, store, or transmit any telemetry data, usage analytics, or personal data stored on your device. This prohibition applies at all times, including both when you are actively using the App and when the App is running idle in the background. Developer does not access, harvest, or share your personal files, device identifiers, or location data. Any information processed by the App is strictly limited to the local data required to interface with the e621 API and display your requested content.
