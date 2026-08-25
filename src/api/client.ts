@@ -9,6 +9,7 @@ import type { TagSuggestion, UserProfile, VoteResponse, FavoriteResponse } from 
 import type { Comment } from "../models/comment";
 import type { Dmail } from "../models/dmail";
 import type { CacheInfo } from "../models/cache";
+import type { UpdateCheckResult } from "../models/update";
 
 export interface SiteCredentials {
   username: string;
@@ -102,6 +103,12 @@ export const e621Api = {
   /** Doesn't clear immediately - marks the cache for deletion at the next launch. */
   requestCacheClear(): Promise<void> {
     return invoke("request_cache_clear");
+  },
+
+  /** Manual-only (Settings > Updates) - checks this app's own GitHub repo, wholly separate from
+   *  the rate-limited e621 client (see src-tauri/src/update_check.rs's doc comment). */
+  checkForUpdate(): Promise<UpdateCheckResult> {
+    return invoke("check_for_update");
   },
 
   healthCheck(site: Site): Promise<void> {

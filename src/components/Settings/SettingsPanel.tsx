@@ -16,6 +16,7 @@ import { randomGreeting } from "../../lib/greetings";
 import { SiteAccountCard } from "./SiteAccountCard";
 import { BlacklistSection } from "./BlacklistSection";
 import { CacheSection } from "./CacheSection";
+import { UpdateSection } from "./UpdateSection";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Section } from "../ui/Section";
@@ -251,6 +252,10 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
 
           <Section title="Cache">
             <CacheSection />
+          </Section>
+
+          <Section title="Updates">
+            <UpdateSection />
           </Section>
 
           <CreditsFooter />

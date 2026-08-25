@@ -480,7 +480,29 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       README's clone instructions were updated to match (`gh repo rename` renames the repo
       server-side but doesn't touch a local clone's remote URL itself).
 
-**Deferred to a later phase, not started:** Forum, encrypted backup/restore, update checker.
+- [x] **Update checker** `Settings > Updates` (`components/Settings/UpdateSection.tsx`) - a manual
+      "Check for updates" button (never automatic, matching the reference app's own reasoning:
+      GitHub's unauthenticated API is rate limited 60/hour *per IP*, not per install, and many
+      users could share one IP), showing an "Update available: vX.Y.Z" link (opens the GitHub
+      release page) or "You're up to date", plus GitHub's remaining-rate-limit count when the
+      response includes it. `src-tauri/src/update_check.rs` hits
+      `api.github.com/repos/ProcioneDeConti/monosodium-desktop/releases/latest` directly via
+      `state.http` - wholly separate from `api.rs`'s rate-limited/Basic-Auth `request()` helper,
+      since GitHub is a completely different host with its own unrelated quota (same "wholly
+      separate" rationale the reference app's own `GitHubClient` doc comment gives). **Checks
+      this app's own repo, not the reference Android app's** (`ProcioneDeConti/MonosodiumPDC`,
+      what the Kotlin `UpdateCheckRepository` this was ported from actually points at) - a
+      desktop build has to compare itself against desktop releases, not the Android app's. Also
+      simplified relative to the reference app: no local rate-limit estimate fallback for when
+      GitHub's `X-RateLimit-*` headers are absent (rare edge case), and rate-limit info isn't
+      surfaced on a failed check specifically (only on success) - both traded off for a plain
+      `Result<T, String>` return matching every other command in this codebase, rather than a
+      Kotlin-style always-on separate rate-limit `StateFlow`. Not yet live-tested - a real v1.0.0
+      release already exists at the target repo, so a check right now should correctly report
+      "up to date" (this app's own version has since moved past it), but the "update available"
+      path itself still needs a newer release actually published to confirm end to end.
+
+**Deferred to a later phase, not started:** Forum, encrypted backup/restore.
 
 ## Running it
 

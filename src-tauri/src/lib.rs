@@ -5,6 +5,7 @@ mod downloads;
 mod models;
 mod rate_limit;
 mod site;
+mod update_check;
 
 use tauri::Manager;
 
@@ -49,6 +50,7 @@ pub fn run() {
             cache::get_cache_info,
             cache::set_cache_limit_mb,
             cache::request_cache_clear,
+            update_check::check_for_update,
             downloads::download_post_file,
             credentials::save_credentials,
             credentials::load_credentials,
