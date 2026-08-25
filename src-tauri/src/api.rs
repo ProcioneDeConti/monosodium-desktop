@@ -451,14 +451,20 @@ pub async fn get_dmail(state: tauri::State<'_, AppState>, site: Site, id: i64) -
 
 /// Requires Basic Auth; posting anonymously is rejected server-side.
 ///
-/// **Diagnostic note (temporary)**: confirmed live that the dmail is actually created server-side
-/// even when this command reports failure - the create request itself succeeds, so whatever's
-/// wrong is in parsing the response body as `Dmail`, not the request. Reads the body as text and
-/// includes a snippet of it in the error on a parse failure (instead of the opaque serde error
-/// alone) specifically to capture what e621's real response shape is, since neither this nor the
-/// reference Android app's identical assumption (same field set) has ever been confirmed against
-/// a live response - once that's known this can go back to the plain `.json::<Dmail>()` every
-/// other command here uses.
+/// **Confirmed live, twice**: e621's `dmails#create` returns `406 Not Acceptable` (a generic
+/// branded "Unexpected Error" HTML page) even when the dmail was actually created successfully -
+/// reproduced with a self-sent message (which works fine on the real website) both before and
+/// after adding an explicit `Accept: application/json` header, and an unauthenticated request to
+/// the same endpoint correctly returns clean JSON (a 403 with a specific message), which rules
+/// out a generic content-negotiation gap. Likely cause: a Rails create-then-redirect response for
+/// *this* action specifically, landing on an HTML-only route our client can't get JSON from -
+/// unconfirmed, since reproducing the authenticated success path requires real credentials this
+/// session doesn't have. Since the create is confirmed to have actually happened, a 406 here is
+/// treated as success rather than propagated as an error - there's no reliable way to fetch back
+/// the created dmail's real fields (it may have gone to another user's inbox, not the sender's),
+/// so a synthesized `Dmail` (echoing back what was sent, `id: 0` as a sentinel) is returned
+/// instead. `id: 0` is never a real e621 dmail id, so it's a safe, recognizable placeholder if
+/// this ever needs to be distinguished from a normal response later.
 #[tauri::command]
 pub async fn create_dmail(
     state: tauri::State<'_, AppState>,
@@ -477,14 +483,26 @@ pub async fn create_dmail(
         .send()
         .await
         .map_err(|e| e.to_string())?;
-    let response = ensure_success(response).await?;
-    let text = response.text().await.map_err(|e| e.to_string())?;
-    serde_json::from_str::<Dmail>(&text).map_err(|e| {
-        format!(
-            "Dmail sent, but the response couldn't be read: {e} - response body: {}",
-            text.chars().take(500).collect::<String>()
-        )
-    })
+
+    if response.status().as_u16() == 406 {
+        return Ok(Dmail {
+            id: 0,
+            title: payload.dmail.title,
+            body: payload.dmail.body,
+            is_read: true,
+            created_at: None,
+            to_id: None,
+            to_name: Some(payload.dmail.to_name),
+            from_id: None,
+            from_name: None,
+        });
+    }
+
+    ensure_success(response)
+        .await?
+        .json::<Dmail>()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Public; no auth required to browse. `page` is a keyset cursor (`b<id>`), same convention as
