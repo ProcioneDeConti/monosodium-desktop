@@ -608,10 +608,10 @@ checking off a pre-existing item.
       before; `has_notes` sat unused on `Post` since M2. Backend: `PostNote` model + a
       `get_post_notes` command (`GET notes.json?search[post_id]=<id>`, public) in `api.rs`/
       `models.rs` - **view-only**, no note creation/editing (a real write feature with its own
-      drag-to-create/resize-handle complexity that wasn't part of what was asked for). **Field
-      names carry the same confidence caveat as `CreateTicketRequest`**: inferred from the
-      general Danbooru-family note schema, not independently verified against a live e621
-      response.
+      drag-to-create/resize-handle complexity that wasn't part of what was asked for). Field
+      names were inferred from the general Danbooru-family note schema (same caveat
+      `CreateTicketRequest` carries) - **confirmed correct live**, a real noted post's boxes
+      rendered and revealed their text properly.
       - **Positioning is measured, not computed**: a note's `x`/`y`/`width`/`height` are pixel
         coordinates against the post's *original* full-size image, but `ZoomableImage` displays
         whatever resolution actually loaded, scaled to fit and further transformed by its own
@@ -625,10 +625,9 @@ checking off a pre-existing item.
       - Numbered boxes (yellow outline, matching e621's own site convention) are click-to-reveal,
         same spirit as `DText`'s `[spoiler]` tap-to-reveal, showing the note's DText-rendered body
         in a small popover beneath the box.
-      - Not yet live-tested - overlay alignment on a real noted post (including after zooming/
-        panning, and on a post whose displayed resolution differs from its original) still needs
-        a hands-on pass; this is the one piece in this batch where a subtle math error would be
-        genuinely hard to catch from a code read alone.
+      - **Live-verified** - overlay alignment confirmed correct on a real noted post; the
+        `getBoundingClientRect()`-based positioning approach (rather than duplicating
+        `ZoomableImage`'s own zoom/pan transform math) paid off exactly as intended.
 - [x] **Phase 3: Post reporting** A Flag button in `PostViewer`'s toolbar (`ReportPostButton.tsx`,
       a popover form - same outside-click/Escape convention as `AppShell`'s slideshow menu)
       files a moderation ticket against a post. Comments already had this (`CommentRow.tsx`,
