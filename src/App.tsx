@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { AppShell } from "./components/shell/AppShell";
 import { PostGrid } from "./components/PostGrid/PostGrid";
 import { PostViewer } from "./components/PostViewer/PostViewer";
@@ -9,6 +10,7 @@ import { SavedSearchesPanel } from "./components/SavedSearches/SavedSearchesPane
 import { MessagesPanel } from "./components/Messages/MessagesPanel";
 import { ForumPanel } from "./components/Forum/ForumPanel";
 import { PoolPanel } from "./components/Pool/PoolPanel";
+import { ReverseSearchPanel } from "./components/ReverseSearch/ReverseSearchPanel";
 import { EulaScreen } from "./components/Eula/EulaScreen";
 import { Button } from "./components/ui/Button";
 import { Spinner } from "./components/ui/Spinner";
@@ -17,6 +19,7 @@ import { useUserProfileQuery } from "./queries/useUserProfileQuery";
 import { loadSettings, useSettingsStore } from "./state/settingsStore";
 import { loadAllAccounts, useAccountStore } from "./state/accountStore";
 import { loadSavedSearches } from "./state/savedSearchesStore";
+import { useSaucenaoStore } from "./state/saucenaoStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
 import { hexToRgbTriplet } from "./lib/color";
 import { cacheTagCategory } from "./lib/tagCategoryCache";
@@ -35,9 +38,28 @@ function App() {
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [forumOpen, setForumOpen] = useState(false);
   const [poolTarget, setPoolTarget] = useState<number | null>(null);
+  const [droppedImagePath, setDroppedImagePath] = useState<string | null>(null);
+  const saucenaoApiKey = useSaucenaoStore((s) => s.apiKey);
 
   useEffect(() => {
-    Promise.all([loadSettings(), loadAllAccounts(), loadSavedSearches()]).finally(() => setBooted(true));
+    Promise.all([
+      loadSettings(),
+      loadAllAccounts(),
+      loadSavedSearches(),
+      useSaucenaoStore.getState().load(),
+    ]).finally(() => setBooted(true));
+  }, []);
+
+  // Drag-and-drop reverse image search - Tauri's native drag-drop event hands over local file
+  // system paths directly (unlike the browser's own HTML5 File API), so this never needs to read
+  // file bytes in JS at all; src-tauri/src/saucenao.rs reads the file itself from that path.
+  useEffect(() => {
+    const unlisten = getCurrentWebview().onDragDropEvent((event) => {
+      if (event.payload.type !== "drop") return;
+      const path = event.payload.paths.find((p) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(p));
+      if (path) setDroppedImagePath(path);
+    });
+    return () => void unlisten.then((f) => f());
   }, []);
 
   const site = useSettingsStore((s) => s.site);
@@ -290,6 +312,14 @@ function App() {
           onClose={() => setPoolTarget(null)}
           onSearch={runNewSearch}
           onOpenProfile={(id) => setProfileTarget(id)}
+        />
+      )}
+
+      {droppedImagePath && (
+        <ReverseSearchPanel
+          filePath={droppedImagePath}
+          apiKey={saucenaoApiKey}
+          onClose={() => setDroppedImagePath(null)}
         />
       )}
     </AppShell>

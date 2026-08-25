@@ -5,6 +5,7 @@ mod credentials;
 mod downloads;
 mod models;
 mod rate_limit;
+mod saucenao;
 mod site;
 mod update_check;
 
@@ -140,6 +141,10 @@ pub fn run() {
             credentials::save_credentials,
             credentials::load_credentials,
             credentials::delete_credentials,
+            credentials::save_saucenao_key,
+            credentials::load_saucenao_key,
+            credentials::delete_saucenao_key,
+            saucenao::reverse_image_search,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

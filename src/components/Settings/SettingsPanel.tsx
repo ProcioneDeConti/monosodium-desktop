@@ -19,6 +19,7 @@ import { BackupSection } from "./BackupSection";
 import { CacheSection } from "./CacheSection";
 import { UpdateSection } from "./UpdateSection";
 import { EulaReadOnlyDialog } from "../Eula/EulaReadOnlyDialog";
+import { SaucenaoSection } from "./SaucenaoSection";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Section } from "../ui/Section";
@@ -255,6 +256,10 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
 
           <Section title="Backup & Restore">
             <BackupSection />
+          </Section>
+
+          <Section title="Reverse Image Search">
+            <SaucenaoSection />
           </Section>
 
           <Section title="Cache">

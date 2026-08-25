@@ -703,6 +703,34 @@ checking off a pre-existing item.
       pool similarly opens the real website rather than an in-app panel. Not yet live-tested -
       actually popping a window out, its own boot sequence, and the tag-action browser fallbacks
       all still need a hands-on pass.
+- [x] **Phase 3: Drag-and-drop reverse image search (SauceNAO)** The last of the brainstormed
+      batch. Dragging a local image file onto the window (`App.tsx`'s `onDragDropEvent` listener,
+      filtered to image extensions) opens `ReverseSearchPanel`, showing SauceNAO matches
+      (thumbnail, similarity %, and every source URL it returned) - desktop-native, no
+      counterpart in the reference app since drag-and-drop isn't a mobile interaction at all.
+      **Uses Tauri's own native drag-drop event, not the browser's HTML5 File API on purpose**:
+      Tauri's version hands over local file system *paths* directly, so `src-tauri/src/
+      saucenao.rs`'s `reverse_image_search` command can read the file and build the multipart
+      upload entirely server-side - no need to read file bytes in JS and ship them across the IPC
+      bridge as a serialized byte array. Wholly separate from `api.rs`'s e621/e6AI `request()`
+      helper, same "different host, different unrelated rate limit" reasoning as the update
+      checker and the ticket-report endpoints. **Confidence caveat**: SauceNAO's JSON response
+      shape varies its `data` object by which index matched (booru vs. Pixiv vs. Twitter, ...) -
+      deserialized loosely via `serde_json::Value`, pulling only the handful of broadly-common
+      fields (`similarity`, `thumbnail`, `title`, `ext_urls`) rather than a struct this app has no
+      way to enumerate exhaustively; not independently verified against a live response.
+      **The API key choice was confirmed with the user directly** (SauceNAO over e621's own
+      built-in IQDB search) before building this, since it means requiring your own API key for a
+      good rate limit rather than a keyless, e621-only alternative - works without one too, just
+      more rate-limited. The key itself goes through Windows Credential Manager
+      (`credentials.rs`'s new `save`/`load`/`delete_saucenao_key`, `state/saucenaoStore.ts`),
+      same treatment as e621/e6AI credentials - not the plain settings.json store, and not part
+      of `lib/backup.ts`'s snapshot either, both on purpose (a third-party secret, not an e621
+      one). Not yet live-tested - dropping a real image, a real SauceNAO response actually
+      matching the loosely-typed extraction above, and the with-and-without-API-key paths all
+      still need a hands-on pass.
+
+All eleven items from the user's brainstormed post-Phase-2 list are now done.
 
 ## Running it
 

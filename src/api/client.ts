@@ -14,6 +14,7 @@ import type { ForumPost, ForumTopic } from "../models/forum";
 import type { Pool } from "../models/pool";
 import type { PostNote } from "../models/note";
 import type { WikiPage } from "../models/wiki";
+import type { SauceResult } from "../models/saucenao";
 
 export interface SiteCredentials {
   username: string;
@@ -189,5 +190,21 @@ export const e621Api = {
 
   deleteCredentials(site: Site): Promise<void> {
     return invoke("delete_credentials", { site });
+  },
+
+  saveSaucenaoKey(apiKey: string): Promise<void> {
+    return invoke("save_saucenao_key", { apiKey });
+  },
+
+  loadSaucenaoKey(): Promise<string | null> {
+    return invoke("load_saucenao_key");
+  },
+
+  deleteSaucenaoKey(): Promise<void> {
+    return invoke("delete_saucenao_key");
+  },
+
+  reverseImageSearch(apiKey: string | null, filePath: string): Promise<SauceResult[]> {
+    return invoke("reverse_image_search", { apiKey, filePath });
   },
 };
