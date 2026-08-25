@@ -673,9 +673,10 @@ checking off a pre-existing item.
       `lib/notifications.ts`) fire for new dmail/forum activity, reusing `App.tsx`'s existing
       60s-polled "me" profile query rather than a dedicated one - gated on `document.hasFocus()`
       being false, so a user already looking at the app doesn't get a redundant popup on top of
-      the shell's own badges. Not yet live-tested - the hotkey actually registering globally, the
-      tray icon/menu, close-to-tray, and a real notification firing while unfocused all still
-      need a hands-on pass; none of this can be exercised via `cargo check` alone.
+      the shell's own badges. **The tray icon/menu is live-verified** (confirmed by the user)
+      - not yet tested: the hotkey actually registering globally, close-to-tray specifically, and
+      a real notification firing while unfocused; none of this can be exercised via `cargo check`
+      alone.
 - [x] **Phase 3: Pop a post into its own window** `PostViewer`'s new `AppWindow` toolbar button
       opens the current post in a standalone OS window (`@tauri-apps/api/webviewWindow`'s
       `WebviewWindow`, no new Tauri command needed - created straight from JS) - multi-window
