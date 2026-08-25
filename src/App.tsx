@@ -8,6 +8,7 @@ import { ProfilePanel } from "./components/Profile/ProfilePanel";
 import { SavedSearchesPanel } from "./components/SavedSearches/SavedSearchesPanel";
 import { MessagesPanel } from "./components/Messages/MessagesPanel";
 import { ForumPanel } from "./components/Forum/ForumPanel";
+import { PoolPanel } from "./components/Pool/PoolPanel";
 import { EulaScreen } from "./components/Eula/EulaScreen";
 import { Button } from "./components/ui/Button";
 import { Spinner } from "./components/ui/Spinner";
@@ -32,6 +33,7 @@ function App() {
   const [savedSearchesOpen, setSavedSearchesOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [forumOpen, setForumOpen] = useState(false);
+  const [poolTarget, setPoolTarget] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([loadSettings(), loadAllAccounts(), loadSavedSearches()]).finally(() => setBooted(true));
@@ -210,6 +212,7 @@ function App() {
           onExcludeTag={(tag) => runNewSearch(`${activeQuery} -${tag}`.trim())}
           onBlacklistTag={addTagToBlacklist}
           onOpenProfile={(id) => setProfileTarget(id)}
+          onOpenPool={(id) => setPoolTarget(id)}
           slideshowActive={slideshowActive}
           onToggleSlideshow={() => setSlideshowActive((v) => !v)}
         />
@@ -255,6 +258,16 @@ function App() {
             setForumOpen(false);
             setSettingsOpen(true);
           }}
+          onOpenProfile={(id) => setProfileTarget(id)}
+        />
+      )}
+
+      {poolTarget !== null && (
+        <PoolPanel
+          site={site}
+          poolId={poolTarget}
+          onClose={() => setPoolTarget(null)}
+          onSearch={runNewSearch}
           onOpenProfile={(id) => setProfileTarget(id)}
         />
       )}

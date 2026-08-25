@@ -9,6 +9,7 @@ interface InfoPanelProps {
   site: Site;
   post: Post;
   onOpenProfile: (userId: number) => void;
+  onOpenPool: (poolId: number) => void;
 }
 
 const RATING_LABEL: Record<string, string> = {
@@ -17,7 +18,7 @@ const RATING_LABEL: Record<string, string> = {
   e: "Explicit",
 };
 
-export function InfoPanel({ site, post, onOpenProfile }: InfoPanelProps) {
+export function InfoPanel({ site, post, onOpenProfile, onOpenPool }: InfoPanelProps) {
   const status = post.flags.deleted
     ? "Deleted"
     : post.flags.pending
@@ -57,6 +58,24 @@ export function InfoPanel({ site, post, onOpenProfile }: InfoPanelProps) {
         <div className="mt-2">
           <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-60">Description</h3>
           <DText text={post.description} site={site} className="text-xs" />
+        </div>
+      )}
+
+      {post.pools.length > 0 && (
+        <div className="mt-2">
+          <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-60">Pools</h3>
+          <div className="flex flex-wrap gap-1.5">
+            {post.pools.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onOpenPool(id)}
+                className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-[rgb(var(--accent))] hover:bg-white/20"
+              >
+                #{id}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

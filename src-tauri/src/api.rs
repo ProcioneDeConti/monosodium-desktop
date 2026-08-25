@@ -4,7 +4,7 @@ use crate::credentials;
 use crate::models::{
     Comment, CreateCommentFields, CreateCommentRequest, CreateDmailFields, CreateDmailRequest,
     CreateForumPostFields, CreateForumPostRequest, CreateTicketFields, CreateTicketRequest, Dmail,
-    FavoriteRequest, FavoriteResponse, ForumPost, ForumTopic, PostsResponse, TagSuggestion,
+    FavoriteRequest, FavoriteResponse, ForumPost, ForumTopic, Pool, PostsResponse, TagSuggestion,
     UpdateCommentFields, UpdateCommentRequest, UpdateUserFields, UpdateUserRequest, UserProfile,
     VoteRequest, VoteResponse,
 };
@@ -528,6 +528,21 @@ pub async fn create_forum_post(
     ensure_success(response)
         .await?
         .json::<ForumPost>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Public; no auth required.
+#[tauri::command]
+pub async fn get_pool(state: tauri::State<'_, AppState>, site: Site, id: i64) -> Result<Pool, String> {
+    let response = request(&state, site, Method::GET, &format!("pools/{id}.json"))
+        .await?
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Pool>()
         .await
         .map_err(|e| e.to_string())
 }

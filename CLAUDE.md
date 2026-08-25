@@ -580,6 +580,30 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
         locked topic and while signed out), and the forum notification dot all still need a
         hands-on pass.
 
+Phase 2 (everything queued above, plus the EULA gate) is done. What follows is a further batch
+the user asked to brainstorm and then build sequentially, on top of that completed scope - not
+part of any original milestone list, so each entry below explains its own motivation rather than
+checking off a pre-existing item.
+
+- [x] **Phase 3: Pools** `PoolPanel` (full-screen overlay reusing the existing `PostGrid`/
+      `PostViewer` components, fed a fixed, non-paginated post list instead of an infinite one) -
+      neither this app nor the reference Android app has ever made pools browsable before: the
+      reference app's `PostDetailScreen` only prints a post's pool ids as plain, non-interactive
+      text (`#123, #456`); `pools: number[]` sat on this app's own `Post` model, unused, since
+      M2. `InfoPanel`'s new Pools row turns those into clickable chips instead. Backend:
+      `Pool` model + `get_pool` Tauri command (`GET pools/<id>.json`, public/no auth) in
+      `api.rs`/`models.rs`. **The pool's actual sequence has to be assembled client-side**:
+      e621 has no "fetch these posts, in this order" endpoint, so `usePoolPostsQuery`
+      (`queries/usePoolQuery.ts`) fetches the pool's posts via an `id:1,2,3,...` tag search (whose
+      own result order isn't a documented guarantee) and re-sorts the response against
+      `pool.post_ids`, which the pool endpoint does guarantee is authoritative - a pool larger
+      than e621's 320-post-per-request cap only shows its first 320, a known limitation rather
+      than a paginated fetch of an otherwise-fixed, already-small list. Opening a pool from a post
+      that's itself in another pool stacks a second `PoolPanel` on top via plain component
+      recursion - arbitrary depth for free, no dedicated navigation stack needed. Not yet
+      live-tested - fetching a real pool, its posts landing in the correct order, and the nested-
+      pool nesting case all still need a hands-on pass.
+
 ## Running it
 
 **The user runs/tests the app themselves — don't launch it or drive the GUI to verify changes**

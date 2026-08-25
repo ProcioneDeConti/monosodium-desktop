@@ -346,6 +346,26 @@ pub struct CreateForumPostFields {
     pub body: String,
 }
 
+/// https://e621.net/pools/<id>.json - `post_ids` is authoritative for a pool's actual sequence
+/// (a `pool:<id>` tag search's own result order isn't a documented guarantee), so the frontend
+/// re-sorts whatever posts.json returns to match it - see queries/usePoolQuery.ts.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Pool {
+    pub id: i64,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    pub creator_id: Option<i64>,
+    #[serde(default)]
+    pub is_active: bool,
+    pub category: Option<String>,
+    #[serde(default)]
+    pub post_ids: Vec<i64>,
+    #[serde(default)]
+    pub post_count: i64,
+}
+
 /// A single result from e621's live tag-autocomplete endpoint. `name` is always the
 /// canonical tag - when the search prefix matched via an alias, e621 already resolves it
 /// and reports the alias that matched in `antecedent_name`.

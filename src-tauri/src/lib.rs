@@ -51,6 +51,7 @@ pub fn run() {
             api::get_forum_topic,
             api::get_forum_posts,
             api::create_forum_post,
+            api::get_pool,
             api::health_check,
             cache::get_cache_info,
             cache::set_cache_limit_mb,

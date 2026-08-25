@@ -11,6 +11,7 @@ import type { Dmail } from "../models/dmail";
 import type { CacheInfo } from "../models/cache";
 import type { UpdateCheckResult } from "../models/update";
 import type { ForumPost, ForumTopic } from "../models/forum";
+import type { Pool } from "../models/pool";
 
 export interface SiteCredentials {
   username: string;
@@ -121,6 +122,10 @@ export const e621Api = {
    *  lib/backup.ts's isSettingsBackup/applyBackup. */
   importBackup(path: string, password: string | null): Promise<string> {
     return invoke("import_backup", { path, password });
+  },
+
+  getPool(site: Site, id: number): Promise<Pool> {
+    return invoke("get_pool", { site, id });
   },
 
   getForumTopics(site: Site, page?: string): Promise<ForumTopic[]> {
