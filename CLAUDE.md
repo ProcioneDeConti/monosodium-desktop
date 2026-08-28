@@ -998,6 +998,12 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       cluster shows Download only when signed out). Favourite/vote reuse `usePostMutations`'
       `postCache` patching, so the thumbnail's own heart/score/star update instantly; download
       reuses `download_post_file` and shows a transient check/✗ on the button. Bumped to 1.14.14.
+- [x] **Phase 4: Parent/child relationships** Added the `relationships` object
+      (`parent_id`/`has_children`/`has_active_children`/`children`) to the `Post` model
+      (`models.rs` + `models/post.ts`, `#[serde(default)]` so it's always present) - it was on the
+      e621 JSON all along, never modelled. `InfoPanel` gets a Relationships row: a "Parent #X" chip
+      searches `~id:X ~parent:X` (the parent plus all its siblings), a "N children" chip searches
+      `parent:<id>`. The reference app only ever printed parent ids as plain text. Bumped to 1.14.15.
 
 ## Running it
 

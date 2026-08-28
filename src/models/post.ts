@@ -50,6 +50,13 @@ export interface PostFlags {
   deleted: boolean;
 }
 
+export interface PostRelationships {
+  parent_id: number | null;
+  has_children: boolean;
+  has_active_children: boolean;
+  children: number[];
+}
+
 export interface Post {
   id: number;
   created_at: string | null;
@@ -70,6 +77,7 @@ export interface Post {
   has_notes: boolean;
   duration: number | null;
   flags: PostFlags;
+  relationships: PostRelationships;
   /** The authenticated user's own vote: 1 up, -1 down, 0 none. Always 0 when not signed in. */
   vote_by: number;
   uploader_id: number | null;

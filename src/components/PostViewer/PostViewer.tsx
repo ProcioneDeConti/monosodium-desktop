@@ -474,7 +474,13 @@ export function PostViewer({
         <aside className="w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[rgb(20,20,20)]/95 px-3 py-3 text-white">
           <section className="mb-4">
             <h2 className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-60">Info</h2>
-            <InfoPanel site={site} post={post} onOpenProfile={onOpenProfile} onOpenPool={onOpenPool} />
+            <InfoPanel
+              site={site}
+              post={post}
+              onOpenProfile={onOpenProfile}
+              onOpenPool={onOpenPool}
+              onSearch={onSearchTag}
+            />
           </section>
           <section>
             <div className="mb-2 flex items-center gap-3 border-b border-white/10">

@@ -39,6 +39,8 @@ pub struct Post {
     pub duration: Option<f64>,
     #[serde(default)]
     pub flags: PostFlags,
+    #[serde(default)]
+    pub relationships: PostRelationships,
     /// The authenticated user's own vote: 1 up, -1 down, 0 none. Always 0 when not signed in.
     #[serde(default)]
     pub vote_by: i64,
@@ -132,6 +134,17 @@ pub struct PostFlags {
     pub rating_locked: bool,
     #[serde(default)]
     pub deleted: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PostRelationships {
+    pub parent_id: Option<i64>,
+    #[serde(default)]
+    pub has_children: bool,
+    #[serde(default)]
+    pub has_active_children: bool,
+    #[serde(default)]
+    pub children: Vec<i64>,
 }
 
 /// Subset of https://e621.net/users/<id>.json - blacklisted_tags/has_mail/unread_dmail_count/

@@ -1,5 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, UserRound } from "lucide-react";
+import { ExternalLink, GitBranch, UserRound } from "lucide-react";
 import type { Post } from "../../models/post";
 import type { Site } from "../../models/site";
 import { DText } from "../ui/DText";
@@ -10,6 +10,8 @@ interface InfoPanelProps {
   post: Post;
   onOpenProfile: (userId: number) => void;
   onOpenPool: (poolId: number) => void;
+  /** Runs a new search (closes the viewer) - used by the Relationships row. */
+  onSearch: (query: string) => void;
 }
 
 const RATING_LABEL: Record<string, string> = {
@@ -18,7 +20,9 @@ const RATING_LABEL: Record<string, string> = {
   e: "Explicit",
 };
 
-export function InfoPanel({ site, post, onOpenProfile, onOpenPool }: InfoPanelProps) {
+export function InfoPanel({ site, post, onOpenProfile, onOpenPool, onSearch }: InfoPanelProps) {
+  const rel = post.relationships;
+  const hasRelationships = rel.parent_id != null || rel.has_children;
   const status = post.flags.deleted
     ? "Deleted"
     : post.flags.pending
@@ -58,6 +62,39 @@ export function InfoPanel({ site, post, onOpenProfile, onOpenPool }: InfoPanelPr
         <div className="mt-2">
           <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-60">Description</h3>
           <DText text={post.description} site={site} className="text-xs" />
+        </div>
+      )}
+
+      {hasRelationships && (
+        <div className="mt-2">
+          <h3 className="mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide opacity-60">
+            <GitBranch size={11} />
+            Relationships
+          </h3>
+          <div className="flex flex-wrap gap-1.5">
+            {rel.parent_id != null && (
+              <button
+                type="button"
+                onClick={() => onSearch(`~id:${rel.parent_id} ~parent:${rel.parent_id}`)}
+                title="Show the parent post and all its children"
+                className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-[rgb(var(--accent))] hover:bg-white/20"
+              >
+                Parent #{rel.parent_id}
+              </button>
+            )}
+            {rel.has_children && (
+              <button
+                type="button"
+                onClick={() => onSearch(`parent:${post.id}`)}
+                title="Show this post's children"
+                className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-[rgb(var(--accent))] hover:bg-white/20"
+              >
+                {rel.children.length > 0
+                  ? `${rel.children.length} ${rel.children.length === 1 ? "child" : "children"}`
+                  : "Children"}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
