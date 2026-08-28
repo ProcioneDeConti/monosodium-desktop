@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Film, Star } from "lucide-react";
 import { aspectRatio, isAnimated, isVideo, type Post } from "../../models/post";
 import { formatCount } from "../../lib/formatCount";
@@ -33,7 +33,7 @@ const FAVORITE_GOLD = "#D4AF37";
  *  from-scratch fade animation was visible). */
 const loadedThumbUrls = new Set<string>();
 
-export function PostThumbnail({ post, blacklisted, onClick }: PostThumbnailProps) {
+function PostThumbnailImpl({ post, blacklisted, onClick }: PostThumbnailProps) {
   const thumbUrl = post.preview.url ?? post.sample.url ?? post.file.url;
   const rating = RATING_STYLE[post.rating] ?? RATING_STYLE.e;
   const [loaded, setLoaded] = useState(() => !!thumbUrl && loadedThumbUrls.has(thumbUrl));
@@ -109,3 +109,8 @@ export function PostThumbnail({ post, blacklisted, onClick }: PostThumbnailProps
     </button>
   );
 }
+
+/** `masonic` mounts/unmounts cells as they scroll through the overscan window and re-renders the
+ *  visible set on every grid state change; memoising keeps a thumbnail whose props are unchanged
+ *  from repainting its whole subtree each pass. */
+export const PostThumbnail = memo(PostThumbnailImpl);

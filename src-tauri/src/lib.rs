@@ -130,6 +130,7 @@ pub fn run() {
             api::get_forum_posts,
             api::create_forum_post,
             api::get_pool,
+            api::get_popular_posts,
             api::get_post_notes,
             api::get_wiki_page,
             api::health_check,

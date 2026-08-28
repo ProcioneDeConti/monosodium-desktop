@@ -140,6 +140,15 @@ export const e621Api = {
     return invoke("get_pool", { site, id });
   },
 
+  /** e621's day/week/month "popular" ranking - `date` is any YYYY-MM-DD within the period. */
+  getPopularPosts(
+    site: Site,
+    date: string,
+    scale: "day" | "week" | "month",
+  ): Promise<PostsResponse> {
+    return invoke("get_popular_posts", { site, date, scale });
+  },
+
   getPostNotes(site: Site, postId: number): Promise<PostNote[]> {
     return invoke("get_post_notes", { site, postId });
   },

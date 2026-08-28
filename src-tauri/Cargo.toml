@@ -1,6 +1,6 @@
 [package]
 name = "monosodium-desktop"
-version = "1.14.10"
+version = "1.14.12"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -16,6 +16,16 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+
+# Release binary: optimise for size + strip symbols. Smaller code means a smaller download,
+# fewer resident code pages, and slightly faster startup. `opt-level = "s"` keeps the optimiser
+# from the aggressive inlining that bloats the binary without measurably helping this
+# I/O-bound workload; `lto`/`codegen-units = 1` let the linker drop dead code across crates.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }

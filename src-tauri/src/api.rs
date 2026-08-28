@@ -19,7 +19,17 @@ pub struct AppState {
 impl AppState {
     pub fn new() -> Self {
         Self {
-            http: reqwest::Client::new(),
+            // Bound the connection pool and the handshake: a stalled connect otherwise pins its
+            // buffers (and the caller's rate-limit slot) indefinitely. Two API hosts, a handful of
+            // in-flight calls at the 1 req/sec limit - a couple of idle keep-alive sockets per host
+            // is plenty. No total-request timeout here: `download_post_file` reuses this client for
+            // full media files that can legitimately take minutes; the JSON API calls in
+            // `request()` set their own per-request `.timeout()` instead.
+            http: reqwest::Client::builder()
+                .connect_timeout(std::time::Duration::from_secs(15))
+                .pool_max_idle_per_host(2)
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new()),
             limiters: SiteRateLimiters::new(),
         }
     }
@@ -67,6 +77,7 @@ async fn request(
     let mut builder = state
         .http
         .request(method, url)
+        .timeout(std::time::Duration::from_secs(30))
         .header("User-Agent", user_agent(site, creds.as_ref().map(|c| c.username.as_str())))
         .header("Accept", "application/json");
     if let Some(c) = creds.filter(|c| !c.username.is_empty() && !c.api_key.is_empty()) {
@@ -655,6 +666,37 @@ pub async fn get_wiki_page(
         .await
         .map_err(|e| e.to_string())?;
     Ok(if pages.is_empty() { None } else { Some(pages.remove(0)) })
+}
+
+/// e621's "popular" ranking for a given day/week/month (the site's own
+/// `/explore/posts/popular` page). Public; no auth. Returns the same shape as `get_posts`,
+/// already ranked - there's no cursor pagination here, the ranked set for a period is fixed and
+/// bounded. `date` is any `YYYY-MM-DD` within the target period; `scale` is `day`/`week`/`month`.
+#[tauri::command]
+pub async fn get_popular_posts(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    date: Option<String>,
+    scale: Option<String>,
+) -> Result<PostsResponse, String> {
+    let mut query: Vec<(&str, String)> = Vec::new();
+    if let Some(d) = date {
+        query.push(("date", d));
+    }
+    if let Some(s) = scale {
+        query.push(("scale", s));
+    }
+    let response = request(&state, site, Method::GET, "popular.json")
+        .await?
+        .query(&query)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<PostsResponse>()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Lightweight reachability check for the active site - same rate-limited/UA'd path as every

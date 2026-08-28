@@ -15,10 +15,22 @@ export function parseBlacklist(blacklist: string): BlacklistEntries {
     .map((line) => line.split(/\s+/));
 }
 
+// A post's lowercased tag set is rebuilt for every blacklist check, and `visiblePosts` /
+// `matchingBlacklistTags` run that check across the whole (potentially several-hundred-post)
+// list on every grid render and every viewer navigation. Post objects are referentially stable
+// while they're in the React Query cache, so memoising per-post here turns those passes from
+// "re-tokenise every post every time" into a cheap set lookup. WeakMap => an entry is collected
+// with its post, no manual eviction.
+const tagSetCache = new WeakMap<Post, Set<string>>();
+
 function postTagSet(post: Post): Set<string> {
-  const tags = new Set(allTags(post).map((t) => t.toLowerCase()));
+  const cached = tagSetCache.get(post);
+  if (cached) return cached;
+  const tags = new Set<string>();
+  for (const t of allTags(post)) tags.add(t.toLowerCase());
   const ratingTag = RATING_TAG[post.rating as Rating];
   if (ratingTag) tags.add(ratingTag);
+  tagSetCache.set(post, tags);
   return tags;
 }
 

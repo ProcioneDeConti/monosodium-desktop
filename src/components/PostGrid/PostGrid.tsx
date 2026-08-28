@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteLoader, useMasonry, usePositioner, useResizeObserver } from "masonic";
 import type { Post } from "../../models/post";
 import { PostThumbnail } from "./PostThumbnail";
@@ -38,6 +38,7 @@ export function PostGrid({
 }: PostGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollIdleTimer = useRef<number | undefined>(undefined);
+  const scrollRafPending = useRef(false);
 
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [scrollTop, setScrollTop] = useState(0);
@@ -53,16 +54,28 @@ export function PostGrid({
     return () => observer.disconnect();
   }, []);
 
+  // Coalesce scroll events to one state update per frame - the raw event can fire several times
+  // between paints, and each `setScrollTop` re-runs this component (and masonic's whole layout
+  // pass). `isScrolling` is set eagerly so masonic can start skipping paint work immediately.
   const onScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop);
+    const el = e.currentTarget;
     setIsScrolling(true);
     window.clearTimeout(scrollIdleTimer.current);
     scrollIdleTimer.current = window.setTimeout(() => setIsScrolling(false), SCROLL_IDLE_MS);
+    if (scrollRafPending.current) return;
+    scrollRafPending.current = true;
+    requestAnimationFrame(() => {
+      scrollRafPending.current = false;
+      setScrollTop(el.scrollTop);
+    });
   }, []);
 
   useEffect(() => () => window.clearTimeout(scrollIdleTimer.current), []);
 
-  const visible = visiblePosts(posts, blacklistEntries, blacklistDisabled);
+  const visible = useMemo(
+    () => visiblePosts(posts, blacklistEntries, blacklistDisabled),
+    [posts, blacklistEntries, blacklistDisabled],
+  );
 
   // masonic assumes `items` only ever grows (pagination) or is replaced wholesale (a remount);
   // if it ever gets *shorter* than what the positioner already has cells cached for - e.g. the
@@ -108,6 +121,17 @@ export function PostGrid({
     { isItemLoaded: (index) => index < visible.length, minimumBatchSize: 30, threshold: 8 },
   );
 
+  // Stable identity so masonic keeps its per-cell React.memo intact - a fresh render function
+  // every pass forces every visible thumbnail to re-render on any parent state change (scroll
+  // included).
+  const renderCell = useCallback(
+    ({ index, data }: { index: number; data: Post }) => {
+      const blacklisted = blacklistDisabled && isBlacklisted(blacklistEntries, data);
+      return <PostThumbnail post={data} blacklisted={blacklisted} onClick={() => onPostClick(index)} />;
+    },
+    [blacklistDisabled, blacklistEntries, onPostClick],
+  );
+
   const grid = useMasonry({
     positioner,
     resizeObserver,
@@ -118,11 +142,7 @@ export function PostGrid({
     overscanBy: 3,
     itemHeightEstimate: thumbnailSizePx,
     itemKey: (post) => post.id,
-    render: ({ index, data }) => {
-      const post = data;
-      const blacklisted = blacklistDisabled && isBlacklisted(blacklistEntries, post);
-      return <PostThumbnail post={post} blacklisted={blacklisted} onClick={() => onPostClick(index)} />;
-    },
+    render: renderCell,
     onRender: loadMore,
   });
 

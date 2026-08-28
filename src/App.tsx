@@ -10,6 +10,7 @@ import { SavedSearchesPanel } from "./components/SavedSearches/SavedSearchesPane
 import { MessagesPanel } from "./components/Messages/MessagesPanel";
 import { ForumPanel } from "./components/Forum/ForumPanel";
 import { PoolPanel } from "./components/Pool/PoolPanel";
+import { PopularPanel } from "./components/Popular/PopularPanel";
 import { ReverseSearchPanel } from "./components/ReverseSearch/ReverseSearchPanel";
 import { EulaScreen } from "./components/Eula/EulaScreen";
 import { UnlockScreen } from "./components/Vault/UnlockScreen";
@@ -45,6 +46,7 @@ interface NavState {
   messagesOpen: boolean;
   forumOpen: boolean;
   poolTarget: number | null;
+  popularOpen: boolean;
 }
 
 const INITIAL_NAV: NavState = {
@@ -57,6 +59,7 @@ const INITIAL_NAV: NavState = {
   messagesOpen: false,
   forumOpen: false,
   poolTarget: null,
+  popularOpen: false,
 };
 
 const MAX_NAV_HISTORY = 50;
@@ -114,6 +117,7 @@ function App() {
     messagesOpen,
     forumOpen,
     poolTarget,
+    popularOpen,
   } = nav;
 
   useEffect(() => {
@@ -242,11 +246,16 @@ function App() {
 
   // Opportunistically learns each loaded post's tag categories so SearchBar's committed-tag
   // chips can be category-colored like TagChip/the autocomplete dropdown already are, without a
-  // dedicated lookup - see lib/tagCategoryCache.ts.
+  // dedicated lookup - see lib/tagCategoryCache.ts. Only walks posts appended since the last run
+  // (the array only ever grows via pagination, or shrinks wholesale on refresh) rather than
+  // re-scanning the entire accumulated list on every page.
+  const cachedTagPostCount = useRef(0);
   useEffect(() => {
-    for (const post of posts) {
-      for (const { name, category } of categorizedTags(post)) cacheTagCategory(name, category);
+    if (posts.length < cachedTagPostCount.current) cachedTagPostCount.current = 0;
+    for (let i = cachedTagPostCount.current; i < posts.length; i++) {
+      for (const { name, category } of categorizedTags(posts[i])) cacheTagCategory(name, category);
     }
+    cachedTagPostCount.current = posts.length;
   }, [posts]);
 
   const shownPosts = useMemo(
@@ -280,12 +289,17 @@ function App() {
       messagesOpen: false,
       forumOpen: false,
       poolTarget: null,
+      popularOpen: false,
     });
   }
 
   function startSlideshow() {
     navigate({ viewerIndex: 0, slideshowActive: true });
   }
+
+  // Stable so PostGrid's memoised cells don't all re-render whenever App re-renders for an
+  // unrelated reason (a poll result, a settings tweak).
+  const openViewerAt = useCallback((i: number) => navigate({ viewerIndex: i }), [navigate]);
 
   function addTagToBlacklist(tag: string) {
     setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`);
@@ -319,6 +333,7 @@ function App() {
       unreadMessageCount={unreadMessageCount}
       onOpenForum={() => navigate({ forumOpen: true })}
       forumUnread={forumUnread}
+      onOpenPopular={() => navigate({ popularOpen: true })}
       onOpenSavedSearches={() => navigate({ savedSearchesOpen: true })}
       onStartSlideshow={shownPosts.length > 0 ? startSlideshow : null}
       onRefresh={() => void refresh()}
@@ -364,7 +379,7 @@ function App() {
               isFetchingNextPage={isFetchingNextPage}
               hasNextPage={!!hasNextPage}
               onLoadMore={fetchNextPage}
-              onPostClick={(i) => navigate({ viewerIndex: i })}
+              onPostClick={openViewerAt}
             />
           </div>
         </div>
@@ -437,6 +452,15 @@ function App() {
         <PoolPanel
           site={site}
           poolId={poolTarget}
+          onClose={goBack}
+          onSearch={runNewSearch}
+          onOpenProfile={(id) => navigate({ profileTarget: id })}
+        />
+      )}
+
+      {popularOpen && (
+        <PopularPanel
+          site={site}
           onClose={goBack}
           onSearch={runNewSearch}
           onOpenProfile={(id) => navigate({ profileTarget: id })}

@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Settings as SettingsIcon,
+  TrendingUp,
   User,
 } from "lucide-react";
 import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
@@ -43,6 +44,7 @@ interface AppShellProps {
   unreadMessageCount: number;
   onOpenForum: () => void;
   forumUnread: boolean;
+  onOpenPopular: () => void;
   onOpenSavedSearches: () => void;
   onStartSlideshow: (() => void) | null;
   onRefresh: () => void;
@@ -63,6 +65,7 @@ export function AppShell({
   unreadMessageCount,
   onOpenForum,
   forumUnread,
+  onOpenPopular,
   onOpenSavedSearches,
   onStartSlideshow,
   onRefresh,
@@ -183,6 +186,10 @@ export function AppShell({
         >
           Favorites
         </Button>
+
+        <IconButton onClick={onOpenPopular} title="Popular posts">
+          <TrendingUp size={17} />
+        </IconButton>
 
         <IconButton onClick={onOpenSavedSearches} title="Saved searches">
           <Bookmark size={17} />

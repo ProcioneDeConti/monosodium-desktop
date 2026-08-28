@@ -948,6 +948,40 @@ All eleven items from the user's brainstormed post-Phase-2 list are now done.
       checks `isTauri()` from `@tauri-apps/api/core` and renders `components/BrowserNotice.tsx` ("This
       page intentionally blank…") when false, ahead of the existing `?post=` / `<App>` branch.
 
+- [x] **Performance / RAM pass** No behaviour change - static-check only, as usual. Grid: `PostGrid`
+      was re-running `visiblePosts()` (which re-tokenises every loaded post's tags into a `Set`)
+      on *every* scroll render; it's now `useMemo`'d, scroll events are coalesced to one
+      `setScrollTop` per `requestAnimationFrame`, the `useMasonry` render fn is a stable
+      `useCallback` (a fresh one each pass defeats masonic's per-cell `React.memo`), and
+      `PostThumbnail` is wrapped in `memo`. `lib/blacklist.ts`'s `postTagSet` now memoises per
+      post via a `WeakMap` (post objects are stable while in the Query cache), so the blacklist
+      passes across grid + viewer stop rebuilding the same sets. `App.tsx`'s tag-category cache
+      effect walks only newly-appended posts instead of re-scanning the whole accumulated list
+      each page, and its `onPostClick` is `useCallback`-stable. React Query `gcTime` dropped
+      5min→2min and `refetchOnReconnect` off, so a superseded search's accumulated infinite-scroll
+      pages (the heaviest thing in memory) are released sooner. Rust: `[profile.release]` added
+      (`opt-level="s"`, `lto`, `codegen-units=1`, `strip`) for a smaller binary; the shared
+      `reqwest::Client` gets a bounded idle pool + connect timeout, and API JSON calls a 30s
+      per-request timeout (downloads deliberately uncapped). Vite `build.target` → `esnext` (the
+      only runtime is evergreen WebView2, nothing to down-level) + `sourcemap`/compressed-size
+      reporting off.
+
+Below this line is a further batch the user asked to brainstorm and then build sequentially,
+picking a specific order: Popular browser, random/shuffle, grid hover quick-actions, parent/child
+relationships, post sets, related tags, multi-select + bulk actions, download queue, tabs, true
+fullscreen, recent search history, keyboard cheatsheet, metatag value autocomplete.
+
+- [x] **Phase 4: Popular posts browser** `PopularPanel` - a full-screen overlay (shell `TrendingUp`
+      button, `nav.popularOpen`) for e621's own `/explore/posts/popular` ranking, which neither
+      app has surfaced before. Backend: `get_popular_posts` command (`GET popular.json?date=&scale=`,
+      public, no auth) reusing the existing `PostsResponse` shape - the ranked set for a period is
+      server-ordered and bounded, so it's fed to `PostGrid`/`PostViewer` as a fixed non-paginated
+      list exactly like `PoolPanel` does (`usePopularPostsQuery`). Header has a Day/Week/Month
+      segmented control and prev/next period steppers (`lib/popular.ts` owns the date math; the
+      "next" stepper disables once the selected period is the current one, and a "Now" shortcut
+      appears when it isn't). Nested pool-open recursion and the blacklist-shrink viewer-index
+      clamp are copied from `PoolPanel`. Bumped to 1.14.12.
+
 ## Running it
 
 **The user runs/tests the app themselves — don't launch it or drive the GUI to verify changes**
