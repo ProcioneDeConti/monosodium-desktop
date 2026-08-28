@@ -141,6 +141,7 @@ export function PopularPanel({ site, onClose, onSearch, onOpenProfile }: Popular
           </div>
         ) : (
           <PostGrid
+            site={site}
             posts={posts}
             blacklistEntries={blacklistEntries}
             blacklistDisabled={blacklistDisabled}

@@ -990,6 +990,14 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       both the `AppShell` slideshow popover and a `Shuffle` button in `PostViewer`'s slideshow
       control bar. `PostViewer`'s advance logic is now one `advanceSlideshow` `useCallback`
       covering shuffle / sequential / auto-stop. Bumped to 1.14.13.
+- [x] **Phase 4: Grid hover quick-actions** `PostThumbnail` gets a hover cluster (top-left, opposite
+      the media badge) - favourite, upvote, download - each swallowing the click so it doesn't
+      also open the viewer. Wired inside `PostGrid` itself (now takes a `site` prop) rather than
+      threaded through its three callers: it reads `isAuthenticated`/`downloadDir` and
+      `usePostMutations` and passes stable callbacks down (favourite/vote need auth, so the
+      cluster shows Download only when signed out). Favourite/vote reuse `usePostMutations`'
+      `postCache` patching, so the thumbnail's own heart/score/star update instantly; download
+      reuses `download_post_file` and shows a transient check/✗ on the button. Bumped to 1.14.14.
 
 ## Running it
 

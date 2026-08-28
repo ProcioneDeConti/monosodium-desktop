@@ -1,5 +1,5 @@
-import { memo, useState } from "react";
-import { Film, Star } from "lucide-react";
+import { memo, useEffect, useState } from "react";
+import { Check, Download, Film, Heart, Star, ThumbsUp } from "lucide-react";
 import { aspectRatio, isAnimated, isVideo, type Post } from "../../models/post";
 import { formatCount } from "../../lib/formatCount";
 
@@ -7,6 +7,12 @@ interface PostThumbnailProps {
   post: Post;
   blacklisted: boolean;
   onClick: () => void;
+  /** When false, the hover cluster shows only Download (favourite/vote need an account). */
+  canInteract: boolean;
+  onToggleFavorite: (post: Post) => void;
+  onUpvote: (post: Post) => void;
+  /** Resolves once the file is written (or rejects) - drives the transient check/✗ state. */
+  onDownload: (post: Post) => Promise<unknown>;
 }
 
 function formatDuration(seconds: number): string {
@@ -33,11 +39,31 @@ const FAVORITE_GOLD = "#D4AF37";
  *  from-scratch fade animation was visible). */
 const loadedThumbUrls = new Set<string>();
 
-function PostThumbnailImpl({ post, blacklisted, onClick }: PostThumbnailProps) {
+function PostThumbnailImpl({
+  post,
+  blacklisted,
+  onClick,
+  canInteract,
+  onToggleFavorite,
+  onUpvote,
+  onDownload,
+}: PostThumbnailProps) {
   const thumbUrl = post.preview.url ?? post.sample.url ?? post.file.url;
   const rating = RATING_STYLE[post.rating] ?? RATING_STYLE.e;
   const [loaded, setLoaded] = useState(() => !!thumbUrl && loadedThumbUrls.has(thumbUrl));
   const [errored, setErrored] = useState(false);
+  const [dl, setDl] = useState<"idle" | "saving" | "done" | "err">("idle");
+
+  useEffect(() => {
+    if (dl !== "done" && dl !== "err") return;
+    const t = setTimeout(() => setDl("idle"), 1600);
+    return () => clearTimeout(t);
+  }, [dl]);
+
+  function stop(e: React.MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
 
   return (
     <button
@@ -72,6 +98,60 @@ function PostThumbnailImpl({ post, blacklisted, onClick }: PostThumbnailProps) {
           unavailable
         </div>
       )}
+
+      {/* Hover quick-actions - favourite / upvote / download without opening the viewer. Each
+       *  swallows the click so it doesn't also open the post. */}
+      <div className="pointer-events-none absolute left-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        {canInteract && (
+          <>
+            <span
+              role="button"
+              tabIndex={-1}
+              onClick={(e) => {
+                stop(e);
+                onToggleFavorite(post);
+              }}
+              title={post.is_favorited ? "Remove favorite" : "Add favorite"}
+              className={`pointer-events-auto flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white
+                          hover:bg-black/75 ${post.is_favorited ? "!text-pink-400" : ""}`}
+            >
+              <Heart size={13} className={post.is_favorited ? "fill-current" : ""} />
+            </span>
+            <span
+              role="button"
+              tabIndex={-1}
+              onClick={(e) => {
+                stop(e);
+                onUpvote(post);
+              }}
+              title="Upvote"
+              className={`pointer-events-auto flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white
+                          hover:bg-black/75 ${post.vote_by > 0 ? "!text-green-400" : ""}`}
+            >
+              <ThumbsUp size={13} className={post.vote_by > 0 ? "fill-current" : ""} />
+            </span>
+          </>
+        )}
+        <span
+          role="button"
+          tabIndex={-1}
+          onClick={(e) => {
+            stop(e);
+            if (dl === "saving") return;
+            setDl("saving");
+            onDownload(post).then(
+              () => setDl("done"),
+              () => setDl("err"),
+            );
+          }}
+          title={dl === "err" ? "Download failed" : dl === "done" ? "Saved" : "Download file"}
+          className={`pointer-events-auto flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white
+                      hover:bg-black/75 ${dl === "done" ? "!text-green-400" : dl === "err" ? "!text-red-400" : ""}
+                      ${dl === "saving" ? "opacity-60" : ""}`}
+        >
+          {dl === "done" ? <Check size={13} /> : <Download size={13} />}
+        </span>
+      </div>
 
       {/* Always-visible info dock, mirroring the reference app's PostThumbnail InfoDock: rating
        *  anchors the left edge and filetype the right, with score and the favorite star between -

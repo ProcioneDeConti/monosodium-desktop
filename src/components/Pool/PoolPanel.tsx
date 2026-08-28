@@ -93,6 +93,7 @@ export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile }: Po
           <div className="flex h-full items-center justify-center text-sm opacity-60">This pool has no posts.</div>
         ) : (
           <PostGrid
+            site={site}
             posts={posts}
             blacklistEntries={blacklistEntries}
             blacklistDisabled={blacklistDisabled}

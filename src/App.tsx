@@ -374,6 +374,7 @@ function App() {
           <div className="flex-1 min-h-0">
             <PostGrid
               key={`${site}:${effectiveTags}`}
+              site={site}
               posts={posts}
               blacklistEntries={blacklistEntries}
               blacklistDisabled={blacklistDisabled}

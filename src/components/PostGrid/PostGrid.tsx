@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteLoader, useMasonry, usePositioner, useResizeObserver } from "masonic";
-import type { Post } from "../../models/post";
+import { downloadFileName, isVideo, playableUrl, type Post } from "../../models/post";
+import type { Site } from "../../models/site";
 import { PostThumbnail } from "./PostThumbnail";
 import { isBlacklisted, visiblePosts, type BlacklistEntries } from "../../lib/blacklist";
+import { usePostMutations } from "../../queries/usePostMutations";
+import { useAccountStore } from "../../state/accountStore";
+import { useSettingsStore } from "../../state/settingsStore";
+import { e621Api } from "../../api/client";
 
 interface PostGridProps {
+  site: Site;
   posts: Post[];
   blacklistEntries: BlacklistEntries;
   blacklistDisabled: boolean;
@@ -27,6 +33,7 @@ const SCROLL_IDLE_MS = 150;
  *  grid scrolls inside its own bounded container (the shell header stays fixed above it), so
  *  `useMasonry` is driven directly from this component's own scroll/resize state instead. */
 export function PostGrid({
+  site,
   posts,
   blacklistEntries,
   blacklistDisabled,
@@ -37,6 +44,29 @@ export function PostGrid({
   onPostClick,
 }: PostGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Hover quick-actions on each thumbnail (favourite / upvote / download) - wired here rather
+  // than threaded through every PostGrid caller. `mutate` and the store selectors are all
+  // referentially stable, so the callbacks below stay stable and don't churn masonic's cells.
+  const canInteract = useAccountStore((s) => s.isAuthenticated(site));
+  const downloadDir = useSettingsStore((s) => s.downloadDir);
+  const { vote, favorite, unfavorite } = usePostMutations(site);
+  const onToggleFavorite = useCallback(
+    (post: Post) => (post.is_favorited ? unfavorite.mutate(post.id) : favorite.mutate(post.id)),
+    [favorite.mutate, unfavorite.mutate],
+  );
+  const onUpvote = useCallback(
+    (post: Post) => vote.mutate({ postId: post.id, direction: 1 }),
+    [vote.mutate],
+  );
+  const onDownload = useCallback(
+    (post: Post) => {
+      const url = playableUrl(post);
+      if (!url) return Promise.reject(new Error("no file"));
+      return e621Api.downloadPostFile(url, downloadFileName(post), downloadDir, isVideo(post));
+    },
+    [downloadDir],
+  );
   const scrollIdleTimer = useRef<number | undefined>(undefined);
   const scrollRafPending = useRef(false);
 
@@ -127,9 +157,19 @@ export function PostGrid({
   const renderCell = useCallback(
     ({ index, data }: { index: number; data: Post }) => {
       const blacklisted = blacklistDisabled && isBlacklisted(blacklistEntries, data);
-      return <PostThumbnail post={data} blacklisted={blacklisted} onClick={() => onPostClick(index)} />;
+      return (
+        <PostThumbnail
+          post={data}
+          blacklisted={blacklisted}
+          onClick={() => onPostClick(index)}
+          canInteract={canInteract}
+          onToggleFavorite={onToggleFavorite}
+          onUpvote={onUpvote}
+          onDownload={onDownload}
+        />
+      );
     },
-    [blacklistDisabled, blacklistEntries, onPostClick],
+    [blacklistDisabled, blacklistEntries, onPostClick, canInteract, onToggleFavorite, onUpvote, onDownload],
   );
 
   const grid = useMasonry({
