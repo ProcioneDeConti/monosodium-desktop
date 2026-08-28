@@ -26,6 +26,7 @@ import { TagsPanel } from "./TagsPanel";
 import { InfoPanel } from "./InfoPanel";
 import { ReportPostButton } from "./ReportPostButton";
 import { AddToSetButton } from "./AddToSetButton";
+import { RelatedTagsPanel } from "./RelatedTagsPanel";
 import { CommentsPanel } from "./CommentsPanel";
 import { usePostMutations } from "../../queries/usePostMutations";
 import { usePostNotesQuery } from "../../queries/usePostNotesQuery";
@@ -115,6 +116,7 @@ export function PostViewer({
   const [transitionMenuOpen, setTransitionMenuOpen] = useState(false);
   const transitionMenuRef = useRef<HTMLDivElement>(null);
   const [sidebarTab, setSidebarTab] = useState<"tags" | "comments">("tags");
+  const [relatedTagFor, setRelatedTagFor] = useState<string | null>(null);
 
   useEffect(() => {
     setDownloadStatus("idle");
@@ -521,6 +523,7 @@ export function PostViewer({
                 onAddTagToSearch={onAddTagToSearch}
                 onExcludeTag={onExcludeTag}
                 onBlacklistTag={onBlacklistTag}
+                onFindRelated={setRelatedTagFor}
               />
             ) : (
               <CommentsPanel site={site} postId={post.id} onOpenProfile={onOpenProfile} />
@@ -528,6 +531,26 @@ export function PostViewer({
           </section>
         </aside>
       </div>
+
+      {relatedTagFor && (
+        <RelatedTagsPanel
+          site={site}
+          tag={relatedTagFor}
+          onClose={() => setRelatedTagFor(null)}
+          onSearch={(t) => {
+            setRelatedTagFor(null);
+            onSearchTag(t);
+          }}
+          onAddToSearch={(t) => {
+            setRelatedTagFor(null);
+            onAddTagToSearch(t);
+          }}
+          onExclude={(t) => {
+            setRelatedTagFor(null);
+            onExcludeTag(t);
+          }}
+        />
+      )}
     </div>
   );
 }

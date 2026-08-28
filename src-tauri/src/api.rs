@@ -5,9 +5,9 @@ use crate::models::{
     Comment, CreateCommentFields, CreateCommentRequest, CreateDmailFields, CreateDmailRequest,
     CreateForumPostFields, CreateForumPostRequest, CreatePostSetFields, CreatePostSetRequest,
     CreateTicketFields, CreateTicketRequest, Dmail, FavoriteRequest, FavoriteResponse, ForumPost,
-    ForumTopic, Pool, PostNote, PostSet, PostsResponse, SetPostIdsRequest, TagSuggestion,
-    UpdateCommentFields, UpdateCommentRequest, UpdateUserFields, UpdateUserRequest, UserProfile,
-    VoteRequest, VoteResponse, WikiPage,
+    ForumTopic, Pool, PostNote, PostSet, PostsResponse, RelatedTag, SetPostIdsRequest,
+    TagSuggestion, UpdateCommentFields, UpdateCommentRequest, UpdateUserFields, UpdateUserRequest,
+    UserProfile, VoteRequest, VoteResponse, WikiPage,
 };
 use crate::rate_limit::SiteRateLimiters;
 use crate::site::Site;
@@ -625,6 +625,73 @@ pub async fn get_pool(state: tauri::State<'_, AppState>, site: Site, id: i64) ->
         .json::<Pool>()
         .await
         .map_err(|e| e.to_string())
+}
+
+/// Tags statistically related to `query` (e621's own `related_tag.json`, powering its search
+/// sidebar's "related tags"). Public; no auth. The response shape has changed across e621ng
+/// versions, so `parse_related_tags` normalises whatever came back rather than deserializing a
+/// fixed struct.
+#[tauri::command]
+pub async fn get_related_tags(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    query: String,
+) -> Result<Vec<RelatedTag>, String> {
+    let response = request(&state, site, Method::GET, "related_tag.json")
+        .await?
+        .query(&[("query", query.as_str())])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let value: serde_json::Value = ensure_success(response)
+        .await?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(parse_related_tags(&value, &query))
+}
+
+/// Accepts either `["dog", 0]` / `["dog", "0"]` pairs or `{ "tag": { "name", "category" } }` /
+/// `{ "name", "category" }` objects.
+fn parse_related_pair(v: &serde_json::Value) -> Option<RelatedTag> {
+    if let Some(arr) = v.as_array() {
+        let name = arr.first()?.as_str()?.to_string();
+        let category = arr
+            .get(1)
+            .and_then(|c| c.as_i64().or_else(|| c.as_str().and_then(|s| s.parse().ok())))
+            .unwrap_or(0);
+        return Some(RelatedTag { name, category });
+    }
+    let obj = v.get("tag").unwrap_or(v);
+    let name = obj.get("name")?.as_str()?.to_string();
+    let category = obj.get("category").and_then(serde_json::Value::as_i64).unwrap_or(0);
+    Some(RelatedTag { name, category })
+}
+
+fn parse_related_tags(value: &serde_json::Value, query: &str) -> Vec<RelatedTag> {
+    // Current e621ng: { "related_tags": [ { "tag": {...} }, ... ] }
+    if let Some(list) = value.get("related_tags").and_then(|v| v.as_array()) {
+        return list.iter().filter_map(parse_related_pair).collect();
+    }
+    // Older: keyed by the query string, value an array of [name, category] pairs.
+    let lower = query.to_lowercase();
+    for key in [query, lower.as_str()] {
+        if let Some(list) = value.get(key).and_then(|v| v.as_array()) {
+            return list.iter().filter_map(parse_related_pair).collect();
+        }
+    }
+    // Last resort: the first top-level array value that parses to at least one tag.
+    if let Some(obj) = value.as_object() {
+        for v in obj.values() {
+            if let Some(list) = v.as_array() {
+                let parsed: Vec<RelatedTag> = list.iter().filter_map(parse_related_pair).collect();
+                if !parsed.is_empty() {
+                    return parsed;
+                }
+            }
+        }
+    }
+    Vec::new()
 }
 
 /// Lists post sets. Pass `creator_id` (e.g. the signed-in account's id from `users/me.json`) to

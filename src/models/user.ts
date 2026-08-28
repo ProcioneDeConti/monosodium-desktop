@@ -60,8 +60,13 @@ const TAG_SUGGESTION_CATEGORY_MAP: Record<number, TagCategory> = {
   8: "lore",
 };
 
+/** Maps e621's numeric tag category to the app's TagCategory (defaulting to "general"). */
+export function numericTagCategory(category: number): TagCategory {
+  return TAG_SUGGESTION_CATEGORY_MAP[category] ?? "general";
+}
+
 export function tagSuggestionCategory(suggestion: TagSuggestion): TagCategory {
-  return TAG_SUGGESTION_CATEGORY_MAP[suggestion.category] ?? "general";
+  return numericTagCategory(suggestion.category);
 }
 
 export interface VoteResponse {

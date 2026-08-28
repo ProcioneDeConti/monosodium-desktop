@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Ban, Minus, Plus, Search } from "lucide-react";
+import { Ban, Minus, Network, Plus, Search } from "lucide-react";
 import type { TagCategory } from "../../models/post";
 import { TAG_CATEGORY_STYLE } from "../../lib/tagCategoryStyle";
 import { Button } from "../ui/Button";
@@ -12,6 +12,7 @@ interface TagChipProps {
   onAddToSearch: (tag: string) => void;
   onExcludeFromSearch: (tag: string) => void;
   onAddToBlacklist: (tag: string) => void;
+  onFindRelated: (tag: string) => void;
 }
 
 /** A category-colored pill, matching the reference Android app's TagChip look exactly - tapping
@@ -25,6 +26,7 @@ export function TagChip({
   onAddToSearch,
   onExcludeFromSearch,
   onAddToBlacklist,
+  onFindRelated,
 }: TagChipProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,6 +92,11 @@ export function TagChip({
           <li>
             <Button variant="menu" icon={<Minus size={13} />} onClick={() => choose(onExcludeFromSearch)}>
               Exclude from search
+            </Button>
+          </li>
+          <li>
+            <Button variant="menu" icon={<Network size={13} />} onClick={() => choose(onFindRelated)}>
+              Related tags
             </Button>
           </li>
           <li>

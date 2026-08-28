@@ -9,6 +9,7 @@ interface TagsPanelProps {
   onAddTagToSearch: (tag: string) => void;
   onExcludeTag: (tag: string) => void;
   onBlacklistTag: (tag: string) => void;
+  onFindRelated: (tag: string) => void;
 }
 
 const CATEGORY_ORDER: TagCategory[] = [
@@ -28,6 +29,7 @@ export function TagsPanel({
   onAddTagToSearch,
   onExcludeTag,
   onBlacklistTag,
+  onFindRelated,
 }: TagsPanelProps) {
   const grouped = categorizedTags(post);
   if (grouped.length === 0) {
@@ -59,6 +61,7 @@ export function TagsPanel({
                   onAddToSearch={onAddTagToSearch}
                   onExcludeFromSearch={onExcludeTag}
                   onAddToBlacklist={onBlacklistTag}
+                  onFindRelated={onFindRelated}
                 />
               ))}
             </div>

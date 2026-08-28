@@ -409,6 +409,14 @@ pub struct CreatePostSetRequest {
     pub post_set: CreatePostSetFields,
 }
 
+/// One entry from `related_tag.json` after `api::parse_related_tags` normalises whichever shape
+/// this e621ng version returned (see that function). `category` is the numeric e621 tag category.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RelatedTag {
+    pub name: String,
+    pub category: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreatePostSetFields {
     pub name: String,

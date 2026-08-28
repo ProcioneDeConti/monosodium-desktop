@@ -1018,6 +1018,16 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       uses the shared `users/me.json` query for the creator id and `usePostSetMutations`.
       `slideshowShuffle` and `relationships` (prior two entries) plus this are all not yet
       live-tested. Bumped to 1.14.16.
+- [x] **Phase 4: Related tags** e621's `related_tag.json` (powers its search sidebar's "related
+      tags"), never surfaced by either app. Backend `get_related_tags` parses defensively
+      (`parse_related_tags`) - the response shape has changed across e621ng versions (keyed-by-query
+      `[name, category]` pairs vs. a `related_tags` array of `{tag: {...}}` objects), so it
+      normalises whatever came back into `RelatedTag { name, category }` rather than deserializing a
+      fixed struct. `TagChip`'s menu gets a "Related tags" item (`Network` icon) opening
+      `RelatedTagsPanel` - a modal over the viewer listing the related tags as category-coloured
+      chips, each with search / add-to-search / exclude actions. `models/user.ts` gained
+      `numericTagCategory` (extracted from `tagSuggestionCategory`) for the colour mapping.
+      Bumped to 1.14.17.
 
 ## Running it
 

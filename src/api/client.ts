@@ -163,6 +163,11 @@ export const e621Api = {
     return invoke("get_post_set", { site, id });
   },
 
+  /** Tags statistically related to `query`, for search refinement. `category` is numeric. */
+  getRelatedTags(site: Site, query: string): Promise<{ name: string; category: number }[]> {
+    return invoke("get_related_tags", { site, query });
+  },
+
   createPostSet(
     site: Site,
     name: string,
