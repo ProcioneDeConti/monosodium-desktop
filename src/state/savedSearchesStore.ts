@@ -7,6 +7,7 @@
 
 import { create } from "zustand";
 import { load, type Store } from "@tauri-apps/plugin-store";
+import { e621Api } from "../api/client";
 import type { SavedSearch } from "../models/savedSearch";
 
 const STORE_FILE = "saved-searches.json";
@@ -24,7 +25,11 @@ interface SavedSearchesState {
 
 let storePromise: Promise<Store> | null = null;
 function getStore(): Promise<Store> {
-  if (!storePromise) storePromise = load(STORE_FILE, { autoSave: true });
+  if (!storePromise) {
+    storePromise = e621Api
+      .getDataDir()
+      .then((dir) => load(`${dir}/${STORE_FILE}`, { autoSave: true }));
+  }
   return storePromise;
 }
 

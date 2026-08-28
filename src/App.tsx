@@ -12,10 +12,12 @@ import { ForumPanel } from "./components/Forum/ForumPanel";
 import { PoolPanel } from "./components/Pool/PoolPanel";
 import { ReverseSearchPanel } from "./components/ReverseSearch/ReverseSearchPanel";
 import { EulaScreen } from "./components/Eula/EulaScreen";
+import { UnlockScreen } from "./components/Vault/UnlockScreen";
 import { Button } from "./components/ui/Button";
 import { Spinner } from "./components/ui/Spinner";
 import { usePostsQuery } from "./queries/usePostsQuery";
 import { useUserProfileQuery } from "./queries/useUserProfileQuery";
+import { e621Api } from "./api/client";
 import { loadSettings, useSettingsStore } from "./state/settingsStore";
 import { loadAllAccounts, useAccountStore } from "./state/accountStore";
 import { loadSavedSearches } from "./state/savedSearchesStore";
@@ -30,6 +32,10 @@ import { categorizedTags } from "./models/post";
 
 function App() {
   const [booted, setBooted] = useState(false);
+  // null = still checking; true = password protection is on and not yet unlocked this session
+  // (see src-tauri/src/vault.rs) - the boot effect below waits for this to become false before
+  // touching settingsStore/savedSearchesStore, since their encrypted files aren't readable yet.
+  const [vaultLocked, setVaultLocked] = useState<boolean | null>(null);
   const [activeQuery, setActiveQuery] = useState("");
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [slideshowActive, setSlideshowActive] = useState(false);
@@ -43,13 +49,18 @@ function App() {
   const saucenaoApiKey = useSaucenaoStore((s) => s.apiKey);
 
   useEffect(() => {
+    void e621Api.getVaultStatus().then((status) => setVaultLocked(status.locked));
+  }, []);
+
+  useEffect(() => {
+    if (vaultLocked !== false) return;
     Promise.all([
       loadSettings(),
       loadAllAccounts(),
       loadSavedSearches(),
       useSaucenaoStore.getState().load(),
     ]).finally(() => setBooted(true));
-  }, []);
+  }, [vaultLocked]);
 
   // Drag-and-drop reverse image search - Tauri's native drag-drop event hands over local file
   // system paths directly (unlike the browser's own HTML5 File API), so this never needs to read
@@ -169,6 +180,13 @@ function App() {
   function addTagToBlacklist(tag: string) {
     setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`);
   }
+
+  // Password-protection gate (Settings > Encryption, src-tauri/src/vault.rs) - even earlier than
+  // the EULA gate below, since settingsStore/savedSearchesStore can't be read at all until this
+  // resolves. `null` (still checking vault_status) renders nothing rather than flashing the rest
+  // of the app for a frame; that check is fast enough not to need its own spinner.
+  if (vaultLocked === null) return null;
+  if (vaultLocked) return <UnlockScreen onUnlocked={() => setVaultLocked(false)} />;
 
   // First-launch (and re-launch-after-a-EULA-text-change) gate - replaces the entire app, not
   // just its content area, matching the reference app's own EulaScreen/MainActivity wiring.

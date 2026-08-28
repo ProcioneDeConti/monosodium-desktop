@@ -11,6 +11,7 @@ import {
   useSettingsStore,
 } from "../../state/settingsStore";
 import { useAccountStore } from "../../state/accountStore";
+import { e621Api } from "../../api/client";
 import type { Rating } from "../../models/post";
 import { randomGreeting } from "../../lib/greetings";
 import { SiteAccountCard } from "./SiteAccountCard";
@@ -18,6 +19,7 @@ import { BlacklistSection } from "./BlacklistSection";
 import { BackupSection } from "./BackupSection";
 import { CacheSection } from "./CacheSection";
 import { UpdateSection } from "./UpdateSection";
+import { EncryptionSection } from "./EncryptionSection";
 import { EulaReadOnlyDialog } from "../Eula/EulaReadOnlyDialog";
 import { SaucenaoSection } from "./SaucenaoSection";
 import { Button } from "../ui/Button";
@@ -54,6 +56,7 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   // greeting every time it's opened rather than keeping the same one all session.
   const [greeting] = useState(randomGreeting);
   const [showEula, setShowEula] = useState(false);
+  const [passwordProtected, setPasswordProtected] = useState<boolean | null>(null);
   const adultModeEnabled = useSettingsStore((s) => s.adultModeEnabled);
   const setAdultModeEnabled = useSettingsStore((s) => s.setAdultModeEnabled);
   const enabledRatings = useSettingsStore((s) => s.enabledRatings);
@@ -78,6 +81,10 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  useEffect(() => {
+    void e621Api.getVaultStatus().then((status) => setPasswordProtected(status.password_protected));
+  }, []);
 
   function toggleRating(rating: Rating) {
     const next = enabledRatings.includes(rating)
@@ -252,6 +259,10 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
                 </button>
               )}
             </div>
+          </Section>
+
+          <Section title="Encryption">
+            {passwordProtected !== null && <EncryptionSection passwordProtected={passwordProtected} />}
           </Section>
 
           <Section title="Backup & Restore">

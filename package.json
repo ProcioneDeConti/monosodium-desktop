@@ -1,13 +1,15 @@
 {
   "name": "monosodium-desktop",
   "private": true,
-  "version": "1.14.4",
+  "version": "1.14.9",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "build:portable": "node scripts/build-portable.mjs",
+    "dist": "tauri build && npm run build:portable"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

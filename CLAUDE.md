@@ -725,8 +725,10 @@ checking off a pre-existing item.
       rather than a keyless, e621-only alternative. The key itself goes through Windows
       Credential Manager (`credentials.rs`'s new `save`/`load`/`delete_saucenao_key`,
       `state/saucenaoStore.ts`), same treatment as e621/e6AI credentials - not the plain
-      settings.json store, and not part of `lib/backup.ts`'s snapshot either, both on purpose (a
-      third-party secret, not an e621 one).
+      settings.json store. **Originally excluded from `lib/backup.ts`'s snapshot** on the
+      reasoning that it's "a third-party secret, not an e621 one" - reversed on direct user
+      feedback that a settings backup should just cover everything, e621/e6AI credentials
+      included it too, so this shouldn't be different. Now part of the snapshot the same way.
 
       **Fixed live - "works without a key at a lower rate limit" was wrong; a key is mandatory**:
       the user reported "SauceNao search failed" right after this shipped. Rather than guess,
@@ -791,6 +793,125 @@ All eleven items from the user's brainstormed post-Phase-2 list are now done.
       gap without yet being hit. `create_dmail` still has its temporary raw-body-on-parse-failure
       diagnostic in place for one more confirming test before reverting to the plain
       `.json::<Dmail>()` every other command uses.
+
+- [x] **Portable exe + local-only storage** Two related changes, done together since both are
+      about running with zero footprint outside the app's own folder. `npm run dist` (`npm run
+      tauri build` + `npm run build:portable`) now also copies the raw, un-bundled
+      `src-tauri/target/release/monosodium-desktop.exe` into `dist-portable/` alongside the
+      existing NSIS/MSI installers - it already ran standalone with no install step (WebView2
+      links directly into the binary, no companion DLLs, and Windows 11 ships the runtime by
+      default), so this is just packaging what already worked, not new capability.
+      **All of this app's local state moved from AppData/Windows Credential Manager into a
+      `data/` folder next to the exe** (`src-tauri/src/paths.rs`'s `data_root()`), so the portable
+      exe (or any install) leaves nothing else on the system - settings.json/saved-searches.json
+      (`tauri-plugin-store`, redirected via a new `get_data_dir` command since the plugin always
+      resolves its own path argument against Tauri's AppData dir unless given an absolute one),
+      the WebView2 cache (`cache.rs`, previously its own separate `%LOCALAPPDATA%\Monosodium
+      Desktop` location), and account/SauceNAO credentials (`credentials.rs`, previously three
+      separate Windows Credential Manager entries via the `keyring` crate, now removed as a
+      dependency entirely). `data_root()` falls back to the old `%LOCALAPPDATA%` location only if
+      the exe's own folder isn't writable - the one realistic case being a per-machine MSI install
+      under Program Files without elevation.
+      **Credentials are now one AES-256-GCM-encrypted file** (`credentials.dat`, reusing
+      `backup.rs`'s existing envelope crypto - factored out into `crypto.rs` so both modules share
+      one implementation) instead of individual Credential Manager entries. There's no password-
+      prompt UX for this file (Credential Manager never needed one either, being implicitly bound
+      to the logged-in Windows user), so the encryption key is derived from `%COMPUTERNAME%`/
+      `%USERNAME%` instead of a typed password. **Known, accepted tradeoff**: this is weaker than
+      Credential Manager's DPAPI-backed protection - anyone who can read this file *and* run code
+      as the same Windows user on the same machine can reproduce the key - and, unlike AppData
+      (auto user-scoped by Windows), a shared machine with multiple Windows users who can all
+      reach the exe's folder no longer gets that isolation for free. Traded off deliberately for
+      the storage-stays-with-the-exe requirement; a decryption failure (wrong machine/user, or a
+      corrupted file) is treated as "nothing saved" rather than a hard error, matching the old
+      backend's `NoEntry` behavior. Not yet live-tested - a real portable copy moved between
+      folders/machines, and the Program-Files-fallback path specifically, still need a hands-on
+      pass.
+
+- [x] **Password-based local encryption (Settings > Encryption)** Follow-up to the storage-
+      relocation entry above: an optional, off-by-default way to protect settings.json/
+      saved-searches.json/credentials.dat with a password the user chooses, instead of only the
+      machine+Windows-user-derived key credentials.dat already fell back to. `src-tauri/src/
+      vault.rs` owns this - a `.vault_check` file (an AES-GCM-encrypted known plaintext) marks
+      whether it's on at all, and holds the salt the real data key is derived from
+      (`crypto::derive_key`) once a submitted password decrypts it successfully. The derived key
+      lives only in memory (`vault.rs`'s `MASTER_KEY`) for the life of the process - every launch
+      with protection on starts locked again, by design.
+      - **`tauri-plugin-store`'s encryption hook, not a hand-rolled store**: the plugin exposes
+        `StoreBuilder::serialize`/`.deserialize`, so settings.json/saved-searches.json stay on
+        the exact same `@tauri-apps/plugin-store` JS API the rest of the app already uses (zero
+        changes needed in settingsStore.ts/savedSearchesStore.ts beyond the earlier storage-
+        relocation entry) - only how the bytes on disk look changes. The catch: those hook types
+        are bare `fn` pointers with no closure captures, so the derived key can't be threaded in
+        directly - it's read from `MASTER_KEY` inside the hook functions instead, which is the
+        one reason that global exists.
+      - **Verify-before-register, not trust-and-see**: `StoreBuilder::build()` swallows a failed
+        initial load internally (`let _ = store_inner.load()`), so registering the encrypted
+        store with a wrong key wouldn't surface an error - it would silently look like an empty
+        store, and the next autosave would overwrite the real encrypted file with that empty
+        state. `unlock_vault` avoids this by verifying the password against `.vault_check` first
+        (which is what confirms the derived key is correct) and only then calling
+        `StoreBuilder::build()` with that already-known-good key.
+      - **Enable/disable restart immediately, not "restart now" like Cache's**: turning this on
+        or off re-encrypts (or decrypts) settings.json/saved-searches.json/credentials.dat in
+        place via direct file I/O, bypassing this session's already-open store resources
+        entirely - those were registered with the *old* hooks before the toggle ran, and would
+        keep autosaving in the old format over the just-migrated file if left alive even briefly.
+        `EncryptionSection.tsx` calls `relaunch()` right after the Rust command succeeds, with no
+        intermediate button, closing that window instead of leaving it open like Cache's deferred
+        restart.
+      - **`credentials.rs` didn't need new plumbing** - `machine_secret()` (the string its
+        existing AES-256-GCM envelope, shared via `crypto.rs`, is encrypted under) now checks
+        `vault::current_key()` first and only falls back to the machine+Windows-user derivation
+        when that's `None`. Enabling/disabling just calls the existing `read_all`/`write_all`
+        around the moment `current_key()` changes, so credentials.dat re-encrypts under whichever
+        secret is now active with no format change.
+      - **`UnlockScreen.tsx`** (App.tsx, gating even earlier than the EULA screen - nothing in
+        settingsStore/savedSearchesStore can load until this resolves) includes the "forgot
+        password" path the user asked for directly: a "Reset everything" option that deletes
+        settings.json/saved-searches.json/credentials.dat/`.vault_check` and starts fresh, same
+        as a first launch - there's no password recovery with this kind of at-rest encryption, so
+        that's the only way forward. Deliberately leaves the WebView2 cache alone, unrelated to
+        what a forgotten password actually blocks.
+      - Not yet live-tested - enabling, restarting into the unlock screen, a wrong password's
+        error/retry, disabling, and the reset-everything path all still need a hands-on pass.
+      - **Fixed live, found during the first real test**: "Enable & restart" appeared to crash
+        (a `Chrome_WidgetWin_0` window-class-unregister error in the console) and left the app in
+        an inconsistent state - `.vault_check` present (so the app thought protection was on) but
+        settings.json/saved-searches.json still plaintext underneath. Root cause:
+        `tauri-plugin-store` has its own `RunEvent::Exit` handler that unconditionally re-saves
+        *every currently-open store* through whatever hooks it was registered with - it fired
+        during `relaunch()`'s teardown, milliseconds after `enable_password_encryption` had
+        correctly written the encrypted files via direct `std::fs` I/O, and silently overwrote
+        them again through this session's still-open, still-plaintext store handles from before
+        the toggle ran. Not a crash at all - the log line was just that same window teardown.
+        Fixed with `vault.rs`'s new `detach_live_stores` - closes both store resources
+        (`StoreBuilder::new(app, path).build()` finds the existing one; `.close_resource()`
+        removes it from the exit handler's reach) as the very first thing both
+        `enable_password_encryption` and `disable_password_encryption` do, before any file
+        writes. Recovered the affected install by hand: settings/blacklist were never actually
+        touched by the bug and came through intact; `credentials.dat` had been correctly
+        re-encrypted under the new password before the crash-that-wasn't, so it was orphaned once
+        `.vault_check` was removed to revert - the user re-entered their e621/e6AI/SauceNAO
+        credentials once as the actual cost of this bug.
+- [x] **Fixed: Backup & Restore wasn't actually backing up everything** Found via direct user
+      report ("I don't believe the settings backup backed up my SauceNao key"), then audited for
+      more of the same rather than fixing just that one field. Two real gaps: (1) the SauceNAO key
+      was *deliberately* excluded from `lib/backup.ts`'s snapshot on originally-reasonable-sounding
+      grounds ("a third-party secret, not an e621 one") - reversed, since that's not the bar a user
+      backing up "their settings" is measuring against; it's now included the same way e621/e6AI
+      credentials already were. (2) Settings > Cache's size limit lives entirely outside
+      `settingsStore.ts` (its own file, owned by `cache.rs`, never went through
+      `tauri-plugin-store` at all) so it was never in scope for the backup snapshot to begin with -
+      added via a real round trip (`e621Api.getCacheInfo()`/`setCacheLimitMb()`), which is why
+      `buildBackup()` had to become `async` (every other field comes from synchronous, already-
+      in-memory Zustand state). `cacheLimitMb` is `number | null` where `null` (Unlimited) is a
+      real, meaningful value - restoring checks the field's *presence*
+      (`"cacheLimitMb" in backup`), not truthiness, so an old backup made before this field
+      existed doesn't get misread as "explicitly set to Unlimited." Every other
+      `settingsStore.ts`-persisted field (including accent color and thumbnail size, the two the
+      user asked about by name) was already covered - audited field-by-field against
+      `SettingsBackup` to confirm nothing else was silently missing before calling this done.
 
 ## Running it
 

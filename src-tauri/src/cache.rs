@@ -2,6 +2,8 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
+use crate::paths;
+
 /// Manages the disk cache WebView2 (not this app's own Rust code) keeps for everything the
 /// webview loads directly - which, per api.rs's doc comment, is every thumbnail/sample/full
 /// image and video, since media never makes a Rust round-trip. That's a real architectural
@@ -12,15 +14,14 @@ use serde::Serialize;
 /// therefore applied at the next launch, not live - `bootstrap()` runs before the webview (and
 /// so before that process/its locks) exists, which is the only point a plain filesystem
 /// operation on the cache directory is safe.
-const APP_DATA_FOLDER: &str = "Monosodium Desktop";
 const WEBVIEW2_SUBDIR: &str = "WebView2";
 const CLEAR_MARKER_FILE: &str = ".clear_cache_pending";
 const LIMIT_FILE: &str = "cache_limit_mb.txt";
 
-fn app_data_root() -> Result<PathBuf, String> {
-    dirs::data_local_dir()
-        .map(|p| p.join(APP_DATA_FOLDER))
-        .ok_or_else(|| "Could not resolve the local app data folder".to_string())
+/// Same root as settings/saved-searches/credentials.dat - see paths.rs's doc comment. Infallible
+/// (it always has a fallback), unlike the old dirs::data_local_dir()-only lookup this replaced.
+fn app_data_root() -> PathBuf {
+    paths::data_root()
 }
 
 fn webview2_dir(root: &Path) -> PathBuf {
@@ -36,7 +37,7 @@ fn webview2_dir(root: &Path) -> PathBuf {
 /// throughout: there's no user-facing way to surface a failure this early, so errors are
 /// swallowed rather than blocking app startup over a non-essential feature.
 pub fn bootstrap() {
-    let Ok(root) = app_data_root() else { return };
+    let root = app_data_root();
     let _ = std::fs::create_dir_all(&root);
     let webview2 = webview2_dir(&root);
 
@@ -84,7 +85,7 @@ pub struct CacheInfo {
 
 #[tauri::command]
 pub fn get_cache_info() -> Result<CacheInfo, String> {
-    let root = app_data_root()?;
+    let root = app_data_root();
     Ok(CacheInfo {
         used_bytes: dir_size(&webview2_dir(&root)),
         limit_mb: read_limit_mb(&root),
@@ -94,7 +95,7 @@ pub fn get_cache_info() -> Result<CacheInfo, String> {
 /// Doesn't take effect until the next launch - see this module's doc comment.
 #[tauri::command]
 pub fn set_cache_limit_mb(limit_mb: Option<i64>) -> Result<(), String> {
-    let root = app_data_root()?;
+    let root = app_data_root();
     std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
     let path = root.join(LIMIT_FILE);
     match limit_mb {
@@ -112,7 +113,7 @@ pub fn set_cache_limit_mb(limit_mb: Option<i64>) -> Result<(), String> {
 /// can't happen immediately) rather than clearing it now.
 #[tauri::command]
 pub fn request_cache_clear() -> Result<(), String> {
-    let root = app_data_root()?;
+    let root = app_data_root();
     std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
     std::fs::write(root.join(CLEAR_MARKER_FILE), "1").map_err(|e| e.to_string())
 }

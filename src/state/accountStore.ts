@@ -1,6 +1,6 @@
-// Per-site account credentials, loaded from/saved to Windows Credential Manager via the Rust
-// `credentials` commands (src-tauri/src/credentials.rs) - never persisted in the plain-JSON
-// settings store. e621 and e6AI are separate accounts (see the reference app's
+// Per-site account credentials, loaded from/saved to the encrypted credentials.dat file next to
+// the exe via the Rust `credentials` commands (src-tauri/src/credentials.rs) - never persisted in
+// the plain-JSON settings store. e621 and e6AI are separate accounts (see the reference app's
 // UserSettings.username/apiKey), so each site's credentials are tracked independently.
 
 import { create } from "zustand";

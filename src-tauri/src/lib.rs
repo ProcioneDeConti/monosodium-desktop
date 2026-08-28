@@ -2,12 +2,15 @@ mod api;
 mod backup;
 mod cache;
 mod credentials;
+mod crypto;
 mod downloads;
 mod models;
+mod paths;
 mod rate_limit;
 mod saucenao;
 mod site;
 mod update_check;
+mod vault;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -145,6 +148,12 @@ pub fn run() {
             credentials::load_saucenao_key,
             credentials::delete_saucenao_key,
             saucenao::reverse_image_search,
+            paths::get_data_dir,
+            vault::vault_status,
+            vault::unlock_vault,
+            vault::enable_password_encryption,
+            vault::disable_password_encryption,
+            vault::reset_vault,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

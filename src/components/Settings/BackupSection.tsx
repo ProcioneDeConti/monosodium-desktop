@@ -34,7 +34,7 @@ export function BackupSection() {
     try {
       const path = await save({ filters: FILTERS, defaultPath: "monosodium-desktop-backup.json" });
       if (!path) return;
-      const plaintext = JSON.stringify(buildBackup());
+      const plaintext = JSON.stringify(await buildBackup());
       await e621Api.exportBackup(path, plaintext, password);
       setMessage("Backup exported.");
       setMode({ type: "idle" });

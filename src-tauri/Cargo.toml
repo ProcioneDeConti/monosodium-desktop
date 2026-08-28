@@ -1,6 +1,6 @@
 [package]
 name = "monosodium-desktop"
-version = "1.14.4"
+version = "1.14.9"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -28,7 +28,6 @@ reqwest = { version = "0.13.4", features = ["json", "query", "multipart"] }
 governor = "0.10.4"
 tokio = { version = "1.53.1", features = ["full"] }
 base64 = "0.23.1"
-keyring = { version = "4.1.6", default-features = false, features = ["v1"] }
 tauri-plugin-dialog = "2.7.2"
 tauri-plugin-process = "2"
 tauri-plugin-global-shortcut = "2"

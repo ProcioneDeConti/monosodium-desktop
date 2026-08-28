@@ -1,17 +1,23 @@
 // Assembles/applies Settings > Backup & Restore's portable snapshot - the desktop analogue of
 // the reference Android app's SettingsBackup.kt (same idea: everything in the settings store
-// worth restoring), plus both sites' credentials, since the reference app's own backup bundles
-// those too (that's the reason a backup can be password-protected at all). Deliberately excludes
-// saved searches (state/savedSearchesStore.ts) and blacklistDisabled (a session-only toggle,
-// never persisted in the first place) - same boundary the reference app's own SettingsBackup
-// draws around its UserSettings, not SavedSearchStore. src-tauri/src/backup.rs's export/import
-// commands know nothing about this shape - they just encrypt/decrypt whatever opaque JSON string
-// this module hands them.
+// worth restoring), plus both sites' credentials, the SauceNAO key, and the Cache size limit -
+// all covered on the same "a settings backup should just cover everything on the Settings
+// screen" reasoning, even where (SauceNAO, Cache) that meant reaching outside settingsStore.ts
+// itself. `buildBackup` is async for exactly one reason: the Cache limit lives in its own file
+// (src-tauri/src/cache.rs), not tauri-plugin-store, so it needs a real round trip rather than
+// coming along for free with the rest of the (synchronous, in-memory) Zustand state. Deliberately
+// still excludes saved searches (state/savedSearchesStore.ts) and blacklistDisabled (a
+// session-only toggle, never persisted in the first place) - same boundary the reference app's
+// own SettingsBackup draws around its UserSettings, not SavedSearchStore.
+// src-tauri/src/backup.rs's export/import commands know nothing about this shape - they just
+// encrypt/decrypt whatever opaque JSON string this module hands them.
 
+import { e621Api } from "../api/client";
 import type { Rating } from "../models/post";
 import type { Site } from "../models/site";
 import type { SlideshowTransition } from "./slideshow";
 import { useAccountStore } from "../state/accountStore";
+import { useSaucenaoStore } from "../state/saucenaoStore";
 import { useSettingsStore } from "../state/settingsStore";
 
 export interface SettingsBackup {
@@ -20,6 +26,14 @@ export interface SettingsBackup {
   e621ApiKey: string;
   e6aiUsername: string;
   e6aiApiKey: string;
+  /** `?? ""` on read for forward compatibility with a backup made before this field existed. */
+  saucenaoApiKey?: string;
+  /** Settings > Cache's size limit - lives outside settingsStore.ts entirely (src-tauri/src/
+   *  cache.rs owns its own file, not tauri-plugin-store), so it needs its own round trip here
+   *  rather than coming along for free with the rest of the store. `null` is a meaningful value
+   *  (Unlimited), so restoring checks the field's presence, not its truthiness - see applyBackup.
+   *  Absent on a backup made before this field existed. */
+  cacheLimitMb?: number | null;
   site: Site;
   enabledRatings: Rating[];
   adultModeEnabled: boolean;
@@ -35,15 +49,20 @@ export interface SettingsBackup {
   eulaAcceptedHash: string | null;
 }
 
-export function buildBackup(): SettingsBackup {
+export async function buildBackup(): Promise<SettingsBackup> {
   const settings = useSettingsStore.getState();
   const accounts = useAccountStore.getState().accounts;
+  // `undefined` (fetch failed) leaves cacheLimitMb out of the object entirely, same as an old
+  // backup that predates the field - `null` is reserved for a verified "Unlimited" reading.
+  const cacheInfo = await e621Api.getCacheInfo().catch(() => undefined);
   return {
     version: 1,
     e621Username: accounts.e621?.username ?? "",
     e621ApiKey: accounts.e621?.apiKey ?? "",
     e6aiUsername: accounts.e6ai?.username ?? "",
     e6aiApiKey: accounts.e6ai?.apiKey ?? "",
+    saucenaoApiKey: useSaucenaoStore.getState().apiKey ?? "",
+    cacheLimitMb: cacheInfo && cacheInfo.limit_mb,
     site: settings.site,
     enabledRatings: settings.enabledRatings,
     adultModeEnabled: settings.adultModeEnabled,
@@ -96,6 +115,14 @@ export async function applyBackup(backup: SettingsBackup): Promise<void> {
   }
   if (backup.e6aiUsername || backup.e6aiApiKey) {
     tasks.push(accountStore.save("e6ai", backup.e6aiUsername, backup.e6aiApiKey));
+  }
+  if (backup.saucenaoApiKey) {
+    tasks.push(useSaucenaoStore.getState().save(backup.saucenaoApiKey));
+  }
+  // Field presence, not truthiness - `null` (Unlimited) is a real, meaningful value here, and
+  // `"cacheLimitMb" in backup` being false is what actually means "not in this backup."
+  if ("cacheLimitMb" in backup) {
+    tasks.push(e621Api.setCacheLimitMb(backup.cacheLimitMb ?? null));
   }
   await Promise.all(tasks);
 }

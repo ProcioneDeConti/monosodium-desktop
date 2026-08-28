@@ -21,6 +21,11 @@ export interface SiteCredentials {
   api_key: string;
 }
 
+export interface VaultStatus {
+  password_protected: boolean;
+  locked: boolean;
+}
+
 export const e621Api = {
   getPosts(site: Site, tags: string, limit: number, page?: string): Promise<PostsResponse> {
     return invoke("get_posts", { site, tags: tags || null, limit, page: page ?? null });
@@ -206,5 +211,37 @@ export const e621Api = {
 
   reverseImageSearch(apiKey: string | null, filePath: string): Promise<SauceResult[]> {
     return invoke("reverse_image_search", { apiKey, filePath });
+  },
+
+  /** Absolute path to the "data" folder next to the exe - see src-tauri/src/paths.rs. Used by
+   *  settingsStore.ts/savedSearchesStore.ts to place their JSON files there instead of
+   *  tauri-plugin-store's default AppData location. */
+  getDataDir(): Promise<string> {
+    return invoke("get_data_dir");
+  },
+
+  /** Settings > Encryption - see src-tauri/src/vault.rs. `locked` is only ever true right after
+   *  launch, while password protection is on and `unlockVault` hasn't succeeded yet this
+   *  session. */
+  getVaultStatus(): Promise<VaultStatus> {
+    return invoke("vault_status");
+  },
+
+  unlockVault(password: string): Promise<void> {
+    return invoke("unlock_vault", { password });
+  },
+
+  enablePasswordEncryption(password: string): Promise<void> {
+    return invoke("enable_password_encryption", { password });
+  },
+
+  disablePasswordEncryption(): Promise<void> {
+    return invoke("disable_password_encryption");
+  },
+
+  /** The "forgot password" path - deletes settings/saved-searches/credentials and starts fresh,
+   *  same as a first launch. There's no password recovery, so this is the only way forward. */
+  resetVault(): Promise<void> {
+    return invoke("reset_vault");
   },
 };

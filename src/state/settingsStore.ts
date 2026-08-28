@@ -1,11 +1,13 @@
 // Desktop analogue of the reference Android app's DataStore-backed UserPreferences/UserSettings
 // (data/settings/UserPreferences.kt, UserSettings.kt). Non-secret settings persist via
-// tauri-plugin-store (a JSON file under the app's config dir); account credentials are kept out
-// of this store entirely and live in Windows Credential Manager (see api/client.ts's
-// save/load/deleteCredentials, backed by src-tauri/src/credentials.rs).
+// tauri-plugin-store (a JSON file in the "data" folder next to the exe - see
+// src-tauri/src/paths.rs); account credentials are kept out of this store entirely and live in
+// their own encrypted file there instead (see api/client.ts's save/load/deleteCredentials,
+// backed by src-tauri/src/credentials.rs).
 
 import { create } from "zustand";
 import { load, type Store } from "@tauri-apps/plugin-store";
+import { e621Api } from "../api/client";
 import type { Rating } from "../models/post";
 import type { Site } from "../models/site";
 import { parseBlacklist, type BlacklistEntries } from "../lib/blacklist";
@@ -69,7 +71,11 @@ interface SettingsState {
 
 let storePromise: Promise<Store> | null = null;
 function getStore(): Promise<Store> {
-  if (!storePromise) storePromise = load(STORE_FILE, { autoSave: true });
+  if (!storePromise) {
+    storePromise = e621Api
+      .getDataDir()
+      .then((dir) => load(`${dir}/${STORE_FILE}`, { autoSave: true }));
+  }
   return storePromise;
 }
 
