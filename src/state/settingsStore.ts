@@ -14,6 +14,7 @@ import { parseBlacklist, type BlacklistEntries } from "../lib/blacklist";
 import {
   clampSlideshowInterval,
   DEFAULT_SLIDESHOW_INTERVAL_SEC,
+  DEFAULT_SLIDESHOW_SHUFFLE,
   DEFAULT_SLIDESHOW_TRANSITION,
   type SlideshowTransition,
 } from "../lib/slideshow";
@@ -45,6 +46,7 @@ interface SettingsState {
   downloadDir: string | null;
   slideshowIntervalSec: number;
   slideshowTransition: SlideshowTransition;
+  slideshowShuffle: boolean;
   /** The hash (see lib/eula.ts) of whichever EULA text was last agreed to; null means never
    *  agreed. Compared against CURRENT_EULA_HASH to gate the app behind EulaScreen. */
   eulaAcceptedHash: string | null;
@@ -62,6 +64,7 @@ interface SettingsState {
   setDownloadDir: (dir: string | null) => void;
   setSlideshowIntervalSec: (seconds: number) => void;
   setSlideshowTransition: (transition: SlideshowTransition) => void;
+  setSlideshowShuffle: (shuffle: boolean) => void;
   /** Pass the hash of the EULA text just agreed to, or null to clear (un-accept). */
   setEulaAccepted: (hash: string | null) => void;
 
@@ -106,6 +109,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   downloadDir: null,
   slideshowIntervalSec: DEFAULT_SLIDESHOW_INTERVAL_SEC,
   slideshowTransition: DEFAULT_SLIDESHOW_TRANSITION,
+  slideshowShuffle: DEFAULT_SLIDESHOW_SHUFFLE,
   eulaAcceptedHash: null,
 
   setSite: (site) => {
@@ -159,6 +163,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ slideshowTransition });
     void persist("slideshowTransition", slideshowTransition);
   },
+  setSlideshowShuffle: (slideshowShuffle) => {
+    set({ slideshowShuffle });
+    void persist("slideshowShuffle", slideshowShuffle);
+  },
   setEulaAccepted: (eulaAcceptedHash) => {
     set({ eulaAcceptedHash });
     void persist("eulaAcceptedHash", eulaAcceptedHash);
@@ -197,6 +205,7 @@ export async function loadSettings(): Promise<void> {
         (values.slideshowIntervalSec as number) ?? state.slideshowIntervalSec,
       slideshowTransition:
         (values.slideshowTransition as SlideshowTransition) ?? state.slideshowTransition,
+      slideshowShuffle: (values.slideshowShuffle as boolean) ?? state.slideshowShuffle,
       eulaAcceptedHash: (values.eulaAcceptedHash as string | null) ?? state.eulaAcceptedHash,
       isLoaded: true,
     };

@@ -24,6 +24,7 @@ import { loadAllAccounts, useAccountStore } from "./state/accountStore";
 import { loadSavedSearches } from "./state/savedSearchesStore";
 import { useSaucenaoStore } from "./state/saucenaoStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
+import { withRandomOrder } from "./lib/searchQuery";
 import { hexToRgbTriplet } from "./lib/color";
 import { cacheTagCategory } from "./lib/tagCategoryCache";
 import { CURRENT_EULA_HASH } from "./lib/eula";
@@ -337,6 +338,7 @@ function App() {
       onOpenSavedSearches={() => navigate({ savedSearchesOpen: true })}
       onStartSlideshow={shownPosts.length > 0 ? startSlideshow : null}
       onRefresh={() => void refresh()}
+      onShuffle={() => runNewSearch(withRandomOrder(activeQuery))}
       isRefreshing={isRefetching}
       isLoadingPosts={isLoading || isFetchingNextPage || isRefetching}
     >

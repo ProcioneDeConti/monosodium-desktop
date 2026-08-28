@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Settings as SettingsIcon,
+  Shuffle,
   TrendingUp,
   User,
 } from "lucide-react";
@@ -48,6 +49,7 @@ interface AppShellProps {
   onOpenSavedSearches: () => void;
   onStartSlideshow: (() => void) | null;
   onRefresh: () => void;
+  onShuffle: () => void;
   isRefreshing: boolean;
   isLoadingPosts: boolean;
   children: ReactNode;
@@ -69,6 +71,7 @@ export function AppShell({
   onOpenSavedSearches,
   onStartSlideshow,
   onRefresh,
+  onShuffle,
   isRefreshing,
   isLoadingPosts,
   children,
@@ -79,8 +82,10 @@ export function AppShell({
   const setGridThumbnailSizePx = useSettingsStore((s) => s.setGridThumbnailSizePx);
   const slideshowIntervalSec = useSettingsStore((s) => s.slideshowIntervalSec);
   const slideshowTransition = useSettingsStore((s) => s.slideshowTransition);
+  const slideshowShuffle = useSettingsStore((s) => s.slideshowShuffle);
   const setSlideshowIntervalSec = useSettingsStore((s) => s.setSlideshowIntervalSec);
   const setSlideshowTransition = useSettingsStore((s) => s.setSlideshowTransition);
+  const setSlideshowShuffle = useSettingsStore((s) => s.setSlideshowShuffle);
   const [slideshowMenuOpen, setSlideshowMenuOpen] = useState(false);
   const slideshowMenuRef = useRef<HTMLDivElement>(null);
 
@@ -169,6 +174,10 @@ export function AppShell({
           <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
         </IconButton>
 
+        <IconButton onClick={onShuffle} title="Random posts (order:random)">
+          <Shuffle size={16} />
+        </IconButton>
+
         <Button onClick={toggleSite} title={`Switch active site · ${healthTitle}`}>
           <span
             className={`h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${healthColor} ${
@@ -251,6 +260,16 @@ export function AppShell({
                   ))}
                 </select>
               </div>
+
+              <label className="mb-3 flex cursor-pointer items-center justify-between gap-2 select-none">
+                <span className="opacity-80">Shuffle</span>
+                <input
+                  type="checkbox"
+                  checked={slideshowShuffle}
+                  onChange={(e) => setSlideshowShuffle(e.target.checked)}
+                  className="accent-[rgb(var(--accent))]"
+                />
+              </label>
 
               <Button
                 icon={<Play size={13} strokeWidth={2.5} />}

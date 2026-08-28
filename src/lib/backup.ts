@@ -46,6 +46,8 @@ export interface SettingsBackup {
   downloadDir: string | null;
   slideshowIntervalSec: number;
   slideshowTransition: SlideshowTransition;
+  /** Absent on a backup made before this field existed - `?? false` on read. */
+  slideshowShuffle?: boolean;
   eulaAcceptedHash: string | null;
 }
 
@@ -75,6 +77,7 @@ export async function buildBackup(): Promise<SettingsBackup> {
     downloadDir: settings.downloadDir,
     slideshowIntervalSec: settings.slideshowIntervalSec,
     slideshowTransition: settings.slideshowTransition,
+    slideshowShuffle: settings.slideshowShuffle,
     eulaAcceptedHash: settings.eulaAcceptedHash,
   };
 }
@@ -105,6 +108,7 @@ export async function applyBackup(backup: SettingsBackup): Promise<void> {
   settings.setDownloadDir(backup.downloadDir);
   settings.setSlideshowIntervalSec(backup.slideshowIntervalSec);
   settings.setSlideshowTransition(backup.slideshowTransition);
+  settings.setSlideshowShuffle(backup.slideshowShuffle ?? false);
   // `?? null` for forward compatibility with a backup made before this field existed.
   settings.setEulaAccepted(backup.eulaAcceptedHash ?? null);
 

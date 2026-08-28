@@ -14,6 +14,7 @@ export const MIN_SLIDESHOW_INTERVAL_SEC = 1;
 export const MAX_SLIDESHOW_INTERVAL_SEC = 60;
 export const DEFAULT_SLIDESHOW_INTERVAL_SEC = 5;
 export const DEFAULT_SLIDESHOW_TRANSITION: SlideshowTransition = "fade";
+export const DEFAULT_SLIDESHOW_SHUFFLE = false;
 
 export function clampSlideshowInterval(seconds: number): number {
   return Math.min(MAX_SLIDESHOW_INTERVAL_SEC, Math.max(MIN_SLIDESHOW_INTERVAL_SEC, Math.round(seconds)));

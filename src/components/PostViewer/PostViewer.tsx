@@ -10,6 +10,7 @@ import {
   Pause,
   Play,
   Plus,
+  Shuffle,
   Square,
   ThumbsDown,
   ThumbsUp,
@@ -99,8 +100,10 @@ export function PostViewer({
   const downloadDir = useSettingsStore((s) => s.downloadDir);
   const slideshowIntervalSec = useSettingsStore((s) => s.slideshowIntervalSec);
   const slideshowTransition = useSettingsStore((s) => s.slideshowTransition);
+  const slideshowShuffle = useSettingsStore((s) => s.slideshowShuffle);
   const setSlideshowIntervalSec = useSettingsStore((s) => s.setSlideshowIntervalSec);
   const setSlideshowTransition = useSettingsStore((s) => s.setSlideshowTransition);
+  const setSlideshowShuffle = useSettingsStore((s) => s.setSlideshowShuffle);
   const [downloadStatus, setDownloadStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
   );
@@ -166,17 +169,38 @@ export function PostViewer({
     if (slideshowActive) setSlideshowPaused(false);
   }, [slideshowActive]);
 
+  // One slideshow step. Shuffle jumps to a random other post (and pulls the next page in when it
+  // lands near the end) and so never runs out; sequential mode stops once there's nothing after
+  // the current post and no more pages to load, rather than sitting idle on the last one.
+  const advanceSlideshow = useCallback(() => {
+    if (slideshowShuffle && posts.length > 1) {
+      let next = Math.floor(Math.random() * posts.length);
+      if (next === index) next = (next + 1) % posts.length;
+      onIndexChange(next);
+      if (posts.length - next <= LOAD_MORE_THRESHOLD && hasNextPage) onLoadMore();
+      return;
+    }
+    if (canGoNext) goNext();
+    else onToggleSlideshow();
+  }, [
+    slideshowShuffle,
+    posts.length,
+    index,
+    onIndexChange,
+    hasNextPage,
+    onLoadMore,
+    canGoNext,
+    goNext,
+    onToggleSlideshow,
+  ]);
+
   // Auto-advance timer - restarts on every index/interval/pause change, so manual nav (arrow
-  // keys, the chevron buttons) naturally resets the countdown too. Runs out of posts and no more
-  // pages to load -> stop slideshow mode instead of sitting idle on the last post forever.
+  // keys, the chevron buttons) naturally resets the countdown too.
   useEffect(() => {
     if (!slideshowActive || slideshowPaused) return;
-    const timer = setTimeout(() => {
-      if (canGoNext) goNext();
-      else onToggleSlideshow();
-    }, slideshowIntervalSec * 1000);
+    const timer = setTimeout(advanceSlideshow, slideshowIntervalSec * 1000);
     return () => clearTimeout(timer);
-  }, [slideshowActive, slideshowPaused, index, slideshowIntervalSec, canGoNext, goNext, onToggleSlideshow]);
+  }, [slideshowActive, slideshowPaused, index, slideshowIntervalSec, advanceSlideshow]);
 
   useEffect(() => {
     if (!transitionMenuOpen) return;
@@ -356,6 +380,15 @@ export function PostViewer({
                   ) : (
                     <Pause size={14} className="fill-current" />
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSlideshowShuffle(!slideshowShuffle)}
+                  className={`rounded p-1 hover:bg-white/15 ${slideshowShuffle ? "text-[rgb(var(--accent))]" : ""}`}
+                  title={slideshowShuffle ? "Shuffle on" : "Shuffle off"}
+                >
+                  <Shuffle size={14} />
                 </button>
 
                 <div className="flex items-center gap-1">

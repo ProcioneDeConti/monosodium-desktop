@@ -981,6 +981,15 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       "next" stepper disables once the selected period is the current one, and a "Now" shortcut
       appears when it isn't). Nested pool-open recursion and the blacklist-shrink viewer-index
       clamp are copied from `PoolPanel`. Bumped to 1.14.12.
+- [x] **Phase 4: Random post / shuffle** Two pieces. A shell `Shuffle` button next to Refresh runs
+      the *current* search with `order:random` mixed in (`lib/searchQuery.ts`'s `withRandomOrder`
+      drops any existing `order:*` token first). And a persisted `slideshowShuffle` setting
+      (`settingsStore` + `lib/slideshow.ts` default, in the `lib/backup.ts` snapshot too) - when
+      on, the slideshow auto-advance jumps to a random other post instead of `index + 1` (and
+      pulls the next page when it lands near the end, so shuffle never runs out); toggled from
+      both the `AppShell` slideshow popover and a `Shuffle` button in `PostViewer`'s slideshow
+      control bar. `PostViewer`'s advance logic is now one `advanceSlideshow` `useCallback`
+      covering shuffle / sequential / auto-stop. Bumped to 1.14.13.
 
 ## Running it
 
