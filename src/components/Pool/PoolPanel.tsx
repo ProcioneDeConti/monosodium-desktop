@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { Site } from "../../models/site";
 import { usePoolPostsQuery, usePoolQuery } from "../../queries/usePoolQuery";
@@ -40,6 +40,15 @@ export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile }: Po
     () => visiblePosts(posts ?? [], blacklistEntries, blacklistDisabled),
     [posts, blacklistEntries, blacklistDisabled],
   );
+
+  // Blacklisting a tag the open post matches can shrink `shownPosts` past the viewer's index -
+  // clamp it (or close the viewer) instead of leaving it pointing past the end. See App.tsx for
+  // the same guard on the main grid.
+  useEffect(() => {
+    if (viewerIndex !== null && viewerIndex >= shownPosts.length) {
+      setViewerIndex(shownPosts.length > 0 ? shownPosts.length - 1 : null);
+    }
+  }, [viewerIndex, shownPosts.length]);
 
   const isLoading = poolLoading || postsLoading;
   const isError = poolError || postsError;

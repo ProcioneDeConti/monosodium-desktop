@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  ArrowLeft,
   Bookmark,
   Heart,
   Mail,
@@ -32,6 +33,8 @@ import { TopProgressBar } from "../ui/TopProgressBar";
 
 interface AppShellProps {
   activeQuery: string;
+  canGoBack: boolean;
+  onBack: () => void;
   onSearch: (query: string) => void;
   onOpenSettings: () => void;
   onOpenFavorites: (() => void) | null;
@@ -50,6 +53,8 @@ interface AppShellProps {
 
 export function AppShell({
   activeQuery,
+  canGoBack,
+  onBack,
   onSearch,
   onOpenSettings,
   onOpenFavorites,
@@ -138,6 +143,12 @@ export function AppShell({
         data-tauri-drag-region
         className="flex items-center gap-3 border-b border-black/10 dark:border-white/10 px-3 py-2 shrink-0"
       >
+        {canGoBack && (
+          <IconButton onClick={onBack} title="Back (Alt+←)">
+            <ArrowLeft size={17} />
+          </IconButton>
+        )}
+
         <button
           type="button"
           onClick={() => onSearch("")}

@@ -86,8 +86,11 @@ export function PostViewer({
   slideshowActive,
   onToggleSlideshow,
 }: PostViewerProps) {
-  const post = posts[index];
-  const { data: notes } = usePostNotesQuery(site, post.id, post.has_notes);
+  // `index` can briefly point past the end - e.g. blacklisting a tag the open post matches shrinks
+  // the `posts` array a render before App clamps the index - so `post` may be undefined here. The
+  // hooks below must still run unconditionally (Rules of Hooks); the early `return` is further down.
+  const post = posts[index] as Post | undefined;
+  const { data: notes } = usePostNotesQuery(site, post?.id ?? 0, post?.has_notes ?? false);
   const isAuthenticated = useAccountStore((s) => s.isAuthenticated(site));
   const { vote, favorite, unfavorite, report } = usePostMutations(site);
   const videoLoopEnabled = useSettingsStore((s) => s.videoLoopEnabled);
@@ -189,8 +192,8 @@ export function PostViewer({
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowLeft") goPrev();
-      else if (e.key === "ArrowRight") goNext();
+      else if (e.key === "ArrowLeft" && !e.altKey) goPrev();
+      else if (e.key === "ArrowRight" && !e.altKey) goNext();
       else if (e.key === " " && slideshowActive) {
         e.preventDefault();
         setSlideshowPaused((p) => !p);

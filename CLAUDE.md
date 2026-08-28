@@ -912,6 +912,41 @@ All eleven items from the user's brainstormed post-Phase-2 list are now done.
       `settingsStore.ts`-persisted field (including accent color and thumbnail size, the two the
       user asked about by name) was already covered - audited field-by-field against
       `SettingsBackup` to confirm nothing else was silently missing before calling this done.
+- [x] **Global back stack + fixed: blacklisting the open post blanked the app** Two changes from
+      one user report ("if you're in a post and blacklist a tag that post contains, the app
+      sometimes blanks out" + "add a back button that goes back to the screen before").
+      - **The blank-out**: `PostViewer` called `usePostNotesQuery(site, post.id, post.has_notes)`
+        with no guard, but blacklisting a tag the open post matches shrinks `shownPosts`
+        (`visiblePosts()`) one render before the parent can react, so `shownPosts[index]` was
+        `undefined` and `post.id` threw before the existing `if (!post) return null` (which sits
+        after the hooks, as Rules of Hooks require). Fixed three ways: `post` is now typed
+        `Post | undefined` and the notes hook takes `post?.id ?? 0` / `post?.has_notes ?? false`;
+        `App.tsx` (and `PoolPanel`, which has the same nested-viewer setup) gained a clamp effect
+        that pulls `viewerIndex` back to the last still-visible post - or closes the viewer - when
+        the list shrinks past it.
+      - **Back stack**: the app has no router - every "screen" is a full-screen `z-50` overlay
+        toggled by a field in `App.tsx`, layered over the search grid. Those fields are now one
+        `NavState` snapshot object plus a `navHistory: NavState[]` stack. `navigate(patch)` pushes
+        the current screen and moves to a new one; `replaceNav(patch)` changes the current screen
+        in place *without* a history entry (viewer paging via the arrow keys / chevrons / slideshow
+        auto-advance, and the clamp effect above, all use this so Back isn't spammed); `goBack()`
+        pops. Every overlay's close (X) button and the viewer's Esc now call `goBack` - with linear
+        navigation that's identical to the old "close just this panel" behaviour, but it also
+        restores the previous *search* when a tag action or a profile Posts/Favorites shortcut
+        (`runNewSearch`) swapped it out. Affordances: a new `ArrowLeft` `IconButton` at the left of
+        `AppShell`'s header (shown only when `canGoBack`; the header is the one surface the overlays
+        don't cover), plus global `Alt+←`, the mouse's dedicated back button (`mouseup` button 3),
+        and `Backspace` when not typing into a field - all wired in `App.tsx`. History is capped at
+        50 entries. **Out of scope**: nested navigation *inside* a panel (`PoolPanel`'s own viewer,
+        `MessagesPanel`'s detail view, `ForumPanel`'s topic view, `ProfilePanel`'s tabs) keeps its
+        own local close - the stack is App-level screens only, matching what the user's example
+        described. Not yet live-tested.
+- [x] **Browser-opened index.html shows a notice instead of a blank page** `npm run tauri dev`
+      prints the Vite dev-server URL; opening it in a real browser rendered nothing (every screen
+      gates on a Tauri `invoke()` with no backend there - `App.tsx`'s `getVaultStatus()` never
+      resolves, so `vaultLocked` stays `null` and the component returns `null`). `main.tsx` now
+      checks `isTauri()` from `@tauri-apps/api/core` and renders `components/BrowserNotice.tsx` ("This
+      page intentionally blank…") when false, ahead of the existing `?post=` / `<App>` branch.
 
 ## Running it
 

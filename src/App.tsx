@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { AppShell } from "./components/shell/AppShell";
@@ -30,27 +30,122 @@ import { notify } from "./lib/notifications";
 import { errorMessage } from "./lib/errors";
 import { categorizedTags } from "./models/post";
 
+// The app has no router - every "screen" is a full-screen overlay (viewer, profile, pool,
+// messages, forum, settings, saved searches) toggled by a field here, layered over the search
+// grid. `NavState` is a snapshot of that whole top-level view; App keeps a stack of them so a
+// single Back control can step back through everything, browser-style - including restoring the
+// previous search when a tag action or a profile shortcut swapped it out.
+interface NavState {
+  activeQuery: string;
+  viewerIndex: number | null;
+  slideshowActive: boolean;
+  settingsOpen: boolean;
+  profileTarget: number | "me" | null;
+  savedSearchesOpen: boolean;
+  messagesOpen: boolean;
+  forumOpen: boolean;
+  poolTarget: number | null;
+}
+
+const INITIAL_NAV: NavState = {
+  activeQuery: "",
+  viewerIndex: null,
+  slideshowActive: false,
+  settingsOpen: false,
+  profileTarget: null,
+  savedSearchesOpen: false,
+  messagesOpen: false,
+  forumOpen: false,
+  poolTarget: null,
+};
+
+const MAX_NAV_HISTORY = 50;
+
 function App() {
   const [booted, setBooted] = useState(false);
   // null = still checking; true = password protection is on and not yet unlocked this session
   // (see src-tauri/src/vault.rs) - the boot effect below waits for this to become false before
   // touching settingsStore/savedSearchesStore, since their encrypted files aren't readable yet.
   const [vaultLocked, setVaultLocked] = useState<boolean | null>(null);
-  const [activeQuery, setActiveQuery] = useState("");
-  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const [slideshowActive, setSlideshowActive] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [profileTarget, setProfileTarget] = useState<number | "me" | null>(null);
-  const [savedSearchesOpen, setSavedSearchesOpen] = useState(false);
-  const [messagesOpen, setMessagesOpen] = useState(false);
-  const [forumOpen, setForumOpen] = useState(false);
-  const [poolTarget, setPoolTarget] = useState<number | null>(null);
+  const [nav, setNav] = useState<NavState>(INITIAL_NAV);
+  const [navHistory, setNavHistory] = useState<NavState[]>([]);
   const [droppedImagePath, setDroppedImagePath] = useState<string | null>(null);
   const saucenaoApiKey = useSaucenaoStore((s) => s.apiKey);
+
+  // Refs mirror the latest nav/history so the navigate/goBack callbacks stay identity-stable
+  // (the same "ref as render memory" pattern PostGrid uses) instead of taking `nav` as a dep.
+  const navRef = useRef(nav);
+  navRef.current = nav;
+  const navHistoryRef = useRef(navHistory);
+  navHistoryRef.current = navHistory;
+
+  // Move to a new screen, pushing the current one onto the back stack.
+  const navigate = useCallback((patch: Partial<NavState>) => {
+    setNavHistory((h) => [...h, navRef.current].slice(-MAX_NAV_HISTORY));
+    setNav({ ...navRef.current, ...patch });
+  }, []);
+
+  // Change the current screen in place, without a back-stack entry - e.g. paging the viewer with
+  // the arrow keys shouldn't cost one Back press per post.
+  const replaceNav = useCallback((patch: Partial<NavState>) => {
+    setNav({ ...navRef.current, ...patch });
+  }, []);
+
+  const canGoBack = navHistory.length > 0;
+  const goBack = useCallback(() => {
+    const h = navHistoryRef.current;
+    if (h.length === 0) {
+      // Shouldn't happen (every overlay opens via `navigate`), but never leave an overlay with
+      // no way out: fall back to a bare grid on the current search.
+      setNav((n) => ({ ...INITIAL_NAV, activeQuery: n.activeQuery }));
+      return;
+    }
+    setNav(h[h.length - 1]);
+    setNavHistory(h.slice(0, -1));
+  }, []);
+
+  const {
+    activeQuery,
+    viewerIndex,
+    slideshowActive,
+    settingsOpen,
+    profileTarget,
+    savedSearchesOpen,
+    messagesOpen,
+    forumOpen,
+    poolTarget,
+  } = nav;
 
   useEffect(() => {
     void e621Api.getVaultStatus().then((status) => setVaultLocked(status.locked));
   }, []);
+
+  // Global "back" affordances beyond the header button (which the full-screen overlays cover):
+  // Alt+Left, the mouse's dedicated back button, and Backspace when not typing into a field.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const editing =
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable);
+      if ((e.altKey && e.key === "ArrowLeft") || (e.key === "Backspace" && !editing)) {
+        e.preventDefault();
+        goBack();
+      }
+    }
+    function onMouseUp(e: MouseEvent) {
+      if (e.button === 3) {
+        e.preventDefault();
+        goBack();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [goBack]);
 
   useEffect(() => {
     if (vaultLocked !== false) return;
@@ -159,22 +254,37 @@ function App() {
     [posts, blacklistEntries, blacklistDisabled],
   );
 
-  // Closing the search bar's query invalidates whatever the viewer was showing (a fresh result
-  // set), so any tag action that changes the search closes the viewer along with it.
-  function runNewSearch(query: string) {
-    setActiveQuery(query);
-    setViewerIndex(null);
-    setSlideshowActive(false);
-  }
+  // Blacklisting a tag the open post matches can shrink `shownPosts` out from under the viewer's
+  // index. Clamp to the last still-visible post (or close the viewer when nothing's left) instead
+  // of leaving `index` past the end - which rendered `shownPosts[index]` as undefined and blanked
+  // the whole app. In place, so it doesn't add a bogus back-stack entry.
+  useEffect(() => {
+    if (viewerIndex !== null && viewerIndex >= shownPosts.length) {
+      replaceNav({
+        viewerIndex: shownPosts.length > 0 ? shownPosts.length - 1 : null,
+        slideshowActive: shownPosts.length > 0 && slideshowActive,
+      });
+    }
+  }, [viewerIndex, shownPosts.length, slideshowActive, replaceNav]);
 
-  function closeViewer() {
-    setViewerIndex(null);
-    setSlideshowActive(false);
+  // A new search is a fresh grid screen: it supersedes any open overlay/viewer, and becomes a
+  // back-stack entry so a tag action or profile shortcut that triggers one can be undone.
+  function runNewSearch(query: string) {
+    navigate({
+      activeQuery: query,
+      viewerIndex: null,
+      slideshowActive: false,
+      settingsOpen: false,
+      profileTarget: null,
+      savedSearchesOpen: false,
+      messagesOpen: false,
+      forumOpen: false,
+      poolTarget: null,
+    });
   }
 
   function startSlideshow() {
-    setViewerIndex(0);
-    setSlideshowActive(true);
+    navigate({ viewerIndex: 0, slideshowActive: true });
   }
 
   function addTagToBlacklist(tag: string) {
@@ -199,15 +309,17 @@ function App() {
   return (
     <AppShell
       activeQuery={activeQuery}
+      canGoBack={canGoBack}
+      onBack={goBack}
       onSearch={runNewSearch}
-      onOpenSettings={() => setSettingsOpen(true)}
+      onOpenSettings={() => navigate({ settingsOpen: true })}
       onOpenFavorites={account?.username ? () => runNewSearch(`fav:${account.username}`) : null}
-      onOpenProfile={account?.username ? () => setProfileTarget("me") : null}
-      onOpenMessages={account?.username ? () => setMessagesOpen(true) : null}
+      onOpenProfile={account?.username ? () => navigate({ profileTarget: "me" }) : null}
+      onOpenMessages={account?.username ? () => navigate({ messagesOpen: true }) : null}
       unreadMessageCount={unreadMessageCount}
-      onOpenForum={() => setForumOpen(true)}
+      onOpenForum={() => navigate({ forumOpen: true })}
       forumUnread={forumUnread}
-      onOpenSavedSearches={() => setSavedSearchesOpen(true)}
+      onOpenSavedSearches={() => navigate({ savedSearchesOpen: true })}
       onStartSlideshow={shownPosts.length > 0 ? startSlideshow : null}
       onRefresh={() => void refresh()}
       isRefreshing={isRefetching}
@@ -252,7 +364,7 @@ function App() {
               isFetchingNextPage={isFetchingNextPage}
               hasNextPage={!!hasNextPage}
               onLoadMore={fetchNextPage}
-              onPostClick={setViewerIndex}
+              onPostClick={(i) => navigate({ viewerIndex: i })}
             />
           </div>
         </div>
@@ -266,24 +378,24 @@ function App() {
           hasNextPage={!!hasNextPage}
           blacklistEntries={blacklistEntries}
           blacklistDisabled={blacklistDisabled}
-          onIndexChange={setViewerIndex}
+          onIndexChange={(i) => replaceNav({ viewerIndex: i })}
           onLoadMore={fetchNextPage}
-          onClose={closeViewer}
+          onClose={goBack}
           onSearchTag={runNewSearch}
           onAddTagToSearch={(tag) => runNewSearch(`${activeQuery} ${tag}`.trim())}
           onExcludeTag={(tag) => runNewSearch(`${activeQuery} -${tag}`.trim())}
           onBlacklistTag={addTagToBlacklist}
-          onOpenProfile={(id) => setProfileTarget(id)}
-          onOpenPool={(id) => setPoolTarget(id)}
+          onOpenProfile={(id) => navigate({ profileTarget: id })}
+          onOpenPool={(id) => navigate({ poolTarget: id })}
           slideshowActive={slideshowActive}
-          onToggleSlideshow={() => setSlideshowActive((v) => !v)}
+          onToggleSlideshow={() => replaceNav({ slideshowActive: !slideshowActive })}
         />
       )}
 
       {settingsOpen && (
         <SettingsPanel
-          onClose={() => setSettingsOpen(false)}
-          onOpenProfile={() => setProfileTarget("me")}
+          onClose={goBack}
+          onOpenProfile={() => navigate({ profileTarget: "me" })}
         />
       )}
 
@@ -291,7 +403,7 @@ function App() {
         <ProfilePanel
           site={site}
           userId={profileTarget}
-          onClose={() => setProfileTarget(null)}
+          onClose={goBack}
           onSearch={runNewSearch}
         />
       )}
@@ -299,7 +411,7 @@ function App() {
       {savedSearchesOpen && (
         <SavedSearchesPanel
           currentQuery={activeQuery}
-          onClose={() => setSavedSearchesOpen(false)}
+          onClose={goBack}
           onApply={runNewSearch}
         />
       )}
@@ -307,20 +419,17 @@ function App() {
       {messagesOpen && (
         <MessagesPanel
           site={site}
-          onClose={() => setMessagesOpen(false)}
-          onOpenProfile={(id) => setProfileTarget(id)}
+          onClose={goBack}
+          onOpenProfile={(id) => navigate({ profileTarget: id })}
         />
       )}
 
       {forumOpen && (
         <ForumPanel
           site={site}
-          onClose={() => setForumOpen(false)}
-          onOpenSettings={() => {
-            setForumOpen(false);
-            setSettingsOpen(true);
-          }}
-          onOpenProfile={(id) => setProfileTarget(id)}
+          onClose={goBack}
+          onOpenSettings={() => navigate({ forumOpen: false, settingsOpen: true })}
+          onOpenProfile={(id) => navigate({ profileTarget: id })}
         />
       )}
 
@@ -328,9 +437,9 @@ function App() {
         <PoolPanel
           site={site}
           poolId={poolTarget}
-          onClose={() => setPoolTarget(null)}
+          onClose={goBack}
           onSearch={runNewSearch}
-          onOpenProfile={(id) => setProfileTarget(id)}
+          onOpenProfile={(id) => navigate({ profileTarget: id })}
         />
       )}
 
@@ -341,7 +450,7 @@ function App() {
           onClose={() => setDroppedImagePath(null)}
           onOpenSettings={() => {
             setDroppedImagePath(null);
-            setSettingsOpen(true);
+            navigate({ settingsOpen: true });
           }}
         />
       )}
