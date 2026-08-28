@@ -382,6 +382,51 @@ pub struct Pool {
     pub post_count: i64,
 }
 
+/// https://e621.net/post_sets.json - a user-curated collection of posts (like a pool, but
+/// personal/collaborative and unordered for display purposes here). `post_ids` is present on both
+/// the list and the detail response; the frontend fetches the actual posts by `id:` search and
+/// re-sorts to match, same as pools (queries/usePostSets.ts).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PostSet {
+    pub id: i64,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub shortname: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub is_public: bool,
+    #[serde(default)]
+    pub post_count: i64,
+    #[serde(default)]
+    pub post_ids: Vec<i64>,
+    pub creator_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatePostSetRequest {
+    pub post_set: CreatePostSetFields,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatePostSetFields {
+    pub name: String,
+    pub shortname: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    pub is_public: bool,
+}
+
+/// Body for `post_sets/:id/add_posts.json` / `remove_posts.json`. **Confidence caveat**: the
+/// reference Android app has no post-set code at all, so the `{ post_ids: [...] }` JSON shape is
+/// inferred from the e621ng route definition, not verified against a live call - same class of
+/// caveat as `CreateTicketRequest`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetPostIdsRequest {
+    pub post_ids: Vec<i64>,
+}
+
 /// https://e621.net/notes.json?search[post_id]=<id> - a translation/annotation box overlaid on
 /// a post's image. `x`/`y`/`width`/`height` are pixel coordinates against the post's *original*
 /// full-size image (`Post.file.width`/`height`), regardless of which resolution is actually being

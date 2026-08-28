@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Settings as SettingsIcon,
   Shuffle,
+  SquareStack,
   TrendingUp,
   User,
 } from "lucide-react";
@@ -42,6 +43,7 @@ interface AppShellProps {
   onOpenFavorites: (() => void) | null;
   onOpenProfile: (() => void) | null;
   onOpenMessages: (() => void) | null;
+  onOpenSets: (() => void) | null;
   unreadMessageCount: number;
   onOpenForum: () => void;
   forumUnread: boolean;
@@ -64,6 +66,7 @@ export function AppShell({
   onOpenFavorites,
   onOpenProfile,
   onOpenMessages,
+  onOpenSets,
   unreadMessageCount,
   onOpenForum,
   forumUnread,
@@ -202,6 +205,14 @@ export function AppShell({
 
         <IconButton onClick={onOpenSavedSearches} title="Saved searches">
           <Bookmark size={17} />
+        </IconButton>
+
+        <IconButton
+          onClick={onOpenSets ?? undefined}
+          disabled={!onOpenSets}
+          title={onOpenSets ? "Your post sets" : "Sign in (Settings) to use sets"}
+        >
+          <SquareStack size={17} />
         </IconButton>
 
         <div className="relative" ref={slideshowMenuRef}>

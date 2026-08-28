@@ -11,6 +11,7 @@ import { MessagesPanel } from "./components/Messages/MessagesPanel";
 import { ForumPanel } from "./components/Forum/ForumPanel";
 import { PoolPanel } from "./components/Pool/PoolPanel";
 import { PopularPanel } from "./components/Popular/PopularPanel";
+import { SetsPanel } from "./components/Sets/SetsPanel";
 import { ReverseSearchPanel } from "./components/ReverseSearch/ReverseSearchPanel";
 import { EulaScreen } from "./components/Eula/EulaScreen";
 import { UnlockScreen } from "./components/Vault/UnlockScreen";
@@ -48,6 +49,7 @@ interface NavState {
   forumOpen: boolean;
   poolTarget: number | null;
   popularOpen: boolean;
+  setsOpen: boolean;
 }
 
 const INITIAL_NAV: NavState = {
@@ -61,6 +63,7 @@ const INITIAL_NAV: NavState = {
   forumOpen: false,
   poolTarget: null,
   popularOpen: false,
+  setsOpen: false,
 };
 
 const MAX_NAV_HISTORY = 50;
@@ -119,6 +122,7 @@ function App() {
     forumOpen,
     poolTarget,
     popularOpen,
+    setsOpen,
   } = nav;
 
   useEffect(() => {
@@ -291,6 +295,7 @@ function App() {
       forumOpen: false,
       poolTarget: null,
       popularOpen: false,
+      setsOpen: false,
     });
   }
 
@@ -331,6 +336,7 @@ function App() {
       onOpenFavorites={account?.username ? () => runNewSearch(`fav:${account.username}`) : null}
       onOpenProfile={account?.username ? () => navigate({ profileTarget: "me" }) : null}
       onOpenMessages={account?.username ? () => navigate({ messagesOpen: true }) : null}
+      onOpenSets={account?.username ? () => navigate({ setsOpen: true }) : null}
       unreadMessageCount={unreadMessageCount}
       onOpenForum={() => navigate({ forumOpen: true })}
       forumUnread={forumUnread}
@@ -463,6 +469,15 @@ function App() {
 
       {popularOpen && (
         <PopularPanel
+          site={site}
+          onClose={goBack}
+          onSearch={runNewSearch}
+          onOpenProfile={(id) => navigate({ profileTarget: id })}
+        />
+      )}
+
+      {setsOpen && (
+        <SetsPanel
           site={site}
           onClose={goBack}
           onSearch={runNewSearch}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AppWindow,
   Check,
@@ -25,6 +25,7 @@ import { VideoPlayer } from "./VideoPlayer";
 import { TagsPanel } from "./TagsPanel";
 import { InfoPanel } from "./InfoPanel";
 import { ReportPostButton } from "./ReportPostButton";
+import { AddToSetButton } from "./AddToSetButton";
 import { CommentsPanel } from "./CommentsPanel";
 import { usePostMutations } from "../../queries/usePostMutations";
 import { usePostNotesQuery } from "../../queries/usePostNotesQuery";
@@ -64,6 +65,8 @@ interface PostViewerProps {
   onOpenPool: (poolId: number) => void;
   slideshowActive: boolean;
   onToggleSlideshow: () => void;
+  /** Extra toolbar controls for the current post - e.g. SetsPanel's "remove from set". */
+  extraToolbarActions?: (post: Post) => ReactNode;
 }
 
 const LOAD_MORE_THRESHOLD = 6;
@@ -86,6 +89,7 @@ export function PostViewer({
   onOpenPool,
   slideshowActive,
   onToggleSlideshow,
+  extraToolbarActions,
 }: PostViewerProps) {
   // `index` can briefly point past the end - e.g. blacklisting a tag the open post matches shrinks
   // the `posts` array a render before App clamps the index - so `post` may be undefined here. The
@@ -311,6 +315,8 @@ export function PostViewer({
           >
             {downloadStatus === "saved" ? <Check size={16} /> : <Download size={16} />}
           </IconButton>
+          {extraToolbarActions?.(post)}
+          <AddToSetButton site={site} postId={post.id} isAuthenticated={isAuthenticated} />
           <ReportPostButton postId={post.id} isAuthenticated={isAuthenticated} report={report} />
         </div>
       </div>

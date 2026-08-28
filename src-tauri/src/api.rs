@@ -3,10 +3,11 @@ use reqwest::Method;
 use crate::credentials;
 use crate::models::{
     Comment, CreateCommentFields, CreateCommentRequest, CreateDmailFields, CreateDmailRequest,
-    CreateForumPostFields, CreateForumPostRequest, CreateTicketFields, CreateTicketRequest, Dmail,
-    FavoriteRequest, FavoriteResponse, ForumPost, ForumTopic, Pool, PostNote, PostsResponse,
-    TagSuggestion, UpdateCommentFields, UpdateCommentRequest, UpdateUserFields, UpdateUserRequest,
-    UserProfile, VoteRequest, VoteResponse, WikiPage,
+    CreateForumPostFields, CreateForumPostRequest, CreatePostSetFields, CreatePostSetRequest,
+    CreateTicketFields, CreateTicketRequest, Dmail, FavoriteRequest, FavoriteResponse, ForumPost,
+    ForumTopic, Pool, PostNote, PostSet, PostsResponse, SetPostIdsRequest, TagSuggestion,
+    UpdateCommentFields, UpdateCommentRequest, UpdateUserFields, UpdateUserRequest, UserProfile,
+    VoteRequest, VoteResponse, WikiPage,
 };
 use crate::rate_limit::SiteRateLimiters;
 use crate::site::Site;
@@ -624,6 +625,121 @@ pub async fn get_pool(state: tauri::State<'_, AppState>, site: Site, id: i64) ->
         .json::<Pool>()
         .await
         .map_err(|e| e.to_string())
+}
+
+/// Lists post sets. Pass `creator_id` (e.g. the signed-in account's id from `users/me.json`) to
+/// get just that user's sets. Public sets of other users are visible without it; a user's private
+/// sets require Basic Auth as that user.
+#[tauri::command]
+pub async fn get_post_sets(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    creator_id: Option<i64>,
+    name: Option<String>,
+) -> Result<Vec<PostSet>, String> {
+    let mut query: Vec<(&str, String)> = vec![("limit", "100".to_string())];
+    if let Some(id) = creator_id {
+        query.push(("search[creator_id]", id.to_string()));
+    }
+    if let Some(n) = name {
+        query.push(("search[name]", n));
+    }
+    let response = request(&state, site, Method::GET, "post_sets.json")
+        .await?
+        .query(&query)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Vec<PostSet>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_post_set(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    id: i64,
+) -> Result<PostSet, String> {
+    let response = request(&state, site, Method::GET, &format!("post_sets/{id}.json"))
+        .await?
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<PostSet>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Requires Basic Auth. `shortname` must be 3-50 chars, lowercase letters/numbers/underscores
+/// (e621ng enforces this server-side; the frontend also derives/validates it).
+#[tauri::command]
+pub async fn create_post_set(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    name: String,
+    shortname: String,
+    description: String,
+    is_public: bool,
+) -> Result<PostSet, String> {
+    let payload = CreatePostSetRequest {
+        post_set: CreatePostSetFields { name, shortname, description, is_public },
+    };
+    let response = request(&state, site, Method::POST, "post_sets.json")
+        .await?
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<PostSet>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Requires Basic Auth as the set's owner (or a maintainer). See `SetPostIdsRequest`'s caveat.
+#[tauri::command]
+pub async fn add_posts_to_set(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    set_id: i64,
+    post_ids: Vec<i64>,
+) -> Result<(), String> {
+    let response = request(&state, site, Method::POST, &format!("post_sets/{set_id}/add_posts.json"))
+        .await?
+        .json(&SetPostIdsRequest { post_ids })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response).await?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn remove_posts_from_set(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    set_id: i64,
+    post_ids: Vec<i64>,
+) -> Result<(), String> {
+    let response = request(
+        &state,
+        site,
+        Method::POST,
+        &format!("post_sets/{set_id}/remove_posts.json"),
+    )
+    .await?
+    .json(&SetPostIdsRequest { post_ids })
+    .send()
+    .await
+    .map_err(|e| e.to_string())?;
+    ensure_success(response).await?;
+    Ok(())
 }
 
 /// Public; no auth required. View-only - see `PostNote`'s doc comment.

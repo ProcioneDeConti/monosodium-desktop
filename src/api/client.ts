@@ -12,6 +12,7 @@ import type { CacheInfo } from "../models/cache";
 import type { UpdateCheckResult } from "../models/update";
 import type { ForumPost, ForumTopic } from "../models/forum";
 import type { Pool } from "../models/pool";
+import type { PostSet } from "../models/postSet";
 import type { PostNote } from "../models/note";
 import type { WikiPage } from "../models/wiki";
 import type { SauceResult } from "../models/saucenao";
@@ -151,6 +152,33 @@ export const e621Api = {
 
   getPostNotes(site: Site, postId: number): Promise<PostNote[]> {
     return invoke("get_post_notes", { site, postId });
+  },
+
+  /** Pass `creatorId` (the signed-in account's own id) to list just your sets. */
+  getPostSets(site: Site, creatorId?: number | null, name?: string | null): Promise<PostSet[]> {
+    return invoke("get_post_sets", { site, creatorId: creatorId ?? null, name: name ?? null });
+  },
+
+  getPostSet(site: Site, id: number): Promise<PostSet> {
+    return invoke("get_post_set", { site, id });
+  },
+
+  createPostSet(
+    site: Site,
+    name: string,
+    shortname: string,
+    description: string,
+    isPublic: boolean,
+  ): Promise<PostSet> {
+    return invoke("create_post_set", { site, name, shortname, description, isPublic });
+  },
+
+  addPostsToSet(site: Site, setId: number, postIds: number[]): Promise<void> {
+    return invoke("add_posts_to_set", { site, setId, postIds });
+  },
+
+  removePostsFromSet(site: Site, setId: number, postIds: number[]): Promise<void> {
+    return invoke("remove_posts_from_set", { site, setId, postIds });
   },
 
   getWikiPage(site: Site, title: string): Promise<WikiPage | null> {

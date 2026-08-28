@@ -1004,6 +1004,20 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       e621 JSON all along, never modelled. `InfoPanel` gets a Relationships row: a "Parent #X" chip
       searches `~id:X ~parent:X` (the parent plus all its siblings), a "N children" chip searches
       `parent:<id>`. The reference app only ever printed parent ids as plain text. Bumped to 1.14.15.
+- [x] **Phase 4: Post sets** e621's user-curated post collections (`post_sets.json`) - never surfaced
+      by either app. Backend: `PostSet` model + `get_post_sets`/`get_post_set`/`create_post_set`/
+      `add_posts_to_set`/`remove_posts_from_set` commands. **Confidence caveat** (`SetPostIdsRequest`
+      doc comment): the reference app has zero post-set code, so the add/remove `{ post_ids: [...] }`
+      JSON body is inferred from the e621ng route, not verified live. Frontend: `SetsPanel`
+      (shell `SquareStack` button, gated on sign-in like Favorites) lists your sets, creates one
+      (name → `deriveShortname`), and opens a set into a `PostGrid`/`PostViewer` view (`SetGridView`,
+      same fixed-list pattern as `PoolPanel`/`PopularPanel`, `usePostSetPostsQuery` re-sorts by
+      `post_ids`). `PostViewer` gained an optional `extraToolbarActions: (post) => ReactNode`
+      render-prop, used here for a "remove from set" button. `AddToSetButton` (popover in the
+      viewer toolbar, next to Report) adds the current post to a set or makes a new one inline -
+      uses the shared `users/me.json` query for the creator id and `usePostSetMutations`.
+      `slideshowShuffle` and `relationships` (prior two entries) plus this are all not yet
+      live-tested. Bumped to 1.14.16.
 
 ## Running it
 
