@@ -561,6 +561,37 @@ pub async fn create_dmail(
         .map_err(|e| e.to_string())
 }
 
+/// Soft-deletes one of your received dmails (`DELETE dmails/:id.json`). Requires Basic Auth and
+/// you must be the owner (recipient). e621ng's `dmails#destroy` runs `update_column(:is_deleted,
+/// true)` *before* it renders, and that render path has no JSON template - so, exactly like
+/// `create_dmail`'s 406, a successful delete can come back non-2xx with an HTML/error body. Only
+/// a clear auth/not-found failure (401/403/404) is surfaced as an error; anything else is taken
+/// as done. The frontend refetches the inbox afterwards as the real source of truth.
+#[tauri::command]
+pub async fn delete_dmail(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    id: i64,
+) -> Result<(), String> {
+    let response = request(&state, site, Method::DELETE, &format!("dmails/{id}.json"))
+        .await?
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = response.status();
+    if status.is_success() {
+        return Ok(());
+    }
+    if matches!(status.as_u16(), 401 | 403 | 404) {
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!(
+            "e621 API error {status}: {}",
+            body.chars().take(200).collect::<String>()
+        ));
+    }
+    Ok(())
+}
+
 /// Public; no auth required to browse. `page` is a keyset cursor (`b<id>`), same convention as
 /// `get_posts`/`get_dmails`.
 #[tauri::command]

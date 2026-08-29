@@ -47,6 +47,19 @@ export function markDmailReadInCache(queryClient: QueryClient, site: Site, id: n
   });
 }
 
+/** Drops rows from the cached inbox immediately (optimistic delete). A follow-up invalidate is
+ *  still the source of truth - if a delete actually failed, the row reappears on refetch. */
+export function removeDmailsFromCache(queryClient: QueryClient, site: Site, ids: number[]) {
+  const drop = new Set(ids);
+  queryClient.setQueryData<InfiniteDmails>(dmailsQueryKey(site), (data) => {
+    if (!data) return data;
+    return {
+      ...data,
+      pages: data.pages.map((p) => ({ ...p, dmails: p.dmails.filter((d) => !drop.has(d.id)) })),
+    };
+  });
+}
+
 /** Also marks the dmail as read server-side, if it wasn't already - see get_dmail's doc comment. */
 export function useDmailQuery(site: Site, id: number | null) {
   return useQuery({

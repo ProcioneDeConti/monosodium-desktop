@@ -119,6 +119,11 @@ export const e621Api = {
     return invoke("create_dmail", { site, toName, title, body, respondToId: respondToId ?? null });
   },
 
+  /** Soft-deletes one of your received dmails. */
+  deleteDmail(site: Site, id: number): Promise<void> {
+    return invoke("delete_dmail", { site, id });
+  },
+
   getCacheInfo(): Promise<CacheInfo> {
     return invoke("get_cache_info");
   },

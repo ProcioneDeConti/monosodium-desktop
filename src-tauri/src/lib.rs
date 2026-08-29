@@ -127,6 +127,7 @@ pub fn run() {
             api::get_dmails,
             api::get_dmail,
             api::create_dmail,
+            api::delete_dmail,
             api::get_forum_topics,
             api::get_forum_topic,
             api::get_forum_posts,
