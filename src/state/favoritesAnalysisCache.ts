@@ -26,11 +26,23 @@ export interface AnalysisCacheEntry {
   result: FavoritesAnalysisResult;
 }
 
+export interface RecentAnalysis {
+  /** Lookup ref (lowercased username) - pass to the runner to re-open this cached result. */
+  ref: string;
+  name: string;
+  sampled: number;
+  /** epoch ms the cache entry stops being fresh. */
+  expiresAt: number;
+}
+
 let entries: AnalysisCacheEntry[] = [];
 let lastStartedAt = 0;
 
 function cacheKey(site: Site, ref: string): string {
   return `${site}::${ref.trim().toLowerCase()}`;
+}
+function refFromKey(site: Site, key: string): string {
+  return key.slice(`${site}::`.length);
 }
 
 let storePromise: Promise<Store> | null = null;
@@ -84,6 +96,8 @@ export function getFreshAnalysis(site: Site, ref: string): AnalysisCacheEntry | 
   return entry && isAnalysisFresh(entry) ? entry : null;
 }
 
+/** `ref` should be the *resolved* username, so the entry is findable by name whether the user
+ *  originally typed a name or a numeric id. */
 export function cacheAnalysis(site: Site, ref: string, result: FavoritesAnalysisResult): void {
   const k = cacheKey(site, ref);
   entries = [{ key: k, at: Date.now(), result }, ...entries.filter((e) => e.key !== k)].slice(
@@ -91,6 +105,27 @@ export function cacheAnalysis(site: Site, ref: string, result: FavoritesAnalysis
     MAX_ENTRIES,
   );
   void persist();
+}
+
+export function removeCachedAnalysis(site: Site, ref: string): void {
+  const k = cacheKey(site, ref);
+  entries = entries.filter((e) => e.key !== k);
+  void persist();
+}
+
+/** Fresh (< 30 min) cached analyses for this site, most-recent first - the "recently analyzed"
+ *  history list. */
+export function listFreshAnalyses(site: Site): RecentAnalysis[] {
+  const prefix = `${site}::`;
+  return entries
+    .filter((e) => e.key.startsWith(prefix) && isAnalysisFresh(e))
+    .sort((a, b) => b.at - a.at)
+    .map((e) => ({
+      ref: refFromKey(site, e.key),
+      name: e.result.name,
+      sampled: e.result.sampled,
+      expiresAt: e.at + ANALYSIS_FRESH_MS,
+    }));
 }
 
 // --- start gap ---

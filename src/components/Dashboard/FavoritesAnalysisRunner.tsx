@@ -55,12 +55,12 @@ export function FavoritesAnalysisRunner({
   const gapRemaining = analysisGapRemaining(now);
   const gapSecs = Math.ceil(gapRemaining / 1000);
 
-  // Persist a completed run to the 30-minute result cache.
+  // Persist a completed run to the 30-minute result cache, keyed by the resolved username.
   useEffect(() => {
     if (state.phase === "done" && state.result && state.result.sampled > 0) {
-      cacheAnalysis(site, userRef, state.result);
+      cacheAnalysis(site, state.result.name, state.result);
     }
-  }, [state.phase, state.result, site, userRef]);
+  }, [state.phase, state.result, site]);
 
   const liveResult =
     state.phase === "done" && state.result && state.result.sampled > 0 ? state.result : null;
@@ -90,7 +90,13 @@ export function FavoritesAnalysisRunner({
     setResolveError(null);
     setResolved(null);
     resolveUser(site, userRef)
-      .then((u) => !cancelled && setResolved(u))
+      .then((u) => {
+        if (cancelled) return;
+        // If we typed an id/alt-casing that resolves to someone already cached, show that.
+        const cached = getFreshAnalysis(site, u.name);
+        if (cached) setSeeded(cached);
+        else setResolved(u);
+      })
       .catch((e) => !cancelled && setResolveError(errorMessage(e, "Could not find that user.")))
       .finally(() => !cancelled && setResolving(false));
     return () => {

@@ -14,6 +14,7 @@ import {
   finalizeFavAccumulator,
   type FavoritesAnalysis,
 } from "../lib/favoritesAnalysis";
+import { useSettingsStore } from "../state/settingsStore";
 import { errorMessage } from "../lib/errors";
 
 export const FAV_PAGE_LIMIT = 320;
@@ -147,13 +148,15 @@ export function useFavoritesAnalysis(site: Site) {
       // `status:any` disables e621's default "hide deleted posts" filter, so favourites whose
       // post was later deleted are still counted (they keep their tags/score). Off by request.
       const tags = `fav:${user.name}${opts.includeDeleted ? " status:any" : ""}`;
+      // The signed-in user's blacklist - filters card background images (not the counts).
+      const blacklist = useSettingsStore.getState().blacklistEntries;
 
       try {
         while (!cancelRef.current) {
           const resp = await e621Api.getPosts(site, tags, FAV_PAGE_LIMIT, cursor);
           if (!alive()) return;
           const room = want === "all" ? resp.posts.length : Math.max(0, want - acc.total);
-          addToFavAccumulator(acc, resp.posts.slice(0, room));
+          addToFavAccumulator(acc, resp.posts.slice(0, room), blacklist);
           setState((s) => ({
             ...s,
             fetched: acc.total,

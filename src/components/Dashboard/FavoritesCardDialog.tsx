@@ -6,6 +6,7 @@ import type { FavoritesAnalysis } from "../../lib/favoritesAnalysis";
 import { e621Api } from "../../api/client";
 import { useAvatarUrl } from "../../queries/useAvatarUrl";
 import { useSettingsStore } from "../../state/settingsStore";
+import { isBlacklisted, parseBlacklist } from "../../lib/blacklist";
 import { buildFavoritesCardSvg, CARD_H, CARD_W, pickFinalVerdict } from "../../lib/favoritesCard";
 import { exportCard, svgPreviewUrl, type CardFormat } from "../../lib/exportCard";
 import { errorMessage } from "../../lib/errors";
@@ -38,7 +39,7 @@ async function toDataUrl(url: string | undefined): Promise<string | null> {
   }
 }
 
-const PREP_TIMEOUT_MS = 25_000;
+const PREP_TIMEOUT_MS = 45_000;
 
 export function FavoritesCardDialog({
   analysis,
@@ -49,6 +50,10 @@ export function FavoritesCardDialog({
   onClose,
 }: FavoritesCardDialogProps) {
   const accent = useSettingsStore((s) => s.accentColor);
+  const blacklist = useSettingsStore((s) => s.blacklist);
+  const blacklistEntries = useMemo(() => parseBlacklist(blacklist), [blacklist]);
+  // Keep the whole-site background searches within the user's rating comfort zone.
+  const ratingFilter = useSettingsStore((s) => s.ratingTagFilter());
   // Picked once per dialog open, so the preview doesn't re-roll it on every image that loads in.
   const [verdict] = useState(() => pickFinalVerdict(analysis));
   const [busy, setBusy] = useState<CardFormat | null>(null);
@@ -80,24 +85,30 @@ export function FavoritesCardDialog({
     };
   }, [avatarUrl]);
 
-  // --- chip backgrounds: each artist's top post + a favourite per character/series tag ---
+  // --- card backgrounds: each artist's top post + a random post per character/series tag ---
   const [artistImages, setArtistImages] = useState<Record<string, string>>({});
   const [tagImages, setTagImages] = useState<Record<string, string>>({});
   const [preparing, setPreparing] = useState(true);
   useEffect(() => {
     let cancelled = false;
     const artists = analysis.topArtists.slice(0, 5);
-    const tags = analysis.topTags.slice(0, 10);
+    const tags = analysis.topTags.slice(0, 8);
 
     (async () => {
-      // Each artist's all-time top post (one rate-limited search each; fall back to the
-      // top-scored favourite we already have if the search turns up nothing).
+      // Each artist's top post - fetch their 5 highest-scored, take the first that passes the
+      // blacklist (the "reshuffle", up to 5); fall back to the top-scored favourite we already
+      // have (itself blacklist-filtered), else leave the row plain.
       const artistOut: Record<string, string> = {};
       for (const a of artists) {
         let raw = a.image;
         try {
-          const r = await e621Api.getPosts(site, `${a.label} order:score`, 1);
-          raw = r.posts[0]?.preview?.url ?? r.posts[0]?.sample?.url ?? raw;
+          const r = await e621Api.getPosts(
+            site,
+            `${a.label} order:score ${ratingFilter ?? ""}`.trim(),
+            5,
+          );
+          const clean = r.posts.find((p) => !isBlacklisted(blacklistEntries, p));
+          if (clean) raw = clean.preview?.url ?? clean.sample?.url ?? raw;
         } catch {
           /* keep fallback */
         }
@@ -110,9 +121,29 @@ export function FavoritesCardDialog({
         }
       }
 
-      // Tag backgrounds come straight from the sampled favourites - just CDN fetches, in parallel.
+      // Tag backgrounds: a fresh `fav:<user> <tag> order:random` search each time (the analysis
+      // reservoir - the ~8 most-recent favs per tag - gave too many repeats), first result that
+      // passes the blacklist; fall back to a reservoir thumbnail, else plain.
       const tagResults = await Promise.all(
-        tags.map(async (t) => [t.label, await toDataUrl(t.image)] as const),
+        tags.map(async (t) => {
+          let raw: string | undefined;
+          try {
+            const r = await e621Api.getPosts(
+              site,
+              `fav:${displayName} ${t.label} order:random ${ratingFilter ?? ""}`.trim(),
+              12,
+            );
+            const clean = r.posts.find((p) => !isBlacklisted(blacklistEntries, p));
+            raw = clean?.preview?.url ?? clean?.sample?.url ?? undefined;
+          } catch {
+            /* fall through to the reservoir */
+          }
+          if (!raw) {
+            const cands = t.imageCandidates ?? (t.image ? [t.image] : []);
+            raw = cands.length ? cands[Math.floor(Math.random() * cands.length)] : undefined;
+          }
+          return [t.label, await toDataUrl(raw)] as const;
+        }),
       );
       if (cancelled) return;
       const tagOut: Record<string, string> = {};
@@ -126,7 +157,7 @@ export function FavoritesCardDialog({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [analysis, site]);
+  }, [analysis, site, displayName, blacklistEntries, ratingFilter]);
 
   const svg = useMemo(
     () =>

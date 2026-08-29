@@ -1543,6 +1543,36 @@ live call before implementing (per user instruction - no more guessing).
       - Not live-tested. (The card dialog's 5 `order:score` artist lookups are still per-open,
         outside this.)
 
+- [x] **Share card: background images respect the signed-in user's blacklist** (1.14.66) The card's
+      faded artist-row and tag-chip backgrounds now skip blacklisted posts.
+      - Tag chips: `favoritesAnalysis.ts`'s accumulator only feeds **non-blacklisted** favourites
+        into each tag's thumbnail reservoir (`addToFavAccumulator` takes the entries;
+        `useFavoritesAnalysis` passes `settingsStore.blacklistEntries`). `Bar` gained
+        `imageCandidates` (up to 8 clean URLs); the dialog picks one at random - empty ⇒ plain.
+        **Counts/ratings/scores still include everything** - only the images are filtered.
+      - Artist rows: the dialog's per-artist `order:score` lookup now fetches the top **5** and
+        takes the first that passes the blacklist (`isBlacklisted`), falling back to the
+        (already-clean) top favourite, else plain - the "reshuffle up to 5, then fail" the user
+        described. Uses the *current* blacklist (effect re-runs if it's edited while the dialog is
+        open); tag candidates use the analysis-time blacklist.
+      - **(1.14.68)** Tag chips were repeating (the analysis reservoir is only the ~8 most-recent
+        favs per tag). Now each chip does a fresh `fav:<user> <tag> order:random` search at card
+        time (scoped to that user's favourites, plus the app user's rating filter, first
+        blacklist-passing result), falling back to the reservoir then plain. The artist
+        `order:score` search (whole-site) also gained the rating filter. Card prep is now ~13
+        rate-limited calls (5 artists + 8 tags); `PREP_TIMEOUT_MS` raised to 45s.
+      - Not live-tested.
+
+- [x] **Favorites analysis: "Recently analyzed" history** (1.14.67) `components/Dashboard/
+      RecentAnalyses.tsx` - a list of the fresh (< 30 min) cached analyses under "Analyze another
+      user", each row: username · N favs · an `m:ss` countdown to when its cache lapses · an X to
+      forget it. Clicking a row re-opens that cached result in the runner with no API calls
+      (`OtherUserAnalysis` sets its `target`). `favoritesAnalysisCache.ts` gained `listFreshAnalyses`
+      / `removeCachedAnalysis`, and entries are now keyed by the **resolved username**
+      (`cacheAnalysis(site, result.name, …)`) so an id-typed lookup that resolves to an already-cached
+      user shows the cache too (the runner re-checks after resolving). 1s ticker in the component
+      drives the countdown and drops expired rows. Not live-tested.
+
 ## Running it
 
 **The user runs/tests the app themselves — don't launch it or drive the GUI to verify changes**

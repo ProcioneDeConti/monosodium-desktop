@@ -3,6 +3,7 @@ import { Search } from "lucide-react";
 import type { Site } from "../../models/site";
 import { Button } from "../ui/Button";
 import { FavoritesAnalysisRunner } from "./FavoritesAnalysisRunner";
+import { RecentAnalyses } from "./RecentAnalyses";
 
 interface OtherUserAnalysisProps {
   site: Site;
@@ -16,6 +17,11 @@ export function OtherUserAnalysis({ site, onSearchTag }: OtherUserAnalysisProps)
   function submit() {
     const v = input.trim();
     if (v) setTarget(v);
+  }
+
+  function pick(ref: string) {
+    setInput(ref);
+    setTarget(ref);
   }
 
   return (
@@ -38,6 +44,8 @@ export function OtherUserAnalysis({ site, onSearchTag }: OtherUserAnalysisProps)
           Analyze
         </Button>
       </div>
+
+      <RecentAnalyses site={site} activeRef={target} onPick={pick} />
 
       {target !== null && (
         <FavoritesAnalysisRunner key={target} site={site} userRef={target} onSearchTag={onSearchTag} />

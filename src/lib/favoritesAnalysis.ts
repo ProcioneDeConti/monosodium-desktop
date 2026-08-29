@@ -4,14 +4,19 @@
 // each page in and discards it.
 
 import { extensionOf, type Post } from "../models/post";
+import { isBlacklisted, type BlacklistEntries } from "./blacklist";
 
 export interface Bar {
   label: string;
   count: number;
   /** A representative post's thumbnail URL (raw CDN), used as a faded background on the share
-   *  card. For artists: the highest-scored favourited post by them. For tags: a random favourite
-   *  carrying that tag. Undefined outside the top artist/tag lists. */
+   *  card. For artists: the highest-scored favourited post by them. For tags: the first of
+   *  `imageCandidates`. Only posts that pass the blacklist are considered. Undefined outside the
+   *  top artist/tag lists (or when every candidate was blacklisted). */
   image?: string;
+  /** Up to a handful of blacklist-passing favourited-post thumbnail URLs for this tag, so the
+   *  card can pick one at random. Tag rows only. */
+  imageCandidates?: string[];
 }
 
 export interface FavoritesAnalysis {
@@ -93,10 +98,16 @@ function inc(map: Map<string, number>, key: string, by = 1): void {
   map.set(key, (map.get(key) ?? 0) + by);
 }
 
-export function addToFavAccumulator(acc: FavAccumulator, posts: Post[]): void {
+export function addToFavAccumulator(
+  acc: FavAccumulator,
+  posts: Post[],
+  blacklist: BlacklistEntries = [],
+): void {
   for (const post of posts) {
     acc.total += 1;
     if (post.flags?.deleted) acc.deleted += 1;
+    // Counts include everything; only the card's background images respect the blacklist.
+    const blocked = blacklist.length > 0 && isBlacklisted(blacklist, post);
     inc(acc.ratings, RATING_LABEL[post.rating] ?? post.rating);
     inc(acc.fileTypes, extensionOf(post));
 
@@ -106,7 +117,9 @@ export function addToFavAccumulator(acc: FavAccumulator, posts: Post[]): void {
     if (score > acc.highestScore) acc.highestScore = score;
     inc(acc.buckets, scoreBucket(score));
 
-    const thumb = post.preview?.url ?? post.sample?.url ?? undefined;
+    // Blacklisted posts still count above, but are never used as a card background.
+    const thumb =
+      blocked ? undefined : post.preview?.url ?? post.sample?.url ?? undefined;
 
     for (const a of post.tags.artist) {
       if (EXCLUDED_TAGS.has(a)) continue;
@@ -134,12 +147,12 @@ export function addToFavAccumulator(acc: FavAccumulator, posts: Post[]): void {
 function tallyTop(
   counts: Map<string, number>,
   limit: number,
-  imageFor?: (label: string) => string | undefined,
+  decorate?: (label: string) => Partial<Bar>,
 ): Bar[] {
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
-    .map(([label, count]) => ({ label, count, image: imageFor?.(label) }));
+    .map(([label, count]) => ({ label, count, ...decorate?.(label) }));
 }
 
 export function finalizeFavAccumulator(acc: FavAccumulator): FavoritesAnalysis {
@@ -164,10 +177,10 @@ export function finalizeFavAccumulator(acc: FavAccumulator): FavoritesAnalysis {
     })),
     avgScore: Math.round(avgScore),
     medianScore: Math.round(medianScore),
-    topArtists: tallyTop(acc.artists, 15, (l) => acc.artistBest.get(l)?.url),
+    topArtists: tallyTop(acc.artists, 15, (l) => ({ image: acc.artistBest.get(l)?.url })),
     topTags: tallyTop(acc.tags, 20, (l) => {
-      const arr = acc.tagThumbs.get(l);
-      return arr && arr.length ? arr[Math.floor(Math.random() * arr.length)] : undefined;
+      const candidates = (acc.tagThumbs.get(l) ?? []).slice(0, 8);
+      return { image: candidates[0], imageCandidates: candidates };
     }),
     byYear: [...acc.years.keys()].sort().map((label) => ({ label, count: acc.years.get(label)! })),
     highestScore: acc.highestScore,
