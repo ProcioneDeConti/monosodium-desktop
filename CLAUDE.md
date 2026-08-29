@@ -990,6 +990,12 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       both the `AppShell` slideshow popover and a `Shuffle` button in `PostViewer`'s slideshow
       control bar. `PostViewer`'s advance logic is now one `advanceSlideshow` `useCallback`
       covering shuffle / sequential / auto-stop. Bumped to 1.14.13.
+      - **Follow-up (1.14.18)**: re-running the search that's already showing (nothing else open)
+        now refetches instead of no-op'ing on the unchanged query key - so the Shuffle button, or
+        re-submitting `order:random` in the search bar, actually re-rolls (e621 re-randomises per
+        request). `runNewSearch` short-circuits to `refresh()` when `normalizeQuery(query)` matches
+        the active one and no overlay is open; `usePostsQuery` also uses `staleTime: 0` whenever
+        the tags contain `order:random`, so navigating back to a shuffled search re-rolls too.
 - [x] **Phase 4: Grid hover quick-actions** `PostThumbnail` gets a hover cluster (top-left, opposite
       the media badge) - favourite, upvote, download - each swallowing the click so it doesn't
       also open the viewer. Wired inside `PostGrid` itself (now takes a `site` prop) rather than

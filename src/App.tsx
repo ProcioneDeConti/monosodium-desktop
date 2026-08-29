@@ -25,7 +25,7 @@ import { loadAllAccounts, useAccountStore } from "./state/accountStore";
 import { loadSavedSearches } from "./state/savedSearchesStore";
 import { useSaucenaoStore } from "./state/saucenaoStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
-import { withRandomOrder } from "./lib/searchQuery";
+import { normalizeQuery, withRandomOrder } from "./lib/searchQuery";
 import { hexToRgbTriplet } from "./lib/color";
 import { cacheTagCategory } from "./lib/tagCategoryCache";
 import { CURRENT_EULA_HASH } from "./lib/eula";
@@ -281,9 +281,27 @@ function App() {
     }
   }, [viewerIndex, shownPosts.length, slideshowActive, replaceNav]);
 
+  const anyOverlayOpen =
+    viewerIndex !== null ||
+    settingsOpen ||
+    profileTarget !== null ||
+    savedSearchesOpen ||
+    messagesOpen ||
+    forumOpen ||
+    poolTarget !== null ||
+    popularOpen ||
+    setsOpen;
+
   // A new search is a fresh grid screen: it supersedes any open overlay/viewer, and becomes a
   // back-stack entry so a tag action or profile shortcut that triggers one can be undone.
+  // Re-running the search that's *already* showing (nothing else open) just refetches instead -
+  // so the Shuffle button, or re-submitting `order:random`, actually re-rolls the results (e621
+  // re-randomises per request) rather than no-op'ing on an unchanged query key.
   function runNewSearch(query: string) {
+    if (!anyOverlayOpen && normalizeQuery(query) === normalizeQuery(activeQuery)) {
+      void refresh();
+      return;
+    }
     navigate({
       activeQuery: query,
       viewerIndex: null,

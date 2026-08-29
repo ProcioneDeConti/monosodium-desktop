@@ -64,13 +64,17 @@ export function usePostsQuery(
   const queryKey = postsQueryKey(site, tags, blacklistSignature);
   const queryClient = useQueryClient();
 
+  // `order:random` re-rolls server-side on every request, so caching it as "fresh" would make
+  // navigating back to the search (or a remount) show a stale, no-longer-random-feeling set.
+  const isRandom = /(^|\s)order:random(\s|$)/i.test(tags);
+
   const query = useInfiniteQuery({
     queryKey,
     queryFn: ({ pageParam }) => fetchLogicalPage(site, tags, pageParam, blacklistEntries),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled,
-    staleTime: 60_000,
+    staleTime: isRandom ? 0 : 60_000,
   });
 
   // Mirrors the reference Android app's pull-to-refresh: discards every page beyond the first
