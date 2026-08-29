@@ -17,6 +17,9 @@ import { PopularPanel } from "./components/Popular/PopularPanel";
 import { ArtistPanel } from "./components/Artist/ArtistPanel";
 import { WikiPanel } from "./components/Wiki/WikiPanel";
 import { SetsPanel } from "./components/Sets/SetsPanel";
+import { CollectionsPanel } from "./components/Collections/CollectionsPanel";
+import { CollectionPicker } from "./components/Collections/CollectionPicker";
+import { CollectionPickerDialog } from "./components/Collections/CollectionPickerDialog";
 import { DownloadsPanel } from "./components/Downloads/DownloadsPanel";
 import { KeyboardCheatsheet } from "./components/KeyboardCheatsheet";
 import { HelpPanel } from "./components/Help/HelpPanel";
@@ -33,6 +36,7 @@ import { e621Api } from "./api/client";
 import { loadSettings, useSettingsStore } from "./state/settingsStore";
 import { loadAllAccounts, useAccountStore } from "./state/accountStore";
 import { loadSavedSearches } from "./state/savedSearchesStore";
+import { loadCollections } from "./state/collectionsStore";
 import { loadSearchHistory, useSearchHistoryStore } from "./state/searchHistoryStore";
 import { useSaucenaoStore } from "./state/saucenaoStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
@@ -65,6 +69,7 @@ interface NavState {
   artistTarget: string | null;
   wikiTarget: string | null;
   setsOpen: boolean;
+  collectionsOpen: boolean;
   downloadsOpen: boolean;
 }
 
@@ -82,6 +87,7 @@ const INITIAL_NAV: NavState = {
   artistTarget: null,
   wikiTarget: null,
   setsOpen: false,
+  collectionsOpen: false,
   downloadsOpen: false,
 };
 
@@ -144,6 +150,7 @@ function App() {
     artistTarget,
     wikiTarget,
     setsOpen,
+    collectionsOpen,
     downloadsOpen,
   } = nav;
 
@@ -212,6 +219,7 @@ function App() {
       loadSettings(),
       loadAllAccounts(),
       loadSavedSearches(),
+      loadCollections(),
       loadSearchHistory(),
       useSaucenaoStore.getState().load(),
     ]).finally(() => setBooted(true));
@@ -340,6 +348,7 @@ function App() {
   const [selectionActive, setSelectionActive] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [setPickerOpen, setSetPickerOpen] = useState(false);
+  const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
   const [bulkFav, setBulkFav] = useState<{ done: number; total: number } | null>(null);
   const lastSelIndexRef = useRef<number | null>(null);
   const shownPostsRef = useRef(shownPosts);
@@ -376,6 +385,7 @@ function App() {
     lastSelIndexRef.current = null;
     setBulkFav(null);
     setSetPickerOpen(false);
+    setCollectionPickerOpen(false);
   }, []);
 
   // --- Search tabs ---
@@ -518,17 +528,19 @@ function App() {
     artistTarget !== null ||
     wikiTarget !== null ||
     setsOpen ||
+    collectionsOpen ||
     downloadsOpen;
 
   // Escape leaves selection mode when it's the frontmost thing (no overlay, no set picker).
   useEffect(() => {
     if (!selectionActive) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && !anyOverlayOpen && !setPickerOpen) exitSelection();
+      if (e.key === "Escape" && !anyOverlayOpen && !setPickerOpen && !collectionPickerOpen)
+        exitSelection();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectionActive, anyOverlayOpen, setPickerOpen, exitSelection]);
+  }, [selectionActive, anyOverlayOpen, setPickerOpen, collectionPickerOpen, exitSelection]);
 
   // A new search is a fresh grid screen: it supersedes any open overlay/viewer, and becomes a
   // back-stack entry so a tag action or profile shortcut that triggers one can be undone.
@@ -556,6 +568,7 @@ function App() {
       artistTarget: null,
       wikiTarget: null,
       setsOpen: false,
+      collectionsOpen: false,
       downloadsOpen: false,
     });
   }
@@ -606,6 +619,7 @@ function App() {
       onOpenForum={() => navigate({ forumOpen: true })}
       forumUnread={forumUnread}
       onOpenPopular={() => navigate({ popularOpen: true })}
+      onOpenCollections={() => navigate({ collectionsOpen: true })}
       onOpenSavedSearches={() => navigate({ savedSearchesOpen: true })}
       onStartSlideshow={shownPosts.length > 0 ? startSlideshow : null}
       onRefresh={() => void refresh()}
@@ -680,6 +694,7 @@ function App() {
                 }}
                 onFavorite={() => void bulkFavorite()}
                 onAddToSet={() => setSetPickerOpen(true)}
+                onAddToCollection={() => setCollectionPickerOpen(true)}
                 onDownload={() => {
                   enqueueDownloads(selectedPosts, downloadDir);
                   navigate({ downloadsOpen: true });
@@ -712,6 +727,7 @@ function App() {
           onOpenWiki={(tag) => navigate({ wikiTarget: tag })}
           slideshowActive={slideshowActive}
           onToggleSlideshow={() => replaceNav({ slideshowActive: !slideshowActive })}
+          extraToolbarActions={(post) => <CollectionPicker posts={[post]} />}
         />
       )}
 
@@ -809,6 +825,24 @@ function App() {
           site={site}
           postIds={selectedPosts.map((p) => p.id)}
           onClose={() => setSetPickerOpen(false)}
+        />
+      )}
+
+      {collectionPickerOpen && selectedPosts.length > 0 && (
+        <CollectionPickerDialog
+          posts={selectedPosts}
+          onClose={() => setCollectionPickerOpen(false)}
+        />
+      )}
+
+      {collectionsOpen && (
+        <CollectionsPanel
+          site={site}
+          onClose={goBack}
+          onSearch={runNewSearch}
+          onOpenProfile={(id) => navigate({ profileTarget: id })}
+          onOpenArtist={(tag) => navigate({ artistTarget: tag })}
+          onOpenWiki={(tag) => navigate({ wikiTarget: tag })}
         />
       )}
 

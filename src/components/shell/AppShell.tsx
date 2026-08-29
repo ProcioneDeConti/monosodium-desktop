@@ -11,6 +11,7 @@ import {
   Eye,
   Heart,
   Keyboard,
+  Library,
   LifeBuoy,
   LogIn,
   Mail,
@@ -67,6 +68,7 @@ interface AppShellProps {
   onOpenForum: () => void;
   forumUnread: boolean;
   onOpenPopular: () => void;
+  onOpenCollections: () => void;
   onOpenSavedSearches: () => void;
   onStartSlideshow: (() => void) | null;
   onRefresh: () => void;
@@ -107,6 +109,7 @@ export function AppShell({
   onOpenForum,
   forumUnread,
   onOpenPopular,
+  onOpenCollections,
   onOpenSavedSearches,
   onStartSlideshow,
   onRefresh,
@@ -328,6 +331,9 @@ export function AppShell({
           </MenuItem>
           <MenuItem icon={<Bookmark size={15} />} onClick={onOpenSavedSearches}>
             Saved searches
+          </MenuItem>
+          <MenuItem icon={<Library size={15} />} onClick={onOpenCollections}>
+            Collections
           </MenuItem>
           <MenuItem
             icon={<MessagesSquare size={15} />}

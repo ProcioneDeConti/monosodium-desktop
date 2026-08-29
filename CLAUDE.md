@@ -1239,6 +1239,58 @@ and related-tags fixes verified via e621ng source).
          the plugin loads, keeps a `.bak` of the last-known-good copy and restores it if the live
          file comes back empty/corrupt. `reset_vault` clears the `.bak`s too.
 
+Second brainstormed batch, built sequentially on the user's list order: "Advanced search builder,
+artist pages, wiki browser, post history, local collections, theme override, blacklist tester, ID
+list import" + a Help-page refresh. All e621 API shapes verified against e621ng source and/or a
+live call before implementing (per user instruction - no more guessing).
+
+- [x] **Advanced search builder** (1.14.42) `components/Search/SearchBuilder.tsx` - a centered
+      modal opened from a `SlidersHorizontal` button in `SearchBar` (and `AppShell`'s
+      `onOpenSearchBuilder`). `lib/searchBuilder.ts`: `SearchCriteria` (tags, ratings, order,
+      minScore, minFav, dateFrom/To, fileType), `parseCriteria(query)` / `buildQuery(c)` round-trip
+      against real e621 metatags (`score:>=N`, `favcount:>=N`, `type:X`, `date:A..B`, `order:X`,
+      `~rating:` OR-groups). Applying runs it as a normal search.
+- [x] **Artist pages** (1.14.43) `components/Artist/ArtistPanel.tsx` - full-screen overlay for an
+      artist tag (opened from `TagChip`'s menu "Artist page" on category-1 tags, or `InfoPanel`).
+      Backend: `get_artist` (`artists.json?search[name]=`), `get_artist_dnp`
+      (`avoid_postings.json?search[artist_id]=`, `is_active` filtered client-side). Shows a red DNP
+      warning banner, other-names chips, active + dead URL list (`urlSiteLabel` maps known hosts),
+      DText notes, and View posts / Open on site / Linked account actions. `Artist`/`ArtistUrl`/
+      `DnpEntry` models added to `models.rs` + `models/artist.ts`.
+- [x] **Wiki browser** (1.14.44) `components/Wiki/WikiPanel.tsx` - full-screen overlay with a
+      tag-autocomplete input (exact-tag only; `wiki_pages.json` wildcard/`title_matches` returns
+      similarity junk). Shows the wiki body (DText), category chip + post count, and
+      Aliases/Implies/Implied-by/"Frequently seen with" chip sections that navigate within the
+      panel. Backend: `get_tag` (`tags.json?search[name]=`), `get_tag_relations` (3 calls:
+      `tag_implications` antecedent + consequent + `tag_aliases` consequent, all
+      `search[status]=active`), plus the existing `get_wiki_page`. `TagInfo`/`TagRelations` models;
+      `parseRelatedTags` splits e621's `"name count name count"` string. Opened from `TagChip`'s
+      "Wiki page" (all categories) and `AppShell`'s Menu → Wiki.
+- [x] **Post history** (1.14.45) A third `PostViewer` sidebar tab (Tags / Comments / History).
+      `components/PostViewer/HistoryPanel.tsx` + `usePostVersionsQuery` (infinite, numbered pages,
+      `LIMIT=40`). Backend: `get_post_versions` (`post_versions.json?search[post_id]=`, newest
+      first). Per version: `v{n}`, updater (clickable → profile), date, edit reason, +added
+      (green) / −removed (red, struck) tag chips, and rating/parent/source/description-change
+      flags. `PostVersion` model.
+- [x] **Local collections** (1.14.46) Purely client-side post collections - no e621 account, no
+      server, own `collections.json` `tauri-plugin-store` file (`state/collectionsStore.ts`, same
+      pattern as `savedSearchesStore.ts`). `models/collection.ts`: `{id, title, category, postIds,
+      createdAt, autoDownloadFolder}`. `category` is a freeform grouping label ("" →
+      "Uncategorized"); `autoDownloadFolder`, set via `@tauri-apps/plugin-dialog`'s
+      `open({directory:true})`, makes newly-added posts auto-enqueue for download there
+      (`state/useAddToCollection.ts` - adds ids, then `downloadsStore.enqueue`s only the ones that
+      were actually new). `components/Collections/`: `CollectionsPanel.tsx` (full-screen overlay,
+      list grouped by category with a create form (title + category, category `<datalist>` of
+      existing ones) + inline two-click delete; open one → `CollectionGridView` reusing
+      `PostGrid`/`PostViewer` like `SetsPanel`'s `SetGridView`, with an auto-download-folder
+      picker in the header and remove-from-collection via `PostViewer`'s `extraToolbarActions`),
+      `CollectionPicker.tsx` (toolbar popover in the main `PostViewer` for the single open post),
+      `CollectionPickerDialog.tsx` (centered modal for the multi-select bar's new "Collection"
+      button - not account-gated, unlike "Add to set"). Posts fetched via
+      `useCollectionPostsQuery` (`id:` search, re-sorted to stored order, 320 cap - same approach
+      as `usePoolPostsQuery`). Wired into `App.tsx` as `NavState.collectionsOpen`; reachable from
+      `AppShell`'s Menu → Collections (works signed out). No Rust changes.
+
 ## Running it
 
 **The user runs/tests the app themselves — don't launch it or drive the GUI to verify changes**

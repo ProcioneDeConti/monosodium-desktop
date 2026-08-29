@@ -1,4 +1,4 @@
-import { Check, Download, Heart, SquareStack, X } from "lucide-react";
+import { Check, Download, Heart, Library, SquareStack, X } from "lucide-react";
 import { Spinner } from "../ui/Spinner";
 
 interface SelectionBarProps {
@@ -10,6 +10,7 @@ interface SelectionBarProps {
   onClear: () => void;
   onFavorite: () => void;
   onAddToSet: () => void;
+  onAddToCollection: () => void;
   onDownload: () => void;
   onExit: () => void;
 }
@@ -24,6 +25,7 @@ export function SelectionBar({
   onClear,
   onFavorite,
   onAddToSet,
+  onAddToCollection,
   onDownload,
   onExit,
 }: SelectionBarProps) {
@@ -66,6 +68,12 @@ export function SelectionBar({
           onClick={onAddToSet}
           disabled={disabled || !canInteract}
           title={canInteract ? undefined : "Sign in (Settings) to use sets"}
+        />
+        <BarButton
+          icon={<Library size={14} />}
+          label="Collection"
+          onClick={onAddToCollection}
+          disabled={disabled}
         />
         <BarButton icon={<Download size={14} />} label="Download" onClick={onDownload} disabled={disabled} />
 
