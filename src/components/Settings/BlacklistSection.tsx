@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Download, Upload } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDownAZ, Download, Upload } from "lucide-react";
 import { e621Api } from "../../api/client";
 import type { Site } from "../../models/site";
 import { useAccountStore } from "../../state/accountStore";
@@ -23,6 +23,20 @@ export function BlacklistSection({ site }: BlacklistSectionProps) {
   useEffect(() => setDraft(blacklist), [blacklist]);
 
   const dirty = draft !== blacklist;
+
+  // Sorted, case-insensitively, ignoring a leading `-` so `-young` sits next to `young`; blank
+  // lines are dropped. Disabled once the draft is already in that order.
+  const sortedDraft = useMemo(() => {
+    return draft
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .sort((a, b) =>
+        a.replace(/^-/, "").localeCompare(b.replace(/^-/, ""), undefined, { sensitivity: "base" }),
+      )
+      .join("\n");
+  }, [draft]);
+  const canSort = sortedDraft !== draft.trim();
 
   async function handleImport() {
     setBusy("import");
@@ -78,6 +92,9 @@ export function BlacklistSection({ site }: BlacklistSectionProps) {
         >
           Save
         </button>
+        <Button icon={<ArrowDownAZ size={13} />} disabled={!canSort} onClick={() => setDraft(sortedDraft)}>
+          Sort A–Z
+        </Button>
         <Button
           icon={<Download size={13} />}
           disabled={!isAuthenticated || busy !== null}
