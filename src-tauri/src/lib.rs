@@ -150,6 +150,7 @@ pub fn run() {
             backup::is_backup_encrypted,
             backup::import_backup,
             downloads::download_post_file,
+            downloads::fetch_image_data_url,
             credentials::save_credentials,
             credentials::load_credentials,
             credentials::delete_credentials,

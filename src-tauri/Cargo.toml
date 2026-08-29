@@ -1,6 +1,6 @@
 [package]
 name = "monosodium-desktop"
-version = "1.14.31"
+version = "1.14.32"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"

@@ -230,6 +230,12 @@ export const e621Api = {
     return invoke("health_check", { site });
   },
 
+  /** Small CDN image → `data:` URL, so a canvas can read it without the CDN's CORS blocking it.
+   *  Only used for adaptive-colour sampling of profile avatars. */
+  fetchImageDataUrl(url: string): Promise<string> {
+    return invoke("fetch_image_data_url", { url });
+  },
+
   /** Downloads a post's media to disk; resolves to the saved file's full path. */
   downloadPostFile(
     url: string,

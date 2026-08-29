@@ -12,6 +12,7 @@ import {
   MessageSquare,
   ScrollText,
   Upload,
+  UserRound,
   X,
 } from "lucide-react";
 import type { Site } from "../../models/site";
@@ -19,9 +20,9 @@ import { SITE_DISPLAY_NAME, SITE_WEB_BASE_URL } from "../../models/site";
 import { userLevelLabel, type UserProfile } from "../../models/user";
 import { formatCount } from "../../lib/formatCount";
 import { errorMessage } from "../../lib/errors";
+import { useImageAccentColor } from "../../lib/dominantColor";
 import { useUserProfileQuery } from "../../queries/useUserProfileQuery";
 import { useAvatarUrl } from "../../queries/useAvatarUrl";
-import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { DText } from "../ui/DText";
 import { IconButton } from "../ui/IconButton";
@@ -120,6 +121,13 @@ function ProfileContent({
   onOpenFavorites: () => void;
 }) {
   const level = userLevelLabel(profile.level);
+  const banner = useImageAccentColor(avatarUrl);
+  const bannerStyle = banner
+    ? {
+        background: `linear-gradient(to bottom right, rgb(${banner.r} ${banner.g} ${banner.b} / 0.9), rgb(${banner.r} ${banner.g} ${banner.b} / 0.3))`,
+      }
+    : undefined;
+
   const stats = STATS.map((s) => ({ ...s, value: profile[s.key] as number | null })).filter(
     (s) => s.value != null,
   );
@@ -131,20 +139,35 @@ function ProfileContent({
 
   return (
     <div>
-      {/* Hero: accent banner with the avatar punched out over its lower edge. */}
-      <div className="relative mb-16">
-        <div className="h-28 w-full bg-gradient-to-br from-[rgb(var(--accent))]/45 via-[rgb(var(--accent))]/20 to-transparent" />
-        <div className="absolute inset-x-0 -bottom-14 flex justify-center">
-          <Avatar
-            url={avatarUrl}
-            name={profile.name}
-            size={112}
-            className="border-4 border-[rgb(250,250,250)] shadow-xl dark:border-[rgb(24,24,24)]"
-          />
+      {/* Hero: an adaptive banner (dominant colour of the avatar, or the accent when it can't be
+          sampled) with the aspect-preserving squircle avatar punched out over its lower edge. */}
+      <div className="relative">
+        <div
+          className={`h-32 w-full ${
+            bannerStyle
+              ? ""
+              : "bg-gradient-to-br from-[rgb(var(--accent))]/45 via-[rgb(var(--accent))]/20 to-transparent"
+          }`}
+          style={bannerStyle}
+        />
+        <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: -28 }}>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={profile.name}
+              draggable={false}
+              className="block h-auto w-auto max-h-[104px] max-w-[168px] rounded-[24px] border-4
+                         border-[rgb(var(--accent))] bg-[rgb(250,250,250)] shadow-xl dark:bg-[rgb(24,24,24)]"
+            />
+          ) : (
+            <div className="flex h-24 w-24 items-center justify-center rounded-[24px] border-4 border-[rgb(var(--accent))] bg-[rgb(var(--accent))]/15 text-[rgb(var(--accent))] shadow-xl">
+              <UserRound size={44} strokeWidth={2} />
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex flex-col items-center gap-1.5 px-5 text-center">
+      <div className="mt-10 flex flex-col items-center gap-1.5 px-5 text-center">
         <h2 className="text-xl font-extrabold tracking-tight">{profile.name}</h2>
         {level && (
           <span className="rounded-full bg-[rgb(var(--accent))] px-3 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">

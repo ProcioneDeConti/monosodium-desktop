@@ -1136,6 +1136,14 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
         prose sections (getting started, searching, ratings, blacklist, grid, multi-select,
         viewer, slideshow, tabs, places, downloads, reverse search, settings, tray/hotkey).
         Section-list clicks `scrollIntoView` the matching `<section>` ref.
+      - **(1.14.32)** Profile avatar is now an aspect-preserving squircle (`rounded-[24px]`, `h/w-auto`
+        + `max-h-[104px]/max-w-[168px]`, so a non-square e621 avatar shows uncropped) keeping its
+        `border-4 border-[rgb(var(--accent))]`. The hero banner is **adaptive** - `lib/dominantColor.ts`
+        samples the avatar's most-prevalent colour (discounting near-white/black) and washes it
+        across the banner, falling back to the accent gradient. The e621 CDN sends
+        `Access-Control-Allow-Origin: https://e621.net` (not `*`), so a canvas read of the plain
+        `<img>` taints - a new `downloads::fetch_image_data_url` command (CDN image → `data:` URL,
+        4 MB cap) makes the bytes same-origin so the canvas can read them.
 
 This finishes the user's brainstormed post-Phase-3 batch (Popular, random/shuffle, grid hover
 quick-actions, parent/child, post sets, related tags, multi-select + bulk, download queue, true
