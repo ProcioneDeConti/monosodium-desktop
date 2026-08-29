@@ -1048,6 +1048,17 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
         object path looked for `category`, not `category_id`). Parser now handles the bare array
         + `category_id` first. Also: `related_tag.json` is `member_only`, so the panel now shows
         "Sign in to see related tags" when logged out instead of firing a doomed request.
+- [x] **Phase 4: Multi-select grid + bulk actions** No new e621 endpoints. `PostThumbnail`/`PostGrid`
+      gained optional selection props: `selectionActive` shows a checkbox instead of the hover
+      cluster and makes a click toggle-select; a ctrl/cmd/shift-click always toggles (shift =
+      range from the last click) and enters selection mode. Wired only into `App`'s main grid (not
+      Pool/Popular/Sets for now). `App` owns `selectionActive`/`selectedIds` + `SelectionBar` (a
+      floating bar): Select-all, Clear, and bulk **Favorite** (sequential `mutateAsync` so the
+      rate limiter paces it, with `N/total` progress), **Add to set** (`SetPickerDialog` - one
+      `add_posts` call for the whole array), **Download** (enqueues to the new
+      `state/downloadsStore.ts`). Escape or the shell `CheckSquare` toggle exits; a new search
+      clears the selection. `downloadsStore` is a session-only queue (concurrency 2, background
+      `pump()`) that feeds the download queue panel (next entry). Bumped to 1.14.21.
 
 ## Running it
 

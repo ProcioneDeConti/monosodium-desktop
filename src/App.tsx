@@ -3,6 +3,8 @@ import { RefreshCw } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { AppShell } from "./components/shell/AppShell";
 import { PostGrid } from "./components/PostGrid/PostGrid";
+import { SelectionBar } from "./components/PostGrid/SelectionBar";
+import { SetPickerDialog } from "./components/Sets/SetPickerDialog";
 import { PostViewer } from "./components/PostViewer/PostViewer";
 import { SettingsPanel } from "./components/Settings/SettingsPanel";
 import { ProfilePanel } from "./components/Profile/ProfilePanel";
@@ -18,6 +20,7 @@ import { UnlockScreen } from "./components/Vault/UnlockScreen";
 import { Button } from "./components/ui/Button";
 import { Spinner } from "./components/ui/Spinner";
 import { usePostsQuery } from "./queries/usePostsQuery";
+import { usePostMutations } from "./queries/usePostMutations";
 import { useUserProfileQuery } from "./queries/useUserProfileQuery";
 import { e621Api } from "./api/client";
 import { loadSettings, useSettingsStore } from "./state/settingsStore";
@@ -26,12 +29,13 @@ import { loadSavedSearches } from "./state/savedSearchesStore";
 import { useSaucenaoStore } from "./state/saucenaoStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
 import { normalizeQuery, withRandomOrder } from "./lib/searchQuery";
+import { useDownloadsStore } from "./state/downloadsStore";
 import { hexToRgbTriplet } from "./lib/color";
 import { cacheTagCategory } from "./lib/tagCategoryCache";
 import { CURRENT_EULA_HASH } from "./lib/eula";
 import { notify } from "./lib/notifications";
 import { errorMessage } from "./lib/errors";
-import { categorizedTags } from "./models/post";
+import { categorizedTags, type Post } from "./models/post";
 
 // The app has no router - every "screen" is a full-screen overlay (viewer, profile, pool,
 // messages, forum, settings, saved searches) toggled by a field here, layered over the search
@@ -184,6 +188,7 @@ function App() {
   const setBlacklistDisabled = useSettingsStore((s) => s.setBlacklistDisabled);
   const setBlacklist = useSettingsStore((s) => s.setBlacklist);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
+  const downloadDir = useSettingsStore((s) => s.downloadDir);
   const accentColor = useSettingsStore((s) => s.accentColor);
   const ratingTagFilter = useSettingsStore((s) => s.ratingTagFilter);
   const adultModeEnabled = useSettingsStore((s) => s.adultModeEnabled);
@@ -268,6 +273,66 @@ function App() {
     [posts, blacklistEntries, blacklistDisabled],
   );
 
+  // --- Grid multi-select ---
+  const [selectionActive, setSelectionActive] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+  const [setPickerOpen, setSetPickerOpen] = useState(false);
+  const [bulkFav, setBulkFav] = useState<{ done: number; total: number } | null>(null);
+  const [queuedNote, setQueuedNote] = useState<number | null>(null);
+  const lastSelIndexRef = useRef<number | null>(null);
+  const shownPostsRef = useRef(shownPosts);
+  shownPostsRef.current = shownPosts;
+  const { favorite: favoriteMutation } = usePostMutations(site);
+  const enqueueDownloads = useDownloadsStore((s) => s.enqueue);
+
+  const handleSelectToggle = useCallback((post: Post, opts: { range: boolean }) => {
+    setSelectionActive(true);
+    const list = shownPostsRef.current;
+    const idx = list.findIndex((p) => p.id === post.id);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (opts.range && lastSelIndexRef.current !== null && idx >= 0) {
+        const a = Math.min(lastSelIndexRef.current, idx);
+        const b = Math.max(lastSelIndexRef.current, idx);
+        for (let i = a; i <= b; i++) next.add(list[i].id);
+      } else if (next.has(post.id)) {
+        next.delete(post.id);
+      } else {
+        next.add(post.id);
+      }
+      return next;
+    });
+    if (!opts.range) lastSelIndexRef.current = idx;
+  }, []);
+
+  const exitSelection = useCallback(() => {
+    setSelectionActive(false);
+    setSelectedIds(new Set());
+    lastSelIndexRef.current = null;
+    setBulkFav(null);
+    setSetPickerOpen(false);
+  }, []);
+
+  const selectedPosts = useMemo(
+    () => shownPosts.filter((p) => selectedIds.has(p.id)),
+    [shownPosts, selectedIds],
+  );
+
+  async function bulkFavorite() {
+    const targets = selectedPosts.filter((p) => !p.is_favorited);
+    if (targets.length === 0 || bulkFav) return;
+    setBulkFav({ done: 0, total: targets.length });
+    for (const p of targets) {
+      try {
+        await favoriteMutation.mutateAsync(p.id);
+      } catch {
+        /* skip a single failure - a bulk op shouldn't abort on one */
+      }
+      setBulkFav((s) => (s ? { ...s, done: s.done + 1 } : s));
+    }
+    setBulkFav(null);
+  }
+
   // Blacklisting a tag the open post matches can shrink `shownPosts` out from under the viewer's
   // index. Clamp to the last still-visible post (or close the viewer when nothing's left) instead
   // of leaving `index` past the end - which rendered `shownPosts[index]` as undefined and blanked
@@ -292,12 +357,23 @@ function App() {
     popularOpen ||
     setsOpen;
 
+  // Escape leaves selection mode when it's the frontmost thing (no overlay, no set picker).
+  useEffect(() => {
+    if (!selectionActive) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && !anyOverlayOpen && !setPickerOpen) exitSelection();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectionActive, anyOverlayOpen, setPickerOpen, exitSelection]);
+
   // A new search is a fresh grid screen: it supersedes any open overlay/viewer, and becomes a
   // back-stack entry so a tag action or profile shortcut that triggers one can be undone.
   // Re-running the search that's *already* showing (nothing else open) just refetches instead -
   // so the Shuffle button, or re-submitting `order:random`, actually re-rolls the results (e621
   // re-randomises per request) rather than no-op'ing on an unchanged query key.
   function runNewSearch(query: string) {
+    exitSelection();
     if (!anyOverlayOpen && normalizeQuery(query) === normalizeQuery(activeQuery)) {
       void refresh();
       return;
@@ -363,6 +439,8 @@ function App() {
       onStartSlideshow={shownPosts.length > 0 ? startSlideshow : null}
       onRefresh={() => void refresh()}
       onShuffle={() => runNewSearch(withRandomOrder(activeQuery))}
+      onToggleSelection={() => (selectionActive ? exitSelection() : setSelectionActive(true))}
+      selectionActive={selectionActive}
       isRefreshing={isRefetching}
       isLoadingPosts={isLoading || isFetchingNextPage || isRefetching}
     >
@@ -395,7 +473,7 @@ function App() {
               </label>
             </div>
           )}
-          <div className="flex-1 min-h-0">
+          <div className="relative flex-1 min-h-0">
             <PostGrid
               key={`${site}:${effectiveTags}`}
               site={site}
@@ -407,7 +485,32 @@ function App() {
               hasNextPage={!!hasNextPage}
               onLoadMore={fetchNextPage}
               onPostClick={openViewerAt}
+              selectionActive={selectionActive}
+              selectedIds={selectedIds}
+              onSelectToggle={handleSelectToggle}
             />
+            {selectionActive && (
+              <SelectionBar
+                count={selectedIds.size}
+                total={shownPosts.length}
+                canInteract={!!account?.username}
+                favoriteProgress={bulkFav}
+                onSelectAll={() => setSelectedIds(new Set(shownPosts.map((p) => p.id)))}
+                onClear={() => {
+                  setSelectedIds(new Set());
+                  lastSelIndexRef.current = null;
+                }}
+                onFavorite={() => void bulkFavorite()}
+                onAddToSet={() => setSetPickerOpen(true)}
+                onDownload={() => {
+                  const n = enqueueDownloads(selectedPosts, downloadDir);
+                  setQueuedNote(n);
+                  window.setTimeout(() => setQueuedNote(null), 2500);
+                }}
+                queuedNote={queuedNote}
+                onExit={exitSelection}
+              />
+            )}
           </div>
         </div>
       )}
@@ -500,6 +603,14 @@ function App() {
           onClose={goBack}
           onSearch={runNewSearch}
           onOpenProfile={(id) => navigate({ profileTarget: id })}
+        />
+      )}
+
+      {setPickerOpen && selectedPosts.length > 0 && account?.username && (
+        <SetPickerDialog
+          site={site}
+          postIds={selectedPosts.map((p) => p.id)}
+          onClose={() => setSetPickerOpen(false)}
         />
       )}
 

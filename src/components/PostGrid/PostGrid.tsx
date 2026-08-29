@@ -19,6 +19,11 @@ interface PostGridProps {
   hasNextPage: boolean;
   onLoadMore: () => void;
   onPostClick: (index: number) => void;
+  /** Multi-select. When `selectionActive`, a thumbnail click toggles selection instead of
+   *  opening the viewer; a ctrl/cmd/shift-click always toggles (and enters selection mode). */
+  selectionActive?: boolean;
+  selectedIds?: Set<number>;
+  onSelectToggle?: (post: Post, opts: { range: boolean }) => void;
 }
 
 const GUTTER_PX = 8;
@@ -42,6 +47,9 @@ export function PostGrid({
   hasNextPage,
   onLoadMore,
   onPostClick,
+  selectionActive = false,
+  selectedIds,
+  onSelectToggle,
 }: PostGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -161,15 +169,34 @@ export function PostGrid({
         <PostThumbnail
           post={data}
           blacklisted={blacklisted}
-          onClick={() => onPostClick(index)}
+          onClick={(e) => {
+            if (onSelectToggle && (selectionActive || e.ctrlKey || e.metaKey || e.shiftKey)) {
+              onSelectToggle(data, { range: e.shiftKey });
+            } else {
+              onPostClick(index);
+            }
+          }}
           canInteract={canInteract}
           onToggleFavorite={onToggleFavorite}
           onUpvote={onUpvote}
           onDownload={onDownload}
+          selectionActive={selectionActive}
+          selected={selectedIds?.has(data.id) ?? false}
         />
       );
     },
-    [blacklistDisabled, blacklistEntries, onPostClick, canInteract, onToggleFavorite, onUpvote, onDownload],
+    [
+      blacklistDisabled,
+      blacklistEntries,
+      onPostClick,
+      canInteract,
+      onToggleFavorite,
+      onUpvote,
+      onDownload,
+      selectionActive,
+      selectedIds,
+      onSelectToggle,
+    ],
   );
 
   const grid = useMasonry({

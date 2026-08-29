@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   ArrowLeft,
   Bookmark,
+  CheckSquare,
   Heart,
   Mail,
   MessagesSquare,
@@ -52,6 +53,8 @@ interface AppShellProps {
   onStartSlideshow: (() => void) | null;
   onRefresh: () => void;
   onShuffle: () => void;
+  onToggleSelection: () => void;
+  selectionActive: boolean;
   isRefreshing: boolean;
   isLoadingPosts: boolean;
   children: ReactNode;
@@ -75,6 +78,8 @@ export function AppShell({
   onStartSlideshow,
   onRefresh,
   onShuffle,
+  onToggleSelection,
+  selectionActive,
   isRefreshing,
   isLoadingPosts,
   children,
@@ -179,6 +184,14 @@ export function AppShell({
 
         <IconButton onClick={onShuffle} title="Random posts (order:random)">
           <Shuffle size={16} />
+        </IconButton>
+
+        <IconButton
+          onClick={onToggleSelection}
+          title={selectionActive ? "Exit selection" : "Select multiple posts"}
+          className={selectionActive ? "!text-[rgb(var(--accent))]" : ""}
+        >
+          <CheckSquare size={16} />
         </IconButton>
 
         <Button onClick={toggleSite} title={`Switch active site · ${healthTitle}`}>
