@@ -53,6 +53,7 @@ interface AppShellProps {
   canGoBack: boolean;
   onBack: () => void;
   onSearch: (query: string) => void;
+  onOpenSearchBuilder: () => void;
   onOpenSettings: () => void;
   onOpenCheatsheet: () => void;
   onOpenHelp: () => void;
@@ -91,6 +92,7 @@ export function AppShell({
   canGoBack,
   onBack,
   onSearch,
+  onOpenSearchBuilder,
   onOpenSettings,
   onOpenCheatsheet,
   onOpenHelp,
@@ -195,7 +197,12 @@ export function AppShell({
           {SITE_DISPLAY_NAME[site]}
         </button>
 
-        <SearchBar site={site as Site} activeQuery={activeQuery} onSearch={onSearch} />
+        <SearchBar
+          site={site as Site}
+          activeQuery={activeQuery}
+          onSearch={onSearch}
+          onOpenBuilder={onOpenSearchBuilder}
+        />
 
         <IconButton onClick={onRefresh} title="Refresh results">
           <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />

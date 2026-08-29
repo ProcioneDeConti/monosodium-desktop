@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Clock, X } from "lucide-react";
+import { Clock, SlidersHorizontal, X } from "lucide-react";
 import type { Site } from "../../models/site";
 import { useTagAutocomplete } from "../../queries/useTagAutocomplete";
 import { useMetatagCompletions } from "../../queries/useMetatagValues";
@@ -31,6 +31,7 @@ interface SearchBarProps {
   site: Site;
   activeQuery: string;
   onSearch: (query: string) => void;
+  onOpenBuilder: () => void;
 }
 
 /** Splits an e621 tag query string into tokens, tolerating repeated whitespace. */
@@ -38,7 +39,7 @@ function splitTags(query: string): string[] {
   return query.trim().split(/\s+/).filter(Boolean);
 }
 
-export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
+export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: SearchBarProps) {
   const [tags, setTags] = useState<string[]>(() => splitTags(activeQuery));
   const [draft, setDraft] = useState("");
   const [highlighted, setHighlighted] = useState(0);
@@ -254,6 +255,18 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
           placeholder={tags.length === 0 ? "Search tags..." : ""}
           className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-0.5"
         />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen(false);
+            onOpenBuilder();
+          }}
+          title="Advanced search"
+          className="-my-0.5 shrink-0 rounded p-1 opacity-50 hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+        >
+          <SlidersHorizontal size={14} />
+        </button>
       </div>
 
       {open && metaActive && (metaSuggestions.length > 0 || meta.hint) && (

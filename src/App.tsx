@@ -18,6 +18,7 @@ import { SetsPanel } from "./components/Sets/SetsPanel";
 import { DownloadsPanel } from "./components/Downloads/DownloadsPanel";
 import { KeyboardCheatsheet } from "./components/KeyboardCheatsheet";
 import { HelpPanel } from "./components/Help/HelpPanel";
+import { SearchBuilder } from "./components/Search/SearchBuilder";
 import { ReverseSearchPanel } from "./components/ReverseSearch/ReverseSearchPanel";
 import { EulaScreen } from "./components/Eula/EulaScreen";
 import { UnlockScreen } from "./components/Vault/UnlockScreen";
@@ -146,6 +147,7 @@ function App() {
   const { toggle: toggleFullscreen } = useFullscreen();
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "F11") {
@@ -579,6 +581,7 @@ function App() {
       canGoBack={canGoBack}
       onBack={goBack}
       onSearch={runNewSearch}
+      onOpenSearchBuilder={() => setBuilderOpen(true)}
       onOpenSettings={() => navigate({ settingsOpen: true })}
       onOpenCheatsheet={() => setCheatsheetOpen(true)}
       onOpenHelp={() => setHelpOpen(true)}
@@ -779,6 +782,17 @@ function App() {
       {cheatsheetOpen && <KeyboardCheatsheet onClose={() => setCheatsheetOpen(false)} />}
 
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
+
+      {builderOpen && (
+        <SearchBuilder
+          initialQuery={activeQuery}
+          onClose={() => setBuilderOpen(false)}
+          onApply={(q) => {
+            setBuilderOpen(false);
+            runNewSearch(q);
+          }}
+        />
+      )}
 
       {droppedImagePath && (
         <ReverseSearchPanel
