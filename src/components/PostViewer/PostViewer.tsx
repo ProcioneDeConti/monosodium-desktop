@@ -324,16 +324,24 @@ export function PostViewer({
       </div>
 
       <div className="relative flex min-h-0 flex-1">
-        <IconButton
-          tone="invert"
-          onClick={goPrev}
-          disabled={!canGoPrev}
-          className="absolute left-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 disabled:opacity-0"
-        >
-          <ChevronLeft size={22} />
-        </IconButton>
-
         <div className="relative min-w-0 flex-1 overflow-hidden">
+          <IconButton
+            tone="invert"
+            onClick={goPrev}
+            disabled={!canGoPrev}
+            className="absolute left-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 disabled:opacity-0"
+          >
+            <ChevronLeft size={22} />
+          </IconButton>
+          <IconButton
+            tone="invert"
+            onClick={goNext}
+            disabled={!canGoNext}
+            className="absolute right-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 disabled:opacity-0"
+          >
+            <ChevronRight size={22} />
+          </IconButton>
+
           <div
             key={post.id}
             className={`h-full w-full ${slideshowActive ? SLIDESHOW_TRANSITION_ANIMATION[slideshowTransition] : ""}`}
@@ -469,15 +477,6 @@ export function PostViewer({
             </div>
           )}
         </div>
-
-        <IconButton
-          tone="invert"
-          onClick={goNext}
-          disabled={!canGoNext}
-          className="absolute right-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 disabled:opacity-0"
-        >
-          <ChevronRight size={22} />
-        </IconButton>
 
         <aside className="w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[rgb(20,20,20)]/95 px-3 py-3 text-white">
           <section className="mb-4">
