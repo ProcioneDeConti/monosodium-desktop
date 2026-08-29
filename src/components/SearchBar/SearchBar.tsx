@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Clock, X } from "lucide-react";
 import type { Site } from "../../models/site";
 import { useTagAutocomplete } from "../../queries/useTagAutocomplete";
+import { useMetatagCompletions } from "../../queries/useMetatagValues";
 import { useSearchHistoryStore } from "../../state/searchHistoryStore";
 import { TAG_CATEGORY_STYLE } from "../../lib/tagCategoryStyle";
 import { cacheTagCategory, getCachedTagCategory } from "../../lib/tagCategoryCache";
@@ -88,13 +89,20 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
     [suggestions, almostThereEgg],
   );
 
+  // Metatag operator completion (`rating:`, `order:`, `user:`, `pool:`, ...). Mutually exclusive
+  // with tag autocomplete, which is suppressed for anything containing a colon.
+  const meta = useMetatagCompletions(site, draft);
+  const metaActive = meta.active && !almostThereEgg && draft.trim().length > 0;
+  const metaSuggestions = metaActive ? meta.suggestions.slice(0, 10) : [];
+  const navLen = metaActive ? metaSuggestions.length : shownSuggestions.length;
+
   useEffect(() => {
     suggestions?.forEach((s) => cacheTagCategory(s.name, tagSuggestionCategory(s)));
   }, [suggestions]);
 
   useEffect(() => {
     setHighlighted(0);
-  }, [shownSuggestions]);
+  }, [draft]);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -131,18 +139,27 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "ArrowDown" && open && shownSuggestions.length > 0) {
+    if (e.key === "ArrowDown" && open && navLen > 0) {
       e.preventDefault();
-      setHighlighted((h) => (h + 1) % shownSuggestions.length);
+      setHighlighted((h) => (h + 1) % navLen);
       return;
     }
-    if (e.key === "ArrowUp" && open && shownSuggestions.length > 0) {
+    if (e.key === "ArrowUp" && open && navLen > 0) {
       e.preventDefault();
-      setHighlighted((h) => (h - 1 + shownSuggestions.length) % shownSuggestions.length);
+      setHighlighted((h) => (h - 1 + navLen) % navLen);
       return;
     }
     if (e.key === "Enter") {
       e.preventDefault();
+      if (metaActive && metaSuggestions.length > 0) {
+        const chosen = metaSuggestions[highlighted] ?? metaSuggestions[0];
+        const next = [...tags, chosen.value];
+        setTags(next);
+        setDraft("");
+        setOpen(false);
+        submit(next);
+        return;
+      }
       // Also re-checked here (not just in useTagAutocomplete's `enabled`) because the dropdown's
       // suggestions lag the debounce by up to 200ms - typing a meta operator like "score:>1500"
       // fast enough and hitting Enter within that window could otherwise still auto-select a
@@ -238,6 +255,40 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
           className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-0.5"
         />
       </div>
+
+      {open && metaActive && (metaSuggestions.length > 0 || meta.hint) && (
+        <ul
+          className="absolute z-20 mt-1 w-full max-h-80 overflow-auto rounded-[var(--radius-md)] border
+                     border-black/10 dark:border-white/10 bg-[rgb(250,250,250)] dark:bg-[rgb(38,38,38)] shadow-lg"
+        >
+          {meta.hint && (
+            <li className="px-3 py-1.5 text-xs italic opacity-60">{meta.hint}</li>
+          )}
+          {metaSuggestions.map((s, i) => (
+            <li key={s.value}>
+              <button
+                type="button"
+                className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm ${
+                  i === highlighted ? "bg-[rgb(var(--accent))]/15" : "hover:bg-black/5 dark:hover:bg-white/5"
+                }`}
+                onMouseEnter={() => setHighlighted(i)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  const next = [...tags, s.value];
+                  setTags(next);
+                  setDraft("");
+                  setOpen(false);
+                  submit(next);
+                }}
+              >
+                <span className="truncate font-medium">{s.label}</span>
+                {s.detail && <span className="shrink-0 text-xs opacity-60">{s.detail}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {showHistory && !almostThereEgg && (
         <ul
           className="absolute z-20 mt-1 w-full overflow-hidden rounded-[var(--radius-md)] border

@@ -1087,6 +1087,18 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
 - [x] **Phase 4: Keyboard cheatsheet** `?` (when not typing) toggles `KeyboardCheatsheet` - a modal
       grouping every shortcut in the app (Global / Post viewer / Grid), collected from the various
       keydown handlers. Plain local `App` state, not part of the nav stack. Bumped to 1.14.26.
+- [x] **Phase 4: Metatag value autocomplete** Previously anything with a `:` suppressed autocomplete
+      entirely. `lib/metatags.ts` defines the operators + their completion behaviour: static enums
+      from e621's cheatsheet (`rating:`/`order:`/`sort:`/`type:`/`filetype:`/`status:`/`locked:`/
+      `parent:none`), `user`-family (`user:`/`fav:`/`favoritedby:`/`approver:`/`commenter:`/
+      `noter:`/`voter:`) and `pool:` fetched live, and syntax hints for the comparison/date ones
+      (`score:`/`date:`/`filesize:`/...). Backend: `autocomplete_users` (`users.json?
+      search[name_matches]=<prefix>*`) and `autocomplete_pools` (`pools.json?search[name_matches]`,
+      auto-wildcarded) - both **verified against e621ng's `User`/`Pool` `SearchMethods`**.
+      `queries/useMetatagValues.ts` resolves enums synchronously and debounces the fetched ones;
+      `SearchBar` shows them in the dropdown (mutually exclusive with tag autocomplete / recent
+      searches) with shared arrow/Enter nav, committing `prefix:value` (keeping any leading `-`)
+      as a chip. Bumped to 1.14.27.
 
 ## Running it
 

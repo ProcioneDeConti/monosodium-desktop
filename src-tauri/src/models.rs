@@ -409,6 +409,25 @@ pub struct CreatePostSetRequest {
     pub post_set: CreatePostSetFields,
 }
 
+/// A user name suggestion for `user:`/`fav:`/... metatag completion (`users.json` index; the
+/// full user object is returned, we keep only these two fields).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserSuggestion {
+    pub id: i64,
+    #[serde(default)]
+    pub name: String,
+}
+
+/// A pool suggestion for `pool:` metatag completion (`pools.json` index).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PoolSuggestion {
+    pub id: i64,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub post_count: i64,
+}
+
 /// One entry from `related_tag.json` after `api::parse_related_tags` normalises whichever shape
 /// this e621ng version returned (see that function). `category` is the numeric e621 tag category.
 #[derive(Debug, Clone, Serialize, Deserialize)]

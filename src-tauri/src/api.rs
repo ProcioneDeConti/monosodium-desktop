@@ -5,9 +5,9 @@ use crate::models::{
     Comment, CreateCommentFields, CreateCommentRequest, CreateDmailFields, CreateDmailRequest,
     CreateForumPostFields, CreateForumPostRequest, CreatePostSetFields, CreatePostSetRequest,
     CreateTicketFields, CreateTicketRequest, Dmail, FavoriteRequest, FavoriteResponse, ForumPost,
-    ForumTopic, Pool, PostNote, PostSet, PostsResponse, RelatedTag, SetPostIdsRequest,
-    TagSuggestion, UpdateCommentFields, UpdateCommentRequest, UpdateUserFields, UpdateUserRequest,
-    UserProfile, VoteRequest, VoteResponse, WikiPage,
+    ForumTopic, Pool, PoolSuggestion, PostNote, PostSet, PostsResponse, RelatedTag,
+    SetPostIdsRequest, TagSuggestion, UpdateCommentFields, UpdateCommentRequest, UpdateUserFields,
+    UpdateUserRequest, UserProfile, UserSuggestion, VoteRequest, VoteResponse, WikiPage,
 };
 use crate::rate_limit::SiteRateLimiters;
 use crate::site::Site;
@@ -144,6 +144,50 @@ pub async fn autocomplete_tags(
     ensure_success(response)
         .await?
         .json::<Vec<TagSuggestion>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Username completion for `user:`/`fav:`/`approver:`/... metatags. `users.json` filters with
+/// `search[name_matches]`, which `where_ilike`s the normalised name - `*` acts as a wildcard.
+/// Public; no auth needed. Verified against e621ng's `User::SearchMethods`.
+#[tauri::command]
+pub async fn autocomplete_users(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    prefix: String,
+) -> Result<Vec<UserSuggestion>, String> {
+    let response = request(&state, site, Method::GET, "users.json")
+        .await?
+        .query(&[("search[name_matches]", format!("{prefix}*")), ("limit", "10".to_string())])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Vec<UserSuggestion>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Pool-name completion for the `pool:` metatag. `pools.json` filters with `search[name_matches]`
+/// via `attribute_matches(..., convert_to_wildcard: true)`, so the raw prefix is enough (no `*`).
+/// Public. Verified against e621ng's `Pool::SearchMethods`.
+#[tauri::command]
+pub async fn autocomplete_pools(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    prefix: String,
+) -> Result<Vec<PoolSuggestion>, String> {
+    let response = request(&state, site, Method::GET, "pools.json")
+        .await?
+        .query(&[("search[name_matches]", prefix), ("limit", "10".to_string())])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Vec<PoolSuggestion>>()
         .await
         .map_err(|e| e.to_string())
 }

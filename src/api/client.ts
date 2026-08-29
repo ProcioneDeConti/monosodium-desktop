@@ -36,6 +36,19 @@ export const e621Api = {
     return invoke("autocomplete_tags", { site, name });
   },
 
+  /** Username completion for `user:`/`fav:`/... metatags (users.json?search[name_matches]). */
+  autocompleteUsers(site: Site, prefix: string): Promise<{ id: number; name: string }[]> {
+    return invoke("autocomplete_users", { site, prefix });
+  },
+
+  /** Pool-name completion for the `pool:` metatag (pools.json?search[name_matches]). */
+  autocompletePools(
+    site: Site,
+    prefix: string,
+  ): Promise<{ id: number; name: string; post_count: number }[]> {
+    return invoke("autocomplete_pools", { site, prefix });
+  },
+
   getCurrentUser(site: Site): Promise<UserProfile> {
     return invoke("get_current_user", { site });
   },

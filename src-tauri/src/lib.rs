@@ -109,6 +109,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             api::get_posts,
             api::autocomplete_tags,
+            api::autocomplete_users,
+            api::autocomplete_pools,
             api::get_current_user,
             api::get_user,
             api::update_blacklist,
