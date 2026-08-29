@@ -178,6 +178,24 @@ pub struct UserProfile {
     pub upload_slots: Option<i64>,
     pub profile_about: Option<String>,
     pub profile_artinfo: Option<String>,
+    // Upload-standing fields (e621ng's newer `method_attributes`). `upload_karma` drives the
+    // 0-10 "upload level" the frontend computes (models/user.ts).
+    pub level_string: Option<String>,
+    pub base_upload_limit: Option<i64>,
+    pub upload_karma: Option<i64>,
+    #[serde(default)]
+    pub upload_karma_free: bool,
+    pub post_upload_count: Option<i64>,
+    pub post_update_count: Option<i64>,
+    pub note_update_count: Option<i64>,
+    #[serde(default)]
+    pub is_banned: bool,
+    #[serde(default)]
+    pub can_approve_posts: bool,
+    #[serde(default)]
+    pub can_upload_free: bool,
+    #[serde(default)]
+    pub is_verified: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

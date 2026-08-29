@@ -23,6 +23,67 @@ export interface UserProfile {
   upload_slots: number | null;
   profile_about: string | null;
   profile_artinfo: string | null;
+  /** e621ng's newer upload-standing fields. `level_string` is the human-readable privilege
+   *  level ("Member", "Privileged", …); `upload_karma` drives the 0-10 "upload level" below. */
+  level_string: string | null;
+  base_upload_limit: number | null;
+  upload_karma: number | null;
+  upload_karma_free: boolean;
+  post_upload_count: number | null;
+  post_update_count: number | null;
+  note_update_count: number | null;
+  is_banned: boolean;
+  can_approve_posts: boolean;
+  can_upload_free: boolean;
+  is_verified: boolean;
+}
+
+// --- Upload level (upload karma) ---
+// e621ng derives a 0-10 "upload level" from `upload_karma` on a log scale between two config
+// thresholds. These are e621ng's *defaults* (config/danbooru_default_config.rb:
+// upload_karma_l1_threshold=100, upload_karma_l10_threshold=10_000, max level 10) - e621.net
+// could override them, but the defaults check out against real top-uploader karma (~80-110k all
+// land at level 10). Mirrors `User.level_from_karma` / `required_karma_for_level`.
+const KARMA_L1 = 100;
+const KARMA_L10 = 10_000;
+const MAX_UPLOAD_LEVEL = 10;
+const KARMA_SCALE = (MAX_UPLOAD_LEVEL - 1) / Math.log10(KARMA_L10 / KARMA_L1); // 4.5
+
+export function uploadKarmaLevel(karma: number): number {
+  if (karma < KARMA_L1) return 0;
+  return Math.min(Math.floor(Math.log10(karma / KARMA_L1) * KARMA_SCALE) + 1, MAX_UPLOAD_LEVEL);
+}
+
+function karmaForLevel(level: number): number {
+  if (level <= 0) return 0;
+  return Math.ceil(KARMA_L1 * 10 ** ((level - 1) / KARMA_SCALE));
+}
+
+export interface UploadKarmaProgress {
+  level: number;
+  isMax: boolean;
+  /** 0-100 toward the next level. */
+  percent: number;
+  /** Karma still needed for the next level (0 at max). */
+  toNext: number;
+  nextLevelAt: number;
+}
+
+export function uploadKarmaProgress(karma: number): UploadKarmaProgress {
+  const level = uploadKarmaLevel(karma);
+  if (level >= MAX_UPLOAD_LEVEL) {
+    return { level, isMax: true, percent: 100, toNext: 0, nextLevelAt: karma };
+  }
+  const cur = karmaForLevel(level);
+  const next = karmaForLevel(level + 1);
+  const percent = next === cur ? 100 : ((karma - cur) / (next - cur)) * 100;
+  return {
+    level,
+    isMax: false,
+    percent: Math.max(0, Math.min(100, Math.round(percent))),
+    toNext: Math.max(0, next - karma),
+    nextLevelAt: next,
+  };
 }
 
 /** e621's `UserLevel::MAPPING` (app/logical/user_level.rb in the site's source) - unrecognized

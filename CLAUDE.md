@@ -1151,6 +1151,19 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
         to the plain average only when there's almost no colour anywhere), which returns the
         avatar's real accent instead of grey (verified offline against a real avatar: old picked
         `#c2b9b4`, new picks `#aad560`); (3) a stronger drop shadow behind the avatar.
+- [x] **Profile: upload level (upload karma)** (1.14.34) e621ng's newer `method_attributes` expose
+      `upload_karma`, `level_string`, `base_upload_limit`, `post_upload_count`/`post_update_count`/
+      `note_update_count`, `upload_karma_free`, `can_approve_posts`, `is_verified`, `is_banned`,
+      `can_upload_free` - all added to `UserProfile` (`models.rs` + `models/user.ts`). e621 derives a
+      0-10 "upload level" from `upload_karma` on a log scale (`User.level_from_karma`); it's *not*
+      serialized, so `models/user.ts`'s `uploadKarmaLevel` / `uploadKarmaProgress` recompute it
+      from e621ng's **default** thresholds (l1 100, l10 10 000, scale 4.5 - a caveat, but they
+      check out: real top uploaders at ~80-110k karma all land at level 10). `ProfilePanel` now
+      uses `level_string` for the privilege pill (was mapping the numeric `level` itself), adds an
+      "Upload Lv N" pill + a "Verified" pill, and a new **Contribution** section: an upload-level
+      progress bar (karma to the next level), "Post approver" / "Bypasses upload queue" chips, and
+      Uploads / Tag edits / Note edits / Upload-limit tiles. Stat-tile markup factored into a
+      `StatGrid` helper.
 
 This finishes the user's brainstormed post-Phase-3 batch (Popular, random/shuffle, grid hover
 quick-actions, parent/child, post sets, related tags, multi-select + bulk, download queue, true
