@@ -15,6 +15,7 @@ import { ForumPanel } from "./components/Forum/ForumPanel";
 import { PoolPanel } from "./components/Pool/PoolPanel";
 import { PopularPanel } from "./components/Popular/PopularPanel";
 import { ArtistPanel } from "./components/Artist/ArtistPanel";
+import { WikiPanel } from "./components/Wiki/WikiPanel";
 import { SetsPanel } from "./components/Sets/SetsPanel";
 import { DownloadsPanel } from "./components/Downloads/DownloadsPanel";
 import { KeyboardCheatsheet } from "./components/KeyboardCheatsheet";
@@ -62,6 +63,7 @@ interface NavState {
   poolTarget: number | null;
   popularOpen: boolean;
   artistTarget: string | null;
+  wikiTarget: string | null;
   setsOpen: boolean;
   downloadsOpen: boolean;
 }
@@ -78,6 +80,7 @@ const INITIAL_NAV: NavState = {
   poolTarget: null,
   popularOpen: false,
   artistTarget: null,
+  wikiTarget: null,
   setsOpen: false,
   downloadsOpen: false,
 };
@@ -139,6 +142,7 @@ function App() {
     poolTarget,
     popularOpen,
     artistTarget,
+    wikiTarget,
     setsOpen,
     downloadsOpen,
   } = nav;
@@ -512,6 +516,7 @@ function App() {
     poolTarget !== null ||
     popularOpen ||
     artistTarget !== null ||
+    wikiTarget !== null ||
     setsOpen ||
     downloadsOpen;
 
@@ -549,6 +554,7 @@ function App() {
       poolTarget: null,
       popularOpen: false,
       artistTarget: null,
+      wikiTarget: null,
       setsOpen: false,
       downloadsOpen: false,
     });
@@ -588,6 +594,7 @@ function App() {
       onBack={goBack}
       onSearch={runNewSearch}
       onOpenSearchBuilder={() => setBuilderOpen(true)}
+      onOpenWiki={() => navigate({ wikiTarget: "" })}
       onOpenSettings={() => navigate({ settingsOpen: true })}
       onOpenCheatsheet={() => setCheatsheetOpen(true)}
       onOpenHelp={() => setHelpOpen(true)}
@@ -702,6 +709,7 @@ function App() {
           onOpenProfile={(id) => navigate({ profileTarget: id })}
           onOpenPool={(id) => navigate({ poolTarget: id })}
           onOpenArtist={(tag) => navigate({ artistTarget: tag })}
+          onOpenWiki={(tag) => navigate({ wikiTarget: tag })}
           slideshowActive={slideshowActive}
           onToggleSlideshow={() => replaceNav({ slideshowActive: !slideshowActive })}
         />
@@ -756,6 +764,7 @@ function App() {
           onSearch={runNewSearch}
           onOpenProfile={(id) => navigate({ profileTarget: id })}
           onOpenArtist={(tag) => navigate({ artistTarget: tag })}
+          onOpenWiki={(tag) => navigate({ wikiTarget: tag })}
         />
       )}
 
@@ -766,6 +775,7 @@ function App() {
           onSearch={runNewSearch}
           onOpenProfile={(id) => navigate({ profileTarget: id })}
           onOpenArtist={(tag) => navigate({ artistTarget: tag })}
+          onOpenWiki={(tag) => navigate({ wikiTarget: tag })}
         />
       )}
 
@@ -779,6 +789,10 @@ function App() {
         />
       )}
 
+      {wikiTarget !== null && (
+        <WikiPanel site={site} initialTag={wikiTarget} onClose={goBack} onSearch={runNewSearch} />
+      )}
+
       {setsOpen && (
         <SetsPanel
           site={site}
@@ -786,6 +800,7 @@ function App() {
           onSearch={runNewSearch}
           onOpenProfile={(id) => navigate({ profileTarget: id })}
           onOpenArtist={(tag) => navigate({ artistTarget: tag })}
+          onOpenWiki={(tag) => navigate({ wikiTarget: tag })}
         />
       )}
 

@@ -68,6 +68,7 @@ interface PostViewerProps {
   onOpenProfile: (userId: number) => void;
   onOpenPool: (poolId: number) => void;
   onOpenArtist: (tag: string) => void;
+  onOpenWiki: (tag: string) => void;
   slideshowActive: boolean;
   onToggleSlideshow: () => void;
   /** Extra toolbar controls for the current post - e.g. SetsPanel's "remove from set". */
@@ -93,6 +94,7 @@ export function PostViewer({
   onOpenProfile,
   onOpenPool,
   onOpenArtist,
+  onOpenWiki,
   slideshowActive,
   onToggleSlideshow,
   extraToolbarActions,
@@ -524,6 +526,7 @@ export function PostViewer({
                 onBlacklistTag={onBlacklistTag}
                 onFindRelated={setRelatedTagFor}
                 onOpenArtist={onOpenArtist}
+                onOpenWiki={onOpenWiki}
               />
             ) : (
               <CommentsPanel site={site} postId={post.id} onOpenProfile={onOpenProfile} />

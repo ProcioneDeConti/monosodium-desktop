@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   ArrowLeft,
   ArrowRightLeft,
+  BookOpen,
   Bookmark,
   CheckSquare,
   Columns2,
@@ -54,6 +55,7 @@ interface AppShellProps {
   onBack: () => void;
   onSearch: (query: string) => void;
   onOpenSearchBuilder: () => void;
+  onOpenWiki: () => void;
   onOpenSettings: () => void;
   onOpenCheatsheet: () => void;
   onOpenHelp: () => void;
@@ -93,6 +95,7 @@ export function AppShell({
   onBack,
   onSearch,
   onOpenSearchBuilder,
+  onOpenWiki,
   onOpenSettings,
   onOpenCheatsheet,
   onOpenHelp,
@@ -319,6 +322,9 @@ export function AppShell({
         >
           <MenuItem icon={<TrendingUp size={15} />} onClick={onOpenPopular}>
             Popular
+          </MenuItem>
+          <MenuItem icon={<BookOpen size={15} />} onClick={onOpenWiki}>
+            Wiki
           </MenuItem>
           <MenuItem icon={<Bookmark size={15} />} onClick={onOpenSavedSearches}>
             Saved searches

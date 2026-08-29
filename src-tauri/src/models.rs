@@ -560,6 +560,33 @@ pub struct WikiPage {
     pub updated_at: Option<String>,
 }
 
+/// One entry from `tags.json`. `related_tags` is a space-separated `name count name count …`
+/// string that the frontend splits.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TagInfo {
+    pub id: i64,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub post_count: i64,
+    #[serde(default)]
+    pub category: i64,
+    #[serde(default)]
+    pub related_tags: String,
+}
+
+/// This tag's implication / alias relationships, assembled from `tag_implications.json` and
+/// `tag_aliases.json` (see `api::get_tag_relations`).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TagRelations {
+    /// Tags this tag implies (searching this tag also matches these).
+    pub implies: Vec<String>,
+    /// Tags that imply this one.
+    pub implied_by: Vec<String>,
+    /// Old names that redirect here.
+    pub aliases: Vec<String>,
+}
+
 /// A single result from e621's live tag-autocomplete endpoint. `name` is always the
 /// canonical tag - when the search prefix matched via an alias, e621 already resolves it
 /// and reports the alias that matched in `antecedent_name`.

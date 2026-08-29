@@ -17,6 +17,7 @@ interface PoolPanelProps {
   onSearch: (query: string) => void;
   onOpenProfile: (userId: number) => void;
   onOpenArtist: (tag: string) => void;
+  onOpenWiki: (tag: string) => void;
 }
 
 /** Full-screen overlay for a pool - e621's ordered post sequences (comics, sets, etc). Neither
@@ -26,7 +27,7 @@ interface PoolPanelProps {
  *  the main search grid uses, just fed a fixed (non-paginated) list in the pool's own order -
  *  see usePoolQuery.ts. Opening a pool from a post that's itself in another pool stacks another
  *  PoolPanel on top via plain recursion. */
-export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile, onOpenArtist }: PoolPanelProps) {
+export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile, onOpenArtist, onOpenWiki }: PoolPanelProps) {
   const { data: pool, isLoading: poolLoading, isError: poolError } = usePoolQuery(site, poolId);
   const { data: posts, isLoading: postsLoading, isError: postsError } = usePoolPostsQuery(site, pool);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
@@ -133,6 +134,7 @@ export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile, onOp
           onBlacklistTag={addTagToBlacklist}
           onOpenProfile={onOpenProfile}
           onOpenArtist={onOpenArtist}
+          onOpenWiki={onOpenWiki}
           onOpenPool={setNestedPoolId}
           slideshowActive={false}
           onToggleSlideshow={() => {}}
@@ -147,6 +149,7 @@ export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile, onOp
           onSearch={onSearch}
           onOpenProfile={onOpenProfile}
           onOpenArtist={onOpenArtist}
+          onOpenWiki={onOpenWiki}
         />
       )}
     </div>

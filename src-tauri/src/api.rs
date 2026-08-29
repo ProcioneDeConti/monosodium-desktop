@@ -6,9 +6,9 @@ use crate::models::{
     CreateDmailRequest, CreateForumPostFields, CreateForumPostRequest, CreatePostSetFields,
     CreatePostSetRequest, CreateTicketFields, CreateTicketRequest, DnpEntry, Dmail, FavoriteRequest,
     FavoriteResponse, ForumPost, ForumTopic, Pool, PoolSuggestion, PostNote, PostSet,
-    PostsResponse, RelatedTag, SetPostIdsRequest, TagSuggestion, UpdateCommentFields,
-    UpdateCommentRequest, UpdateUserFields, UpdateUserRequest, UserProfile, UserSuggestion,
-    VoteRequest, VoteResponse, WikiPage,
+    PostsResponse, RelatedTag, SetPostIdsRequest, TagInfo, TagRelations, TagSuggestion,
+    UpdateCommentFields, UpdateCommentRequest, UpdateUserFields, UpdateUserRequest, UserProfile,
+    UserSuggestion, VoteRequest, VoteResponse, WikiPage,
 };
 use crate::rate_limit::SiteRateLimiters;
 use crate::site::Site;
@@ -745,6 +745,100 @@ pub async fn get_pool(state: tauri::State<'_, AppState>, site: Site, id: i64) ->
         .json::<Pool>()
         .await
         .map_err(|e| e.to_string())
+}
+
+/// Tag stats for an exact name (`tags.json?search[name]=`). Public. `None` if the tag doesn't
+/// exist (never been used).
+#[tauri::command]
+pub async fn get_tag(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    name: String,
+) -> Result<Option<TagInfo>, String> {
+    let response = request(&state, site, Method::GET, "tags.json")
+        .await?
+        .query(&[("search[name]", name.as_str()), ("limit", "1")])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut tags = ensure_success(response)
+        .await?
+        .json::<Vec<TagInfo>>()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(if tags.is_empty() { None } else { Some(tags.remove(0)) })
+}
+
+/// This tag's active implications (both directions) and aliases. Public. Three small requests.
+#[tauri::command]
+pub async fn get_tag_relations(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    name: String,
+) -> Result<TagRelations, String> {
+    #[derive(serde::Deserialize)]
+    struct Implication {
+        antecedent_name: String,
+        consequent_name: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct Alias {
+        antecedent_name: String,
+    }
+
+    let implies_resp = request(&state, site, Method::GET, "tag_implications.json")
+        .await?
+        .query(&[
+            ("search[antecedent_name]", name.as_str()),
+            ("search[status]", "active"),
+            ("limit", "100"),
+        ])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let implies: Vec<Implication> = ensure_success(implies_resp)
+        .await?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let implied_by_resp = request(&state, site, Method::GET, "tag_implications.json")
+        .await?
+        .query(&[
+            ("search[consequent_name]", name.as_str()),
+            ("search[status]", "active"),
+            ("limit", "100"),
+        ])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let implied_by: Vec<Implication> = ensure_success(implied_by_resp)
+        .await?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let alias_resp = request(&state, site, Method::GET, "tag_aliases.json")
+        .await?
+        .query(&[
+            ("search[consequent_name]", name.as_str()),
+            ("search[status]", "active"),
+            ("limit", "100"),
+        ])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let aliases: Vec<Alias> = ensure_success(alias_resp)
+        .await?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(TagRelations {
+        implies: implies.into_iter().map(|i| i.consequent_name).collect(),
+        implied_by: implied_by.into_iter().map(|i| i.antecedent_name).collect(),
+        aliases: aliases.into_iter().map(|a| a.antecedent_name).collect(),
+    })
 }
 
 /// Looks up an artist by exact tag name (`artists.json?search[name]=`). Public. Returns `None`

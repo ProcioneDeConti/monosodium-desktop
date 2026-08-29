@@ -25,12 +25,13 @@ interface SetsPanelProps {
   onSearch: (query: string) => void;
   onOpenProfile: (userId: number) => void;
   onOpenArtist: (tag: string) => void;
+  onOpenWiki: (tag: string) => void;
 }
 
 /** Full-screen overlay for the signed-in account's post sets - browse, create, view a set's
  *  posts, and add/remove (add is in PostViewer's toolbar via AddToSetButton; remove is a
  *  per-post toolbar action here). No reference-app equivalent. */
-export function SetsPanel({ site, onClose, onSearch, onOpenProfile, onOpenArtist }: SetsPanelProps) {
+export function SetsPanel({ site, onClose, onSearch, onOpenProfile, onOpenArtist, onOpenWiki }: SetsPanelProps) {
   const { data: me } = useUserProfileQuery(site, "me");
   const { data: sets, isLoading, isError } = useMyPostSetsQuery(site, me?.id);
   const { create } = usePostSetMutations(site);
@@ -72,6 +73,7 @@ export function SetsPanel({ site, onClose, onSearch, onOpenProfile, onOpenArtist
         onSearch={onSearch}
         onOpenProfile={onOpenProfile}
         onOpenArtist={onOpenArtist}
+        onOpenWiki={onOpenWiki}
       />
     );
   }
@@ -172,6 +174,7 @@ function SetGridView({
   onSearch,
   onOpenProfile,
   onOpenArtist,
+  onOpenWiki,
 }: {
   site: Site;
   set: PostSet;
@@ -179,6 +182,7 @@ function SetGridView({
   onSearch: (query: string) => void;
   onOpenProfile: (userId: number) => void;
   onOpenArtist: (tag: string) => void;
+  onOpenWiki: (tag: string) => void;
 }) {
   const { data: posts, isLoading, isError } = usePostSetPostsQuery(site, set);
   const { removePosts } = usePostSetMutations(site);
@@ -283,6 +287,7 @@ function SetGridView({
           onBlacklistTag={addTagToBlacklist}
           onOpenProfile={onOpenProfile}
           onOpenArtist={onOpenArtist}
+          onOpenWiki={onOpenWiki}
           onOpenPool={setNestedPoolId}
           slideshowActive={false}
           onToggleSlideshow={() => {}}
@@ -307,6 +312,7 @@ function SetGridView({
           onSearch={onSearch}
           onOpenProfile={onOpenProfile}
           onOpenArtist={onOpenArtist}
+          onOpenWiki={onOpenWiki}
         />
       )}
     </div>

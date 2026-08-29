@@ -89,6 +89,7 @@ export function PostWindow({ postId, site }: PostWindowProps) {
         onOpenProfile={(id) => void openUrl(`${SITE_WEB_BASE_URL[site]}/users/${id}`)}
         onOpenPool={(id) => void openUrl(`${SITE_WEB_BASE_URL[site]}/pools/${id}`)}
         onOpenArtist={(tag) => void openUrl(`${SITE_WEB_BASE_URL[site]}/artists/show_or_new?name=${encodeURIComponent(tag)}`)}
+        onOpenWiki={(tag) => void openUrl(`${SITE_WEB_BASE_URL[site]}/wiki_pages/${encodeURIComponent(tag)}`)}
         slideshowActive={false}
         onToggleSlideshow={() => {}}
       />

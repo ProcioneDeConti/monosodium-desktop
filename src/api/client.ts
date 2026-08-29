@@ -15,7 +15,7 @@ import type { Pool } from "../models/pool";
 import type { PostSet } from "../models/postSet";
 import type { Artist, DnpEntry } from "../models/artist";
 import type { PostNote } from "../models/note";
-import type { WikiPage } from "../models/wiki";
+import type { TagInfo, TagRelations, WikiPage } from "../models/wiki";
 import type { SauceResult } from "../models/saucenao";
 
 export interface SiteCredentials {
@@ -217,6 +217,14 @@ export const e621Api = {
 
   getWikiPage(site: Site, title: string): Promise<WikiPage | null> {
     return invoke("get_wiki_page", { site, title });
+  },
+
+  getTag(site: Site, name: string): Promise<TagInfo | null> {
+    return invoke("get_tag", { site, name });
+  },
+
+  getTagRelations(site: Site, name: string): Promise<TagRelations> {
+    return invoke("get_tag_relations", { site, name });
   },
 
   /** `ids` (comma-separated) does a batch topic lookup for forum-search result titles. */
