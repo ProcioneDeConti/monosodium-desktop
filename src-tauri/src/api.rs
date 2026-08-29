@@ -2,12 +2,13 @@ use reqwest::Method;
 
 use crate::credentials;
 use crate::models::{
-    Comment, CreateCommentFields, CreateCommentRequest, CreateDmailFields, CreateDmailRequest,
-    CreateForumPostFields, CreateForumPostRequest, CreatePostSetFields, CreatePostSetRequest,
-    CreateTicketFields, CreateTicketRequest, Dmail, FavoriteRequest, FavoriteResponse, ForumPost,
-    ForumTopic, Pool, PoolSuggestion, PostNote, PostSet, PostsResponse, RelatedTag,
-    SetPostIdsRequest, TagSuggestion, UpdateCommentFields, UpdateCommentRequest, UpdateUserFields,
-    UpdateUserRequest, UserProfile, UserSuggestion, VoteRequest, VoteResponse, WikiPage,
+    Artist, Comment, CreateCommentFields, CreateCommentRequest, CreateDmailFields,
+    CreateDmailRequest, CreateForumPostFields, CreateForumPostRequest, CreatePostSetFields,
+    CreatePostSetRequest, CreateTicketFields, CreateTicketRequest, DnpEntry, Dmail, FavoriteRequest,
+    FavoriteResponse, ForumPost, ForumTopic, Pool, PoolSuggestion, PostNote, PostSet,
+    PostsResponse, RelatedTag, SetPostIdsRequest, TagSuggestion, UpdateCommentFields,
+    UpdateCommentRequest, UpdateUserFields, UpdateUserRequest, UserProfile, UserSuggestion,
+    VoteRequest, VoteResponse, WikiPage,
 };
 use crate::rate_limit::SiteRateLimiters;
 use crate::site::Site;
@@ -744,6 +745,49 @@ pub async fn get_pool(state: tauri::State<'_, AppState>, site: Site, id: i64) ->
         .json::<Pool>()
         .await
         .map_err(|e| e.to_string())
+}
+
+/// Looks up an artist by exact tag name (`artists.json?search[name]=`). Public. Returns `None`
+/// when the tag isn't a registered artist.
+#[tauri::command]
+pub async fn get_artist(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    name: String,
+) -> Result<Option<Artist>, String> {
+    let response = request(&state, site, Method::GET, "artists.json")
+        .await?
+        .query(&[("search[name]", name.as_str()), ("limit", "1")])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut artists = ensure_success(response)
+        .await?
+        .json::<Vec<Artist>>()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(if artists.is_empty() { None } else { Some(artists.remove(0)) })
+}
+
+/// The active "do not post" record for an artist id, if any (`avoid_postings.json`). Public.
+#[tauri::command]
+pub async fn get_artist_dnp(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    artist_id: i64,
+) -> Result<Option<DnpEntry>, String> {
+    let response = request(&state, site, Method::GET, "avoid_postings.json")
+        .await?
+        .query(&[("search[artist_id]", artist_id.to_string())])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let entries = ensure_success(response)
+        .await?
+        .json::<Vec<DnpEntry>>()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(entries.into_iter().find(|e| e.is_active))
 }
 
 /// Tags statistically related to `query` (e621's own `GET /related_tag.json`, `show` action,

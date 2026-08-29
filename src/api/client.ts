@@ -13,6 +13,7 @@ import type { UpdateCheckResult } from "../models/update";
 import type { ForumPost, ForumTopic } from "../models/forum";
 import type { Pool } from "../models/pool";
 import type { PostSet } from "../models/postSet";
+import type { Artist, DnpEntry } from "../models/artist";
 import type { PostNote } from "../models/note";
 import type { WikiPage } from "../models/wiki";
 import type { SauceResult } from "../models/saucenao";
@@ -184,6 +185,16 @@ export const e621Api = {
   /** Tags statistically related to `query`, for search refinement. `category` is numeric. */
   getRelatedTags(site: Site, query: string): Promise<{ name: string; category: number }[]> {
     return invoke("get_related_tags", { site, query });
+  },
+
+  /** Artist record for an exact tag name, or null if the tag isn't a registered artist. */
+  getArtist(site: Site, name: string): Promise<Artist | null> {
+    return invoke("get_artist", { site, name });
+  },
+
+  /** Active "do not post" record for an artist id, or null. */
+  getArtistDnp(site: Site, artistId: number): Promise<DnpEntry | null> {
+    return invoke("get_artist_dnp", { site, artistId });
   },
 
   createPostSet(

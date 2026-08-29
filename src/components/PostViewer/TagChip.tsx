@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { Ban, Minus, Network, Plus, Search } from "lucide-react";
+import { Ban, Minus, Network, Palette, Plus, Search } from "lucide-react";
 import type { TagCategory } from "../../models/post";
 import { TAG_CATEGORY_STYLE } from "../../lib/tagCategoryStyle";
 import { Button } from "../ui/Button";
@@ -13,6 +13,7 @@ interface TagChipProps {
   onExcludeFromSearch: (tag: string) => void;
   onAddToBlacklist: (tag: string) => void;
   onFindRelated: (tag: string) => void;
+  onOpenArtist: (tag: string) => void;
 }
 
 const MENU_MARGIN = 8;
@@ -33,6 +34,7 @@ export function TagChip({
   onExcludeFromSearch,
   onAddToBlacklist,
   onFindRelated,
+  onOpenArtist,
 }: TagChipProps) {
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>(HIDDEN_MENU_STYLE);
@@ -146,6 +148,13 @@ export function TagChip({
               Related tags
             </Button>
           </li>
+          {category === "artist" && (
+            <li>
+              <Button variant="menu" icon={<Palette size={13} />} onClick={() => choose(onOpenArtist)}>
+                Artist page
+              </Button>
+            </li>
+          )}
           <li>
             <Button
               variant="menu"

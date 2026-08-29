@@ -139,6 +139,8 @@ pub fn run() {
             api::get_pool,
             api::get_popular_posts,
             api::get_related_tags,
+            api::get_artist,
+            api::get_artist_dnp,
             api::get_post_sets,
             api::get_post_set,
             api::create_post_set,

@@ -23,12 +23,13 @@ interface PopularPanelProps {
   onClose: () => void;
   onSearch: (query: string) => void;
   onOpenProfile: (userId: number) => void;
+  onOpenArtist: (tag: string) => void;
 }
 
 /** Full-screen overlay for e621's day/week/month "popular" ranking (its own
  *  /explore/posts/popular page) - no reference-app equivalent. Reuses PostGrid/PostViewer fed a
  *  fixed, server-ranked list (same as PoolPanel), with period + scale steppers in the header. */
-export function PopularPanel({ site, onClose, onSearch, onOpenProfile }: PopularPanelProps) {
+export function PopularPanel({ site, onClose, onSearch, onOpenProfile, onOpenArtist }: PopularPanelProps) {
   const [scale, setScale] = useState<PopularScale>("day");
   const [date, setDate] = useState<string>(today());
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
@@ -179,6 +180,7 @@ export function PopularPanel({ site, onClose, onSearch, onOpenProfile }: Popular
           }}
           onBlacklistTag={addTagToBlacklist}
           onOpenProfile={onOpenProfile}
+          onOpenArtist={onOpenArtist}
           onOpenPool={setNestedPoolId}
           slideshowActive={false}
           onToggleSlideshow={() => {}}
@@ -192,6 +194,7 @@ export function PopularPanel({ site, onClose, onSearch, onOpenProfile }: Popular
           onClose={() => setNestedPoolId(null)}
           onSearch={onSearch}
           onOpenProfile={onOpenProfile}
+          onOpenArtist={onOpenArtist}
         />
       )}
     </div>

@@ -14,6 +14,7 @@ import { MessagesPanel } from "./components/Messages/MessagesPanel";
 import { ForumPanel } from "./components/Forum/ForumPanel";
 import { PoolPanel } from "./components/Pool/PoolPanel";
 import { PopularPanel } from "./components/Popular/PopularPanel";
+import { ArtistPanel } from "./components/Artist/ArtistPanel";
 import { SetsPanel } from "./components/Sets/SetsPanel";
 import { DownloadsPanel } from "./components/Downloads/DownloadsPanel";
 import { KeyboardCheatsheet } from "./components/KeyboardCheatsheet";
@@ -60,6 +61,7 @@ interface NavState {
   forumOpen: boolean;
   poolTarget: number | null;
   popularOpen: boolean;
+  artistTarget: string | null;
   setsOpen: boolean;
   downloadsOpen: boolean;
 }
@@ -75,6 +77,7 @@ const INITIAL_NAV: NavState = {
   forumOpen: false,
   poolTarget: null,
   popularOpen: false,
+  artistTarget: null,
   setsOpen: false,
   downloadsOpen: false,
 };
@@ -135,6 +138,7 @@ function App() {
     forumOpen,
     poolTarget,
     popularOpen,
+    artistTarget,
     setsOpen,
     downloadsOpen,
   } = nav;
@@ -507,6 +511,7 @@ function App() {
     forumOpen ||
     poolTarget !== null ||
     popularOpen ||
+    artistTarget !== null ||
     setsOpen ||
     downloadsOpen;
 
@@ -543,6 +548,7 @@ function App() {
       forumOpen: false,
       poolTarget: null,
       popularOpen: false,
+      artistTarget: null,
       setsOpen: false,
       downloadsOpen: false,
     });
@@ -695,6 +701,7 @@ function App() {
           onBlacklistTag={addTagToBlacklist}
           onOpenProfile={(id) => navigate({ profileTarget: id })}
           onOpenPool={(id) => navigate({ poolTarget: id })}
+          onOpenArtist={(tag) => navigate({ artistTarget: tag })}
           slideshowActive={slideshowActive}
           onToggleSlideshow={() => replaceNav({ slideshowActive: !slideshowActive })}
         />
@@ -748,12 +755,24 @@ function App() {
           onClose={goBack}
           onSearch={runNewSearch}
           onOpenProfile={(id) => navigate({ profileTarget: id })}
+          onOpenArtist={(tag) => navigate({ artistTarget: tag })}
         />
       )}
 
       {popularOpen && (
         <PopularPanel
           site={site}
+          onClose={goBack}
+          onSearch={runNewSearch}
+          onOpenProfile={(id) => navigate({ profileTarget: id })}
+          onOpenArtist={(tag) => navigate({ artistTarget: tag })}
+        />
+      )}
+
+      {artistTarget !== null && (
+        <ArtistPanel
+          site={site}
+          name={artistTarget}
           onClose={goBack}
           onSearch={runNewSearch}
           onOpenProfile={(id) => navigate({ profileTarget: id })}
@@ -766,6 +785,7 @@ function App() {
           onClose={goBack}
           onSearch={runNewSearch}
           onOpenProfile={(id) => navigate({ profileTarget: id })}
+          onOpenArtist={(tag) => navigate({ artistTarget: tag })}
         />
       )}
 

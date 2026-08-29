@@ -427,6 +427,48 @@ pub struct CreatePostSetRequest {
     pub post_set: CreatePostSetFields,
 }
 
+/// https://e621.net/artists.json - an artist's canonical name, aliases, off-site links, and the
+/// staff notes. Public. DNP ("do not post") status is a separate record - see `DnpEntry`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Artist {
+    pub id: i64,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub other_names: Vec<String>,
+    #[serde(default)]
+    pub group_name: String,
+    #[serde(default)]
+    pub is_active: bool,
+    #[serde(default)]
+    pub is_locked: bool,
+    #[serde(default)]
+    pub notes: String,
+    pub created_at: Option<String>,
+    pub linked_user_id: Option<i64>,
+    #[serde(default)]
+    pub urls: Vec<ArtistUrl>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArtistUrl {
+    #[serde(default)]
+    pub url: String,
+    #[serde(default)]
+    pub is_active: bool,
+}
+
+/// https://e621.net/avoid_postings.json - a "do not post" record. `details` is the public reason
+/// (often empty).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DnpEntry {
+    pub id: i64,
+    #[serde(default)]
+    pub details: String,
+    #[serde(default)]
+    pub is_active: bool,
+}
+
 /// A user name suggestion for `user:`/`fav:`/... metatag completion (`users.json` index; the
 /// full user object is returned, we keep only these two fields).
 #[derive(Debug, Clone, Serialize, Deserialize)]
