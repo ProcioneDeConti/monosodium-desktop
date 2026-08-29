@@ -6,7 +6,7 @@ use crate::models::{
     CreateDmailRequest, CreateForumPostFields, CreateForumPostRequest, CreatePostSetFields,
     CreatePostSetRequest, CreateTicketFields, CreateTicketRequest, DnpEntry, Dmail, FavoriteRequest,
     FavoriteResponse, ForumPost, ForumTopic, Pool, PoolSuggestion, PostNote, PostSet,
-    PostsResponse, RelatedTag, SetPostIdsRequest, TagInfo, TagRelations, TagSuggestion,
+    PostsResponse, PostVersion, RelatedTag, SetPostIdsRequest, TagInfo, TagRelations, TagSuggestion,
     UpdateCommentFields, UpdateCommentRequest, UpdateUserFields, UpdateUserRequest, UserProfile,
     UserSuggestion, VoteRequest, VoteResponse, WikiPage,
 };
@@ -1081,6 +1081,33 @@ pub async fn remove_posts_from_set(
     .map_err(|e| e.to_string())?;
     ensure_success(response).await?;
     Ok(())
+}
+
+/// A post's tag/metadata edit history (`post_versions.json`), newest first. Public. `page` is a
+/// numbered page.
+#[tauri::command]
+pub async fn get_post_versions(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    post_id: i64,
+    page: Option<String>,
+) -> Result<Vec<PostVersion>, String> {
+    let mut query: Vec<(&str, String)> =
+        vec![("search[post_id]", post_id.to_string()), ("limit", "40".to_string())];
+    if let Some(p) = page {
+        query.push(("page", p));
+    }
+    let response = request(&state, site, Method::GET, "post_versions.json")
+        .await?
+        .query(&query)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Vec<PostVersion>>()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Public; no auth required. View-only - see `PostNote`'s doc comment.

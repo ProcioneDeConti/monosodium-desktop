@@ -149,6 +149,7 @@ pub fn run() {
             api::add_posts_to_set,
             api::remove_posts_from_set,
             api::get_post_notes,
+            api::get_post_versions,
             api::get_wiki_page,
             api::health_check,
             cache::get_cache_info,

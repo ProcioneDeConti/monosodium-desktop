@@ -560,6 +560,35 @@ pub struct WikiPage {
     pub updated_at: Option<String>,
 }
 
+/// One entry from `post_versions.json` - a single tag/metadata edit to a post. `added_tags` /
+/// `removed_tags` are space-separated. Public.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PostVersion {
+    pub id: i64,
+    #[serde(default)]
+    pub version: i64,
+    pub updated_at: Option<String>,
+    #[serde(default)]
+    pub added_tags: Vec<String>,
+    #[serde(default)]
+    pub removed_tags: Vec<String>,
+    #[serde(default)]
+    pub rating: String,
+    #[serde(default)]
+    pub rating_changed: bool,
+    #[serde(default)]
+    pub parent_changed: bool,
+    #[serde(default)]
+    pub source_changed: bool,
+    #[serde(default)]
+    pub description_changed: bool,
+    #[serde(default)]
+    pub reason: String,
+    pub updater_id: Option<i64>,
+    #[serde(default)]
+    pub updater_name: String,
+}
+
 /// One entry from `tags.json`. `related_tags` is a space-separated `name count name count …`
 /// string that the frontend splits.
 #[derive(Debug, Clone, Serialize, Deserialize)]

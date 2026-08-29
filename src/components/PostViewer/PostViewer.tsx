@@ -30,6 +30,7 @@ import { ReportPostButton } from "./ReportPostButton";
 import { AddToSetButton } from "./AddToSetButton";
 import { RelatedTagsPanel } from "./RelatedTagsPanel";
 import { CommentsPanel } from "./CommentsPanel";
+import { HistoryPanel } from "./HistoryPanel";
 import { usePostMutations } from "../../queries/usePostMutations";
 import { usePostNotesQuery } from "../../queries/usePostNotesQuery";
 import { useAccountStore } from "../../state/accountStore";
@@ -122,7 +123,7 @@ export function PostViewer({
   const [slideshowPaused, setSlideshowPaused] = useState(false);
   const [transitionMenuOpen, setTransitionMenuOpen] = useState(false);
   const transitionMenuRef = useRef<HTMLDivElement>(null);
-  const [sidebarTab, setSidebarTab] = useState<"tags" | "comments">("tags");
+  const [sidebarTab, setSidebarTab] = useState<"tags" | "comments" | "history">("tags");
   const [relatedTagFor, setRelatedTagFor] = useState<string | null>(null);
 
   useEffect(() => {
@@ -515,6 +516,17 @@ export function PostViewer({
               >
                 Comments{post.comment_count > 0 ? ` (${post.comment_count})` : ""}
               </button>
+              <button
+                type="button"
+                onClick={() => setSidebarTab("history")}
+                className={`-mb-px border-b-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                  sidebarTab === "history"
+                    ? "border-[rgb(var(--accent))] text-white"
+                    : "border-transparent opacity-60 hover:opacity-90"
+                }`}
+              >
+                History
+              </button>
             </div>
             {sidebarTab === "tags" ? (
               <TagsPanel
@@ -528,8 +540,10 @@ export function PostViewer({
                 onOpenArtist={onOpenArtist}
                 onOpenWiki={onOpenWiki}
               />
-            ) : (
+            ) : sidebarTab === "comments" ? (
               <CommentsPanel site={site} postId={post.id} onOpenProfile={onOpenProfile} />
+            ) : (
+              <HistoryPanel site={site} postId={post.id} onOpenProfile={onOpenProfile} />
             )}
           </section>
         </aside>

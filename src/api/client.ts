@@ -15,6 +15,7 @@ import type { Pool } from "../models/pool";
 import type { PostSet } from "../models/postSet";
 import type { Artist, DnpEntry } from "../models/artist";
 import type { PostNote } from "../models/note";
+import type { PostVersion } from "../models/postVersion";
 import type { TagInfo, TagRelations, WikiPage } from "../models/wiki";
 import type { SauceResult } from "../models/saucenao";
 
@@ -171,6 +172,10 @@ export const e621Api = {
 
   getPostNotes(site: Site, postId: number): Promise<PostNote[]> {
     return invoke("get_post_notes", { site, postId });
+  },
+
+  getPostVersions(site: Site, postId: number, page?: string): Promise<PostVersion[]> {
+    return invoke("get_post_versions", { site, postId, page: page ?? null });
   },
 
   /** Pass `creatorId` (the signed-in account's own id) to list just your sets. */
