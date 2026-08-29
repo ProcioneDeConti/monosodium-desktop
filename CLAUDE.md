@@ -1198,6 +1198,14 @@ and related-tags fixes verified via e621ng source).
       `moderator_only` for the index and self-only-by-id for `show` (with no way to enumerate your
       own request ids). It isn't in any of `users.json`'s serialized attribute lists, and e621's
       own current profile pages don't surface it either. No member-accessible data to build this on.
+- [x] **Fixed: TagChip menu spilled off-screen / forced page scrollbars** (1.14.38) The `TagChip`
+      action menu was `absolute left-0 top-full` inside the narrow (`w-80`, `overflow-y-auto`)
+      viewer sidebar, so a chip near the right edge or bottom pushed the menu past the viewport and
+      the page grew scrollbars. Now `position: fixed`, positioned from the chip's
+      `getBoundingClientRect()` and clamped to the viewport (flips above when it won't fit below),
+      rendered off-screen+hidden until measured, and closed on any scroll/resize (a fixed element
+      can't track the scrolling sidebar). The `AppShell` `Menu` component is safe by construction
+      (header at top, right-aligned).
 
 ## Running it
 
