@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Bookmark,
   CheckSquare,
+  Columns2,
   Download,
   Heart,
   Mail,
@@ -58,6 +59,9 @@ interface AppShellProps {
   selectionActive: boolean;
   onOpenDownloads: () => void;
   downloadsPending: number;
+  onNewTab: () => void;
+  /** The tab strip, rendered below the header - null when there's only one tab. */
+  tabBar: ReactNode;
   isRefreshing: boolean;
   isLoadingPosts: boolean;
   children: ReactNode;
@@ -85,6 +89,8 @@ export function AppShell({
   selectionActive,
   onOpenDownloads,
   downloadsPending,
+  onNewTab,
+  tabBar,
   isRefreshing,
   isLoadingPosts,
   children,
@@ -189,6 +195,10 @@ export function AppShell({
 
         <IconButton onClick={onShuffle} title="Random posts (order:random)">
           <Shuffle size={16} />
+        </IconButton>
+
+        <IconButton onClick={onNewTab} title="New search tab (Ctrl+T)">
+          <Columns2 size={16} />
         </IconButton>
 
         <IconButton
@@ -383,6 +393,8 @@ export function AppShell({
       </header>
 
       <TopProgressBar active={isLoadingPosts} />
+
+      {tabBar}
 
       <main className="flex-1 min-h-0">{children}</main>
     </div>

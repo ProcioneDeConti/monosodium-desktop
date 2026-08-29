@@ -20,6 +20,15 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     ],
   },
   {
+    title: "Search tabs",
+    rows: [
+      ["Ctrl + T", "New tab"],
+      ["Ctrl + W", "Close the current tab"],
+      ["Ctrl + Tab", "Next tab (Shift for previous)"],
+      ["Ctrl + 1…9", "Jump to the nth tab"],
+    ],
+  },
+  {
     title: "Post viewer",
     rows: [
       ["← / →", "Previous / next post"],

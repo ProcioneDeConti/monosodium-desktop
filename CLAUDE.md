@@ -1099,6 +1099,21 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       `SearchBar` shows them in the dropdown (mutually exclusive with tag autocomplete / recent
       searches) with shared arrow/Enter nav, committing `prefix:value` (keeping any leading `-`)
       as a chip. Bumped to 1.14.27.
+- [x] **Phase 4: Search tabs** Browser-style parallel searches, a lightweight layer over the
+      single-search model rather than N grid instances: `SearchTab { id, query }` (session-only,
+      not persisted, not in the nav back-stack). `nav.activeQuery` stays the one source of truth;
+      a sync effect writes it back into the active tab, so tag actions / Back / shuffle keep the
+      tab's stored query current. Switching a tab = `replaceNav({...INITIAL_NAV, activeQuery})`
+      (+ clears nav history, since per-tab history isn't modelled) so the one `PostGrid` re-points
+      - React Query's cache (`usePostsQuery` `gcTime` raised to 10 min) serves the other tab's
+      already-paged results, though scroll resets to top. `TabBar` (shell, shown only at 2+ tabs)
+      + a `Columns2` shell button + `Ctrl+T`/`Ctrl+W`/`Ctrl+Tab`/`Ctrl+1..9`. Bumped to 1.14.28.
+
+This finishes the user's brainstormed post-Phase-3 batch (Popular, random/shuffle, grid hover
+quick-actions, parent/child, post sets, related tags, multi-select + bulk, download queue, true
+fullscreen, recent search history, keyboard cheatsheet, metatag autocomplete, tabs). None
+live-tested beyond what the user has confirmed inline (adding to sets works; shuffle reshuffle
+and related-tags fixes verified via e621ng source).
 
 ## Running it
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { AppShell } from "./components/shell/AppShell";
+import { TabBar, type SearchTab } from "./components/shell/TabBar";
 import { PostGrid } from "./components/PostGrid/PostGrid";
 import { SelectionBar } from "./components/PostGrid/SelectionBar";
 import { SetPickerDialog } from "./components/Sets/SetPickerDialog";
@@ -349,6 +350,101 @@ function App() {
     setSetPickerOpen(false);
   }, []);
 
+  // --- Search tabs ---
+  // Lightweight layer over the single-search model: each tab remembers a query, switching one
+  // just points the (one) grid at it. `nav.activeQuery` stays the single source of truth for the
+  // search - a sync effect writes it back into whichever tab is active, so tag actions / Back /
+  // shuffle all keep the active tab's stored query current. Tabs are session-only and are NOT in
+  // the nav back-stack (Ctrl+W isn't undone by Back in a browser either).
+  const [tabs, setTabs] = useState<SearchTab[]>(() => [{ id: "tab-0", query: "" }]);
+  const [activeTabId, setActiveTabId] = useState("tab-0");
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
+
+  useEffect(() => {
+    setTabs((ts) => {
+      const t = ts.find((x) => x.id === activeTabId);
+      if (!t || t.query === activeQuery) return ts;
+      return ts.map((x) => (x.id === activeTabId ? { ...x, query: activeQuery } : x));
+    });
+  }, [activeQuery, activeTabId]);
+
+  const switchViewToQuery = useCallback(
+    (query: string) => {
+      // Per-tab nav history isn't modelled - switching tabs resets the back stack (Back within a
+      // tab works until you switch away), which keeps the sync effect from writing a restored
+      // *other*-tab query back into this tab.
+      setNavHistory([]);
+      replaceNav({ ...INITIAL_NAV, activeQuery: query });
+      exitSelection();
+    },
+    [replaceNav, exitSelection],
+  );
+
+  const newTab = useCallback(() => {
+    const id = `tab-${Date.now()}`;
+    setTabs((ts) => [...ts, { id, query: "" }]);
+    setActiveTabId(id);
+    switchViewToQuery("");
+  }, [switchViewToQuery]);
+
+  const selectTab = useCallback(
+    (id: string) => {
+      if (id === activeTabIdRef.current) return;
+      const t = tabsRef.current.find((x) => x.id === id);
+      if (!t) return;
+      setActiveTabId(id);
+      switchViewToQuery(t.query);
+    },
+    [switchViewToQuery],
+  );
+
+  const closeTab = useCallback(
+    (id: string) => {
+      const cur = tabsRef.current;
+      if (cur.length <= 1) return;
+      const idx = cur.findIndex((x) => x.id === id);
+      const next = cur.filter((x) => x.id !== id);
+      setTabs(next);
+      if (id === activeTabIdRef.current) {
+        const neighbor = next[Math.min(idx, next.length - 1)];
+        setActiveTabId(neighbor.id);
+        switchViewToQuery(neighbor.query);
+      }
+    },
+    [switchViewToQuery],
+  );
+
+  // Ctrl+T new tab, Ctrl+W close, Ctrl+Tab / Ctrl+Shift+Tab cycle, Ctrl+1..9 jump.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!e.ctrlKey && !e.metaKey) return;
+      if (e.key === "t") {
+        e.preventDefault();
+        newTab();
+      } else if (e.key === "w") {
+        e.preventDefault();
+        closeTab(activeTabIdRef.current);
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        const list = tabsRef.current;
+        const i = list.findIndex((x) => x.id === activeTabIdRef.current);
+        const nextI = (i + (e.shiftKey ? -1 : 1) + list.length) % list.length;
+        selectTab(list[nextI].id);
+      } else if (/^[1-9]$/.test(e.key)) {
+        const target = tabsRef.current[Number(e.key) - 1];
+        if (target) {
+          e.preventDefault();
+          selectTab(target.id);
+        }
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [newTab, closeTab, selectTab]);
+
   const selectedPosts = useMemo(
     () => shownPosts.filter((p) => selectedIds.has(p.id)),
     [shownPosts, selectedIds],
@@ -482,6 +578,18 @@ function App() {
       selectionActive={selectionActive}
       onOpenDownloads={() => navigate({ downloadsOpen: true })}
       downloadsPending={downloadsPending}
+      onNewTab={newTab}
+      tabBar={
+        tabs.length >= 2 ? (
+          <TabBar
+            tabs={tabs}
+            activeTabId={activeTabId}
+            onSelect={selectTab}
+            onClose={closeTab}
+            onNew={newTab}
+          />
+        ) : null
+      }
       isRefreshing={isRefetching}
       isLoadingPosts={isLoading || isFetchingNextPage || isRefetching}
     >

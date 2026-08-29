@@ -75,6 +75,9 @@ export function usePostsQuery(
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled,
     staleTime: isRandom ? 0 : 60_000,
+    // Longer than the global 2-min default so switching between search tabs (App.tsx) serves the
+    // other tab's already-paged results from cache instead of refetching from scratch.
+    gcTime: 10 * 60_000,
   });
 
   // Mirrors the reference Android app's pull-to-refresh: discards every page beyond the first
