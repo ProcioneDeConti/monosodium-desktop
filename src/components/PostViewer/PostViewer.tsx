@@ -536,6 +536,7 @@ export function PostViewer({
         <RelatedTagsPanel
           site={site}
           tag={relatedTagFor}
+          isAuthenticated={isAuthenticated}
           onClose={() => setRelatedTagFor(null)}
           onSearch={(t) => {
             setRelatedTagFor(null);

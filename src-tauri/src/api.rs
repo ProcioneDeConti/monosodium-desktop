@@ -627,10 +627,10 @@ pub async fn get_pool(state: tauri::State<'_, AppState>, site: Site, id: i64) ->
         .map_err(|e| e.to_string())
 }
 
-/// Tags statistically related to `query` (e621's own `related_tag.json`, powering its search
-/// sidebar's "related tags"). Public; no auth. The response shape has changed across e621ng
-/// versions, so `parse_related_tags` normalises whatever came back rather than deserializing a
-/// fixed struct.
+/// Tags statistically related to `query` (e621's own `GET /related_tag.json`, `show` action,
+/// which powers its search sidebar's "related tags"). Requires a signed-in member account
+/// (`member_only` server-side). Current e621ng serialises `RelatedTagQuery` as a bare array of
+/// `{ "name", "category_id" }`; `parse_related_tags` also tolerates older shapes.
 #[tauri::command]
 pub async fn get_related_tags(
     state: tauri::State<'_, AppState>,
@@ -639,7 +639,8 @@ pub async fn get_related_tags(
 ) -> Result<Vec<RelatedTag>, String> {
     let response = request(&state, site, Method::GET, "related_tag.json")
         .await?
-        .query(&[("query", query.as_str())])
+        // e621ng's RelatedTagsController#show reads `params[:search][:query]`, not a bare `query`.
+        .query(&[("search[query]", query.as_str())])
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -651,8 +652,8 @@ pub async fn get_related_tags(
     Ok(parse_related_tags(&value, &query))
 }
 
-/// Accepts either `["dog", 0]` / `["dog", "0"]` pairs or `{ "tag": { "name", "category" } }` /
-/// `{ "name", "category" }` objects.
+/// Accepts `["dog", 0]` / `["dog", "0"]` pairs, `{ "name": "dog", "category_id": 0 }` (current
+/// e621ng), `{ "name": "dog", "category": 0 }`, or `{ "tag": { "name", "category"/"category_id" } }`.
 fn parse_related_pair(v: &serde_json::Value) -> Option<RelatedTag> {
     if let Some(arr) = v.as_array() {
         let name = arr.first()?.as_str()?.to_string();
@@ -664,16 +665,24 @@ fn parse_related_pair(v: &serde_json::Value) -> Option<RelatedTag> {
     }
     let obj = v.get("tag").unwrap_or(v);
     let name = obj.get("name")?.as_str()?.to_string();
-    let category = obj.get("category").and_then(serde_json::Value::as_i64).unwrap_or(0);
+    let category = obj
+        .get("category_id")
+        .or_else(|| obj.get("category"))
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
     Some(RelatedTag { name, category })
 }
 
 fn parse_related_tags(value: &serde_json::Value, query: &str) -> Vec<RelatedTag> {
-    // Current e621ng: { "related_tags": [ { "tag": {...} }, ... ] }
+    // Current e621ng: a bare top-level array of { name, category_id }.
+    if let Some(list) = value.as_array() {
+        return list.iter().filter_map(parse_related_pair).collect();
+    }
+    // Some versions: { "related_tags": [ ... ] }.
     if let Some(list) = value.get("related_tags").and_then(|v| v.as_array()) {
         return list.iter().filter_map(parse_related_pair).collect();
     }
-    // Older: keyed by the query string, value an array of [name, category] pairs.
+    // Oldest: keyed by the query string, value an array of [name, category] pairs.
     let lower = query.to_lowercase();
     for key in [query, lower.as_str()] {
         if let Some(list) = value.get(key).and_then(|v| v.as_array()) {

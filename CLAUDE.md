@@ -1034,6 +1034,14 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       chips, each with search / add-to-search / exclude actions. `models/user.ts` gained
       `numericTagCategory` (extracted from `tagSuggestionCategory`) for the colour mapping.
       Bumped to 1.14.17.
+      - **Fixed live (1.14.19)**: returned "No related tags found" for everything. Two bugs, both
+        from guessing the API instead of checking e621ng source: (1) the param is
+        `search[query]`, not a bare `query` (`RelatedTagsController#show` reads
+        `params[:search][:query]`); (2) the current response is a **bare top-level array** of
+        `{ name, category_id }`, which fell through every branch of `parse_related_tags` (and the
+        object path looked for `category`, not `category_id`). Parser now handles the bare array
+        + `category_id` first. Also: `related_tag.json` is `member_only`, so the panel now shows
+        "Sign in to see related tags" when logged out instead of firing a doomed request.
 
 ## Running it
 

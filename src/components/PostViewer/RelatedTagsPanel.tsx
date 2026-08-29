@@ -10,6 +10,8 @@ import { Spinner } from "../ui/Spinner";
 interface RelatedTagsPanelProps {
   site: Site;
   tag: string;
+  /** e621's related_tag.json is `member_only` - a logged-out request just 403s. */
+  isAuthenticated: boolean;
   onClose: () => void;
   onSearch: (tag: string) => void;
   onAddToSearch: (tag: string) => void;
@@ -21,12 +23,13 @@ interface RelatedTagsPanelProps {
 export function RelatedTagsPanel({
   site,
   tag,
+  isAuthenticated,
   onClose,
   onSearch,
   onAddToSearch,
   onExclude,
 }: RelatedTagsPanelProps) {
-  const { data: related, isLoading, isError } = useRelatedTagsQuery(site, tag, true);
+  const { data: related, isLoading, isError } = useRelatedTagsQuery(site, tag, isAuthenticated);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -60,7 +63,9 @@ export function RelatedTagsPanel({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-          {isLoading ? (
+          {!isAuthenticated ? (
+            <p className="py-4 text-sm opacity-60">Sign in (Settings) to see related tags.</p>
+          ) : isLoading ? (
             <div className="flex items-center gap-2 py-4 text-sm opacity-60">
               <Spinner size={13} />
               Loading…
