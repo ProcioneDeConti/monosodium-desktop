@@ -7,8 +7,10 @@ import {
   Image as ImageIcon,
   Keyboard,
   LayoutGrid,
+  Library,
   LifeBuoy,
   MousePointerClick,
+  Palette,
   Play,
   Scan,
   Search,
@@ -88,6 +90,16 @@ const SECTIONS: HelpSection[] = [
             <Kbd>fav:me</Kbd>, <Kbd>date:today</Kbd>.
           </li>
           <li>
+            The <B>sliders button</B> next to the search box opens the <B>advanced search
+            builder</B> — a form for ratings, sort order, minimum score / favorites, a date range
+            and file type that writes the metatags for you (and reads an existing query back into
+            the form).
+          </li>
+          <li>
+            <B>Menu → Open post IDs…</B> takes a pasted blob of post IDs or URLs in any format and
+            opens them all as one grid.
+          </li>
+          <li>
             The <B>Refresh</B> button re-fetches the current search. Re-running an{" "}
             <Kbd>order:random</Kbd> search (or the <B>Random posts</B> item in the Menu) re-rolls it.
           </li>
@@ -123,7 +135,11 @@ const SECTIONS: HelpSection[] = [
           <B>AND</B>; separate lines are <B>OR</B>. <Kbd>rating:explicit</Kbd> works as a pseudo-tag.
         </P>
         <UL>
-          <li>Import from / push to your e621 account with the buttons in that section.</li>
+          <li>Import from / push to your e621 account with the buttons in that section, or <B>Sort A–Z</B> to tidy the list.</li>
+          <li>
+            The <B>blacklist tester</B> at the bottom of that section takes a post ID or URL and
+            shows, line by line, whether your (unsaved) blacklist would hide it and why.
+          </li>
           <li>
             <B>View menu → Show blacklisted posts</B> reveals hidden posts again, marked with a
             yellow caution stripe.
@@ -161,7 +177,7 @@ const SECTIONS: HelpSection[] = [
           Click posts to select them; <Kbd>Shift</Kbd>-click for a range.
         </P>
         <UL>
-          <li>The bar at the bottom does <B>Favorite</B>, <B>Add to set</B> and <B>Download</B> for the whole selection.</li>
+          <li>The bar at the bottom does <B>Favorite</B>, <B>Add to set</B>, <B>Collection</B> and <B>Download</B> for the whole selection.</li>
           <li><Kbd>Esc</Kbd> or the ✕ leaves select mode.</li>
         </UL>
       </>
@@ -178,10 +194,50 @@ const SECTIONS: HelpSection[] = [
           double-click to zoom an image, drag to pan. Videos have loop / speed / mute controls.
         </P>
         <UL>
-          <li>Toolbar: vote, favorite, download, report, <B>add to set</B>, <B>pop out</B> to its own window, and <B>fullscreen</B> (<Kbd>F11</Kbd>).</li>
-          <li>The sidebar switches between <B>Tags</B> and <B>Comments</B>. Click a tag for actions — search, add, exclude, blacklist, or <B>Related tags</B>.</li>
+          <li>Toolbar: vote, favorite, download, report, <B>add to set</B>, <B>add to collection</B>, <B>pop out</B> to its own window, and <B>fullscreen</B> (<Kbd>F11</Kbd>).</li>
+          <li>The sidebar switches between <B>Tags</B>, <B>Comments</B> and <B>History</B> (every tag / rating edit the post has had). Click a tag for actions — search, add, exclude, blacklist, <B>Related tags</B>, <B>Wiki page</B>, or (for artist tags) the <B>Artist page</B>.</li>
           <li>Translation / annotation <B>notes</B> appear as boxes over the image — click one to read it.</li>
           <li>The Info panel links a post's <B>parent / children</B> and any <B>pools</B> it belongs to.</li>
+        </UL>
+      </>
+    ),
+  },
+  {
+    id: "artists-wiki",
+    title: "Artists & the wiki",
+    icon: Palette,
+    body: (
+      <>
+        <P>
+          Click an <B>artist tag</B> in the viewer (tag menu → <B>Artist page</B>) for a panel with
+          the artist's other names, their links (active and dead), any <B>do-not-post</B> notice,
+          and shortcuts to their posts.
+        </P>
+        <P>
+          <B>Menu → Wiki</B> (or <B>Wiki page</B> from any tag menu) opens the wiki browser: the
+          tag's wiki article, its post count, and its <B>aliases</B>, <B>implications</B> and
+          frequently-seen-with tags — click any of those to walk the tree.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "collections",
+    title: "Collections",
+    icon: Library,
+    body: (
+      <>
+        <P>
+          <B>Menu → Collections</B> holds your own private, on-device post lists — no e621 account
+          needed, nothing sent to the site.
+        </P>
+        <UL>
+          <li>Each collection has a <B>title</B> and an optional <B>category</B> that groups it in the list.</li>
+          <li>Add posts from the viewer's <B>collection</B> toolbar button or the multi-select bar.</li>
+          <li>
+            Give a collection an <B>auto-download folder</B> and every post you add to it from then
+            on is queued for download there automatically.
+          </li>
         </UL>
       </>
     ),
@@ -222,10 +278,12 @@ const SECTIONS: HelpSection[] = [
       <>
         <UL>
           <li><B>Popular</B> — e621's most-favorited posts by day, week or month.</li>
+          <li><B>Wiki</B> — the tag wiki browser (see “Artists &amp; the wiki”).</li>
           <li><B>Saved searches</B> — your named search shortcuts.</li>
-          <li><B>Sets</B> (Account menu) — your post collections; add posts from the viewer or the bulk bar.</li>
-          <li><B>Forum</B> — browse topics and reply (reading is public).</li>
-          <li><B>Messages</B> (Account menu) — your e621 dmail inbox.</li>
+          <li><B>Collections</B> — your private on-device post lists.</li>
+          <li><B>Sets</B> (Account menu) — your e621 server-side post sets; add posts from the viewer or the bulk bar.</li>
+          <li><B>Forum</B> — browse topics, <B>search</B> posts, and reply (reading is public).</li>
+          <li><B>Messages</B> (Account menu) — your e621 dmail inbox; select rows or open a message to <B>delete</B>.</li>
         </UL>
       </>
     ),
@@ -237,9 +295,10 @@ const SECTIONS: HelpSection[] = [
     body: (
       <>
         <P>
-          Every download — a single post or a bulk selection — goes into the <B>Downloads</B> queue
-          (Menu). Failed items can be retried, and "Show in folder" opens the file. Set the
-          destination folder in <B>Settings</B>.
+          Every download — a single post, a bulk selection, or a post added to a collection with an
+          auto-download folder — goes into the <B>Downloads</B> queue (Menu). Failed items can be
+          retried, and "Show in folder" opens the file. Set the default destination folder in{" "}
+          <B>Settings</B>.
         </P>
       </>
     ),
@@ -265,8 +324,9 @@ const SECTIONS: HelpSection[] = [
       <>
         <UL>
           <li><B>Account</B> — per-site username + API key.</li>
-          <li><B>Blacklist</B> — editor with import / push.</li>
-          <li><B>Appearance</B> — accent color, thumbnail size, video defaults.</li>
+          <li><B>Blacklist</B> — editor with import / push, sort, and the tester.</li>
+          <li><B>Appearance</B> — <B>theme</B> (System / Light / Dark), accent color, thumbnail size.</li>
+          <li><B>Video</B> — loop, playback speed and autoplay defaults.</li>
           <li><B>Cache</B> — on-disk image cache size limit and clear (applies on next launch).</li>
           <li><B>Encryption</B> — optionally protect local data with a password.</li>
           <li><B>Backup &amp; Restore</B> — export / import an encrypted snapshot of your settings.</li>

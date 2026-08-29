@@ -1316,6 +1316,12 @@ live call before implementing (per user instruction - no more guessing).
       the normal grid. Verified live that e621 accepts a comma list in one `id:` metatag (returns
       the posts in id-desc order regardless of input order - fine for a grid, and keyset
       pagination Just Works since that's the default order). No Rust changes.
+- [x] **Help page refresh** (1.14.50) `components/Help/HelpPanel.tsx` updated for everything the
+      two post-Phase-3 batches added: two new sections (**Artists & the wiki**, **Collections**),
+      the viewer's History tab + Artist-page/Wiki-page tag actions, the advanced search builder +
+      ID list import in Searching, the blacklist tester + Sort A–Z in Blacklist, the Collection
+      bulk action, forum search, dmail delete, the theme control, and collection auto-download in
+      Downloads.
 
 ## Running it
 
