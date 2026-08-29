@@ -1084,6 +1084,9 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       (up to 8, current search filtered out) when the input is focused and empty - each entry
       runs the search or can be individually removed; a "Clear" wipes the list. Distinct from
       Saved Searches (deliberate, named, never auto-pruned). Bumped to 1.14.25.
+- [x] **Phase 4: Keyboard cheatsheet** `?` (when not typing) toggles `KeyboardCheatsheet` - a modal
+      grouping every shortcut in the app (Global / Post viewer / Grid), collected from the various
+      keydown handlers. Plain local `App` state, not part of the nav stack. Bumped to 1.14.26.
 
 ## Running it
 

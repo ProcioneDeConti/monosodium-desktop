@@ -15,6 +15,7 @@ import { PoolPanel } from "./components/Pool/PoolPanel";
 import { PopularPanel } from "./components/Popular/PopularPanel";
 import { SetsPanel } from "./components/Sets/SetsPanel";
 import { DownloadsPanel } from "./components/Downloads/DownloadsPanel";
+import { KeyboardCheatsheet } from "./components/KeyboardCheatsheet";
 import { ReverseSearchPanel } from "./components/ReverseSearch/ReverseSearchPanel";
 import { EulaScreen } from "./components/Eula/EulaScreen";
 import { UnlockScreen } from "./components/Vault/UnlockScreen";
@@ -141,11 +142,24 @@ function App() {
 
   // F11 toggles OS fullscreen from anywhere (most useful for the viewer/slideshow).
   const { toggle: toggleFullscreen } = useFullscreen();
+  const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "F11") {
         e.preventDefault();
         void toggleFullscreen();
+        return;
+      }
+      if (e.key === "?") {
+        const t = e.target;
+        const editing =
+          t instanceof HTMLInputElement ||
+          t instanceof HTMLTextAreaElement ||
+          (t instanceof HTMLElement && t.isContentEditable);
+        if (!editing) {
+          e.preventDefault();
+          setCheatsheetOpen((v) => !v);
+        }
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -640,6 +654,8 @@ function App() {
       )}
 
       {downloadsOpen && <DownloadsPanel onClose={goBack} />}
+
+      {cheatsheetOpen && <KeyboardCheatsheet onClose={() => setCheatsheetOpen(false)} />}
 
       {droppedImagePath && (
         <ReverseSearchPanel
