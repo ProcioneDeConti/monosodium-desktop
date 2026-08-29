@@ -8,6 +8,7 @@ import { create } from "zustand";
 import { e621Api } from "../api/client";
 import { downloadFileName, isVideo, playableUrl, type Post } from "../models/post";
 import { errorMessage } from "../lib/errors";
+import { useStatsStore } from "./statsStore";
 
 export type DownloadStatus = "queued" | "active" | "done" | "error";
 
@@ -17,6 +18,8 @@ export interface DownloadJob {
   fileName: string;
   url: string;
   isVideo: boolean;
+  /** Post's file size in bytes (for the usage-stats "downloaded" total); 0 if unknown. */
+  bytes: number;
   dir: string | null;
   status: DownloadStatus;
   error?: string;
@@ -56,6 +59,7 @@ export const useDownloadsStore = create<DownloadsState>((set, get) => ({
         fileName: downloadFileName(post),
         url,
         isVideo: isVideo(post),
+        bytes: post.file?.size || 0,
         dir,
         status: "queued",
       });
@@ -95,6 +99,7 @@ async function runJob(job: DownloadJob) {
   try {
     const path = await e621Api.downloadPostFile(job.url, job.fileName, job.dir, job.isVideo);
     setStatus(job.id, { status: "done", savedPath: path });
+    useStatsStore.getState().recordDownload(job.bytes);
   } catch (e) {
     setStatus(job.id, { status: "error", error: errorMessage(e, "Download failed") });
   }

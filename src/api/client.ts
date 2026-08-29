@@ -43,6 +43,12 @@ export const e621Api = {
     return invoke("autocomplete_users", { site, prefix });
   },
 
+  /** Exact user lookup by name (case-insensitive), with the full profile. `null` if no exact
+   *  match. Used to resolve "analyze another user" input. */
+  getUserByName(site: Site, name: string): Promise<UserProfile | null> {
+    return invoke("get_user_by_name", { site, name });
+  },
+
   /** Pool-name completion for the `pool:` metatag (pools.json?search[name_matches]). */
   autocompletePools(
     site: Site,
@@ -263,6 +269,28 @@ export const e621Api = {
 
   healthCheck(site: Site): Promise<void> {
     return invoke("health_check", { site });
+  },
+
+  /** Process-lifetime API call + response-byte counters (reset to 0 each launch). The User
+   *  Dashboard polls this and folds the delta into its persisted local stats - see
+   *  src/state/statsStore.ts / src-tauri/src/api.rs. */
+  getApiMetrics(): Promise<{ calls: number; response_bytes: number }> {
+    return invoke("get_api_metrics");
+  },
+
+  /** Write a base64 payload to `path` verbatim - the Dashboard's "export favorites card" PNG. */
+  saveExportFile(path: string, dataBase64: string): Promise<void> {
+    return invoke("save_export_file", { path, dataBase64 });
+  },
+
+  /** Wrap a baseline JPEG (base64) in a minimal one-page PDF at `path` - the card's PDF export. */
+  savePdfWithJpeg(
+    path: string,
+    jpegBase64: string,
+    widthPx: number,
+    heightPx: number,
+  ): Promise<void> {
+    return invoke("save_pdf_with_jpeg", { path, jpegBase64, widthPx, heightPx });
   },
 
   /** Small CDN image → `data:` URL, so a canvas can read it without the CDN's CORS blocking it.

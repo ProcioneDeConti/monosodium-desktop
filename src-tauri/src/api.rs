@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use reqwest::Method;
 
 use crate::credentials;
@@ -16,6 +18,30 @@ use crate::site::Site;
 pub struct AppState {
     pub http: reqwest::Client,
     pub limiters: SiteRateLimiters,
+}
+
+/// Process-lifetime API-usage counters (reset to 0 on launch). `request()` - the one chokepoint
+/// every e621/e6AI call passes through - bumps `API_CALLS`; `ensure_success` adds each response's
+/// `Content-Length` to `API_RESPONSE_BYTES`. The frontend's User Dashboard polls `get_api_metrics`
+/// and folds the delta into its own persisted all-time stats (`src/state/statsStore.ts`). Module
+/// statics rather than `AppState` fields so `ensure_success` needn't thread state through its ~40
+/// call sites.
+static API_CALLS: AtomicU64 = AtomicU64::new(0);
+static API_RESPONSE_BYTES: AtomicU64 = AtomicU64::new(0);
+
+/// Snapshot of the counters above, for the frontend's local usage stats.
+#[derive(serde::Serialize)]
+pub struct ApiMetrics {
+    pub calls: u64,
+    pub response_bytes: u64,
+}
+
+#[tauri::command]
+pub fn get_api_metrics() -> ApiMetrics {
+    ApiMetrics {
+        calls: API_CALLS.load(Ordering::Relaxed),
+        response_bytes: API_RESPONSE_BYTES.load(Ordering::Relaxed),
+    }
 }
 
 impl AppState {
@@ -74,6 +100,7 @@ async fn request(
     path: &str,
 ) -> Result<reqwest::RequestBuilder, String> {
     state.limiters.wait(site).await;
+    API_CALLS.fetch_add(1, Ordering::Relaxed);
     let creds = credentials::load(site)?;
     let url = format!("{}/{}", site.base_url(), path);
     let mut builder = state
@@ -93,6 +120,9 @@ async fn request(
 async fn ensure_success(response: reqwest::Response) -> Result<reqwest::Response, String> {
     let status = response.status();
     if status.is_success() {
+        if let Some(len) = response.content_length() {
+            API_RESPONSE_BYTES.fetch_add(len, Ordering::Relaxed);
+        }
         return Ok(response);
     }
     if status.as_u16() == 503 {
@@ -168,6 +198,51 @@ pub async fn autocomplete_users(
         .await?
         .json::<Vec<UserSuggestion>>()
         .await
+        .map_err(|e| e.to_string())
+}
+
+/// Exact user lookup by name, for "analyze another user's favourites". `users.json` filters by
+/// `search[name_matches]` (a wildcarded ILIKE), so this pulls a generous page of prefix matches
+/// and picks the one whose name matches exactly (case-insensitively) - never a fuzzy fallback,
+/// since analysing the wrong account is worse than a clear "not found". The index row can omit
+/// the full stat attributes (`favorite_count`, ...), so on a hit it re-fetches the show endpoint.
+/// Public.
+#[tauri::command]
+pub async fn get_user_by_name(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    name: String,
+) -> Result<Option<UserProfile>, String> {
+    let response = request(&state, site, Method::GET, "users.json")
+        .await?
+        .query(&[
+            ("search[name_matches]", format!("{name}*")),
+            ("limit", "100".to_string()),
+        ])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let users = ensure_success(response)
+        .await?
+        .json::<Vec<UserProfile>>()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let lower = name.to_lowercase();
+    let Some(found) = users.into_iter().find(|u| u.name.to_lowercase() == lower) else {
+        return Ok(None);
+    };
+
+    let full = request(&state, site, Method::GET, &format!("users/{}.json", found.id))
+        .await?
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(full)
+        .await?
+        .json::<UserProfile>()
+        .await
+        .map(Some)
         .map_err(|e| e.to_string())
 }
 

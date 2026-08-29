@@ -60,13 +60,16 @@ export function PostGrid({
   const downloadDir = useSettingsStore((s) => s.downloadDir);
   const enqueueDownload = useDownloadsStore((s) => s.enqueue);
   const { vote, favorite, unfavorite } = usePostMutations(site);
+  // `mutateAsync` (not `mutate`) so PostThumbnail can await the round trip and show an in-flight
+  // spinner on the button - e621 can take a beat to respond. Still referentially stable.
   const onToggleFavorite = useCallback(
-    (post: Post) => (post.is_favorited ? unfavorite.mutate(post.id) : favorite.mutate(post.id)),
-    [favorite.mutate, unfavorite.mutate],
+    (post: Post) =>
+      post.is_favorited ? unfavorite.mutateAsync(post.id) : favorite.mutateAsync(post.id),
+    [favorite.mutateAsync, unfavorite.mutateAsync],
   );
   const onUpvote = useCallback(
-    (post: Post) => vote.mutate({ postId: post.id, direction: 1 }),
-    [vote.mutate],
+    (post: Post) => vote.mutateAsync({ postId: post.id, direction: 1 }),
+    [vote.mutateAsync],
   );
   // Route thumbnail downloads through the shared queue (see state/downloadsStore.ts + the
   // Downloads panel). Resolves immediately - the thumbnail's own check just means "queued".

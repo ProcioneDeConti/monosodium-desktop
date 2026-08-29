@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from "react";
 import { Check, Download, Film, Heart, Star, ThumbsUp } from "lucide-react";
 import { aspectRatio, isAnimated, isVideo, type Post } from "../../models/post";
 import { formatCount } from "../../lib/formatCount";
+import { Spinner } from "../ui/Spinner";
 
 interface PostThumbnailProps {
   post: Post;
@@ -10,8 +11,9 @@ interface PostThumbnailProps {
   onClick: (e: React.MouseEvent) => void;
   /** When false, the hover cluster shows only Download (favourite/vote need an account). */
   canInteract: boolean;
-  onToggleFavorite: (post: Post) => void;
-  onUpvote: (post: Post) => void;
+  /** Resolve/reject once e621 responds - drives the in-flight spinner on the hover button. */
+  onToggleFavorite: (post: Post) => Promise<unknown>;
+  onUpvote: (post: Post) => Promise<unknown>;
   /** Resolves once the file is written (or rejects) - drives the transient check/✗ state. */
   onDownload: (post: Post) => Promise<unknown>;
   /** Multi-select: show a checkbox instead of the hover cluster, and click = toggle select. */
@@ -59,6 +61,8 @@ function PostThumbnailImpl({
   const [loaded, setLoaded] = useState(() => !!thumbUrl && loadedThumbUrls.has(thumbUrl));
   const [errored, setErrored] = useState(false);
   const [dl, setDl] = useState<"idle" | "saving" | "done" | "err">("idle");
+  const [favBusy, setFavBusy] = useState(false);
+  const [voteBusy, setVoteBusy] = useState(false);
 
   useEffect(() => {
     if (dl !== "done" && dl !== "err") return;
@@ -129,26 +133,42 @@ function PostThumbnailImpl({
                 tabIndex={-1}
                 onClick={(e) => {
                   stop(e);
-                  onToggleFavorite(post);
+                  if (favBusy) return;
+                  setFavBusy(true);
+                  onToggleFavorite(post)
+                    .catch(() => {})
+                    .finally(() => setFavBusy(false));
                 }}
                 title={post.is_favorited ? "Remove favorite" : "Add favorite"}
                 className={`pointer-events-auto flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white
                             hover:bg-black/75 ${post.is_favorited ? "!text-pink-400" : ""}`}
               >
-                <Heart size={13} className={post.is_favorited ? "fill-current" : ""} />
+                {favBusy ? (
+                  <Spinner size={13} />
+                ) : (
+                  <Heart size={13} className={post.is_favorited ? "fill-current" : ""} />
+                )}
               </span>
               <span
                 role="button"
                 tabIndex={-1}
                 onClick={(e) => {
                   stop(e);
-                  onUpvote(post);
+                  if (voteBusy) return;
+                  setVoteBusy(true);
+                  onUpvote(post)
+                    .catch(() => {})
+                    .finally(() => setVoteBusy(false));
                 }}
                 title="Upvote"
                 className={`pointer-events-auto flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white
                             hover:bg-black/75 ${post.vote_by > 0 ? "!text-green-400" : ""}`}
               >
-                <ThumbsUp size={13} className={post.vote_by > 0 ? "fill-current" : ""} />
+                {voteBusy ? (
+                  <Spinner size={13} />
+                ) : (
+                  <ThumbsUp size={13} className={post.vote_by > 0 ? "fill-current" : ""} />
+                )}
               </span>
             </>
           )}

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { e621Api } from "../api/client";
 import type { Site } from "../models/site";
+import { useStatsStore } from "../state/statsStore";
 import { updatePostInCache } from "./postCache";
 
 /** Vote/favorite/unfavorite against the signed-in account, patching the shared post cache
@@ -11,12 +12,13 @@ export function usePostMutations(site: Site) {
   const vote = useMutation({
     mutationFn: ({ postId, direction }: { postId: number; direction: 1 | -1 }) =>
       e621Api.vote(site, postId, direction),
-    onSuccess: (res, { postId }) => {
+    onSuccess: (res, { postId, direction }) => {
       updatePostInCache(queryClient, postId, (p) => ({
         ...p,
         score: { up: res.up, down: res.down, total: res.score },
         vote_by: res.our_score,
       }));
+      useStatsStore.getState().recordVote(direction);
     },
   });
 
@@ -28,6 +30,7 @@ export function usePostMutations(site: Site) {
         is_favorited: true,
         fav_count: res.favorite_count,
       }));
+      useStatsStore.getState().recordFavorite(true);
     },
   });
 
@@ -39,6 +42,7 @@ export function usePostMutations(site: Site) {
         is_favorited: false,
         fav_count: res.favorite_count,
       }));
+      useStatsStore.getState().recordFavorite(false);
     },
   });
 

@@ -29,3 +29,22 @@ export function updatePostInCache(
     };
   });
 }
+
+/** Drops posts from every cached "posts" infinite query - used after a bulk un-favorite on the
+ *  favourites view so the cleaned-up posts vanish from the grid immediately instead of lingering
+ *  with an empty heart until a refetch. (A background tab on an unrelated search would also lose
+ *  them until it refetches; harmless - they still match that search.) */
+export function removePostsFromCache(queryClient: QueryClient, ids: Iterable<number>) {
+  const drop = new Set(ids);
+  if (drop.size === 0) return;
+  queryClient.setQueriesData<InfiniteData>({ queryKey: ["posts"] }, (data) => {
+    if (!data) return data;
+    return {
+      ...data,
+      pages: data.pages.map((page) => ({
+        ...page,
+        posts: page.posts.filter((p) => !drop.has(p.id)),
+      })),
+    };
+  });
+}

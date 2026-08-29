@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   ArrowLeft,
   ArrowRightLeft,
+  BarChart3,
   BookOpen,
   Bookmark,
   CheckSquare,
@@ -11,6 +12,7 @@ import {
   Eye,
   Heart,
   Hash,
+  Info,
   Keyboard,
   Library,
   LifeBuoy,
@@ -62,6 +64,8 @@ interface AppShellProps {
   onOpenSettings: () => void;
   onOpenCheatsheet: () => void;
   onOpenHelp: () => void;
+  onOpenDashboard: () => void;
+  onOpenAbout: () => void;
   onOpenFavorites: (() => void) | null;
   onOpenProfile: (() => void) | null;
   onOpenMessages: (() => void) | null;
@@ -104,6 +108,8 @@ export function AppShell({
   onOpenSettings,
   onOpenCheatsheet,
   onOpenHelp,
+  onOpenDashboard,
+  onOpenAbout,
   onOpenFavorites,
   onOpenProfile,
   onOpenMessages,
@@ -360,11 +366,17 @@ export function AppShell({
           </MenuItem>
 
           <MenuSeparator />
+          <MenuItem icon={<BarChart3 size={15} />} onClick={onOpenDashboard}>
+            Dashboard
+          </MenuItem>
           <MenuItem icon={<LifeBuoy size={15} />} onClick={onOpenHelp}>
             Help
           </MenuItem>
           <MenuItem icon={<Keyboard size={15} />} trailing="?" onClick={onOpenCheatsheet}>
             Keyboard shortcuts
+          </MenuItem>
+          <MenuItem icon={<Info size={15} />} onClick={onOpenAbout}>
+            About
           </MenuItem>
           <MenuItem icon={<SettingsIcon size={15} />} onClick={onOpenSettings}>
             Settings

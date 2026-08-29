@@ -177,7 +177,11 @@ const SECTIONS: HelpSection[] = [
           Click posts to select them; <Kbd>Shift</Kbd>-click for a range.
         </P>
         <UL>
-          <li>The bar at the bottom does <B>Favorite</B>, <B>Add to set</B>, <B>Collection</B> and <B>Download</B> for the whole selection.</li>
+          <li>The bar at the bottom does <B>Favorite</B>, <B>Unfavorite</B>, <B>Add to set</B>, <B>Collection</B> and <B>Download</B> for the whole selection.</li>
+          <li>
+            <B>Unfavorite</B> (two clicks to confirm) is the quick way to tidy your favourites — on
+            your own <Kbd>fav:</Kbd> page the removed posts drop out of the grid straight away.
+          </li>
           <li><Kbd>Esc</Kbd> or the ✕ leaves select mode.</li>
         </UL>
       </>
@@ -278,6 +282,14 @@ const SECTIONS: HelpSection[] = [
       <>
         <UL>
           <li><B>Popular</B> — e621's most-favorited posts by day, week or month.</li>
+          <li>
+            <B>Dashboard</B> — your local usage stats (time in app, posts viewed, data used, API
+            calls, activity heat-map) plus a breakdown of your favourites (and any other user's, by
+            name or ID). Each analysis can be exported as a <B>shareable card</B> (PNG or PDF).
+            Everything is stored only on this device; turn recording off or reset it in the
+            Dashboard's <B>Manage</B> section.
+          </li>
+          <li><B>About</B> — version, credits and the tech stack.</li>
           <li><B>Wiki</B> — the tag wiki browser (see “Artists &amp; the wiki”).</li>
           <li><B>Saved searches</B> — your named search shortcuts.</li>
           <li><B>Collections</B> — your private on-device post lists.</li>

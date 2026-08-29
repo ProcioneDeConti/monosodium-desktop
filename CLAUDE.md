@@ -1322,6 +1322,208 @@ live call before implementing (per user instruction - no more guessing).
       ID list import in Searching, the blacklist tester + Sort A–Z in Blacklist, the Collection
       bulk action, forum search, dmail delete, the theme control, and collection auto-download in
       Downloads.
+- [x] **Fixed: "Couldn't load history" on the post viewer's History tab** (1.14.51) `get_post_versions`
+      deserialized straight into `Vec<PostVersion>`, and `post_versions.json` sends `reason` (and
+      potentially `updater_name`) as an explicit `null` on any edit made without an edit reason -
+      `#[serde(default)]` only rescues a *missing* key, not a present-but-null one, so a single
+      such row in the page failed the whole `.json::<Vec<PostVersion>>()` and surfaced as the
+      generic error state. Added a `null_to_empty_string` deserializer helper in `models.rs` and
+      applied it (alongside the existing `default`) to `PostVersion`'s `reason` and `updater_name`.
+      Repro: post 5000000's v7 has `"reason":null`. No frontend changes. Not yet live-tested by
+      the user.
+
+- [x] **User Dashboard + About page + vote/favorite in-flight feedback** (1.14.52) A brainstormed
+      batch, built together.
+      - **User Dashboard** (`components/Dashboard/DashboardPanel.tsx`, Menu → Dashboard,
+        `nav.dashboardOpen`) - local-only usage analytics e621 doesn't track. `state/statsStore.ts`
+        (own `stats.json` tauri-plugin-store file, same pattern as savedSearchesStore; debounced
+        3s writes, `flushStats()` on hide/unload) holds lifetime totals (posts viewed / unique,
+        searches, favourites ±, votes ↑↓, downloads + bytes, slideshow ms, API calls + bytes,
+        estimated media bytes, active ms / sessions / longest), per-site splits, 140 days of daily
+        buckets, a capped seen-post-id list (20k, doubles as a future "seen" store), a searched-term
+        frequency map, and viewed-artist/character/copyright tallies. Every recorder is gated on the
+        new `settingsStore.usageStatsEnabled` (default **on** - all local, nothing sent; Dashboard
+        → Manage toggle + Reset).
+        - **Time in app**: `lib/usageSession.ts` - foreground-active time (visible + focused + input
+          within a 5-min idle cutoff); a blur pauses the clock, hide/idle/unload ends the session;
+          15s rolling flush so a `tauri dev` kill loses ≤15s.
+        - **API calls / bytes**: two `AtomicU64` module statics in `src-tauri/src/api.rs` -
+          `request()` bumps the call count, `ensure_success` adds each response's `Content-Length`.
+          New `get_api_metrics` command; `queries/useApiMetricsFold.ts` polls it every 30s and folds
+          the delta into statsStore (both sides reset to 0 per launch, so a 0-baseline delta is
+          correct across restarts, boot calls included). Statics not `AppState` fields so
+          `ensure_success` needn't thread state through ~40 call sites.
+        - **Data used** is an estimate (per the user's choice): `post.file.size` for each distinct
+          post opened full-size in the viewer this session + completed downloads + exact API bytes.
+          Thumbnails aren't counted. Labelled "≈" everywhere.
+        - **Favorites analysis** (`lib/favoritesAnalysis.ts` + `queries/useFavoritesAnalysisQuery.ts`)
+          - a button-triggered fetch of up to 640 `fav:<name>` posts (2 keyset requests, React-Query
+          cached 5min), rolled up client-side into rating / filetype / score-bucket / year / top-
+          artist / top-character bars. **Account** section reuses the polled `users/me.json` query +
+          `uploadKarmaProgress`.
+        - Charts (`components/Dashboard/charts.tsx`) are hand-rolled inline SVG/CSS - single-hue
+          (accent), recessive tracks, direct value labels, native `title` tooltips - no chart lib,
+          matching the app's zero-extra-deps approach (the `dataviz` skill's guidance, scoped down
+          to what a settings-style panel needs).
+        - **Backup**: `usageStatsEnabled` + lifetime aggregates (`statsBackupAggregates()`) go in
+          the snapshot; per-day history / seen-ids / tag tallies deliberately don't (per the user's
+          "aggregates only" choice, matching the search-history precedent). `lib/backup.ts`.
+      - **About page** (`components/About/AboutPanel.tsx`, Menu → About, plain local state like
+        Help) - app name + live `getVersion()`, the tagline *"Conceptualized by humans, constructed
+        by robots, built with love."*, developer (Procione DeConti, Telegram + GitHub-repo links -
+        no email, per the user's choice), and a curated "Built with" stack list (languages +
+        frontend/backend/platform libs; names only, with a keep-in-sync comment since the runtime
+        can't read package.json/Cargo.toml).
+      - **Vote/favorite in-flight feedback** (the user's third ask - e621 can lag noticeably, hard
+        to tell if a tap registered): the up/down/favorite `IconButton`s in `PostViewer`'s toolbar
+        swap their glyph for `<Spinner>` while the mutation `isPending` (keyed to `vote.variables
+        .direction` so only the pressed arrow spins) and disable during the request. Same on
+        `PostThumbnail`'s hover cluster - `PostGrid` now hands it `mutateAsync` (was `mutate`) so
+        the thumbnail can `await` and show a per-button `favBusy`/`voteBusy` spinner without a
+        shared/ churning pending set. `usePostMutations` also now feeds `recordVote`/`recordFavorite`
+        into statsStore, and `downloadsStore` records completed-download bytes.
+      - Not yet live-tested - the whole dashboard (heatmap layout, favourites fetch, the session
+        timer's idle/hide transitions), the About page, and the spinner feedback all still need a
+        hands-on pass.
+
+- [x] **Favorites-analysis: shareable card export + any-user analysis** (1.14.53)
+      - **Share card** - `lib/favoritesCard.ts` builds a self-contained "Favorites, wrapped" SVG
+        (1080×1500, accent-coloured, big score tiles + top-artist bars + a ratings segmented bar +
+        character/series chips + a cheeky rating-based one-liner). `lib/exportCard.ts` rasterises
+        it on a canvas at 2x → **PNG** (`canvas.toBlob`, written verbatim by `export::save_export_file`)
+        or **PDF** (rasterise to JPEG, `export::save_pdf_with_jpeg` hand-builds a minimal one-page
+        image PDF - `/DCTDecode` embeds the JPEG bytes directly, no PDF crate). `src-tauri/src/
+        export.rs` + 2 commands; `save()` dialog is already covered by `dialog:default`. New
+        `components/Dashboard/FavoritesCardDialog.tsx` - live SVG preview + Save PNG / Save PDF +
+        "Show in folder".
+      - **Analyze another user** - `useFavoritesAnalysisQuery` generalised to take a username **or
+        numeric id** (all-digits → resolved via `users/<id>.json` first) and to return the resolved
+        `name`. New `components/Dashboard/OtherUserAnalysis.tsx` (a username/ID field) + a
+        "Analyze another user" Dashboard section; runs the identical breakdown on any user's public
+        favourites, with the same share-card export. The old inline `FavoritesAnalysisView` moved to
+        its own file and now carries the "Share card" button for both the signed-in and other-user
+        cases.
+      - `lib/modalStack.ts` - a depth counter so `DashboardPanel`'s window-level Escape handler
+        stands down while `FavoritesCardDialog` is stacked on top (two capture-phase `window`
+        listeners fire in registration order, so the inner one's `stopPropagation` is too late).
+      - Not yet live-tested - the PNG/PDF round-trip (the hand-built PDF opening cleanly in a
+        reader especially), SVG→canvas rasterisation fidelity, and the id-resolution path.
+
+- [x] **Favorites analysis: progressive/unbounded fetch + card fixes** (1.14.54)
+      - **Progressive fetch** - replaced the fixed "2 requests / 640 posts" `useFavoritesAnalysisQuery`
+        (deleted) with `queries/useFavoritesAnalysis.ts`, an imperative page-by-page fetch:
+        `components/Dashboard/FavoritesAnalysisRunner.tsx` lets you type a favourite count or hit
+        **ALL**, shows an estimated request count + wall-clock time (with the caveat that using the
+        app shares the same rate limit and slows it), then runs with a live progress bar + elapsed
+        + ETA and a **Cancel** (which still analyses whatever was fetched, flagged "stopped early").
+        **The rate limit is structurally safe** - every page goes through the normal
+        `get_posts` → `request()` → shared per-site governor (burst 2, then 1/sec), one `await` at a
+        time, so it can't exceed the limit and naturally yields to other app activity. Pages fold
+        into a streaming accumulator (`favoritesAnalysis.ts` reworked: `createFavAccumulator` /
+        `addToFavAccumulator` / `finalizeFavAccumulator`) and are discarded, so memory stays bounded
+        regardless of count. `favorite_count` from the resolved profile drives the pre-run estimate;
+        for a name it's resolved via `autocomplete_users` → `get_user` (an id is `get_user`
+        directly). Used for both "Your favorites analysis" and "Analyze another user".
+      - **Excluded tags** - `sound_warning` and `conditional_dnp` are dropped from the artist and
+        character/series tallies (`EXCLUDED_TAGS` in `favoritesAnalysis.ts`).
+      - **Card rendering fixes** (`lib/favoritesCard.ts`) - the `font-family` was unquoted
+        (`Segoe UI` parsed as two families → fallback); now `'Segoe UI', …`. Chip / legend widths
+        and name truncation were guessed from character counts (overflow on wide glyphs, trailing
+        slack on narrow ones); now measured with a real canvas `measureText`, and long labels
+        `fit()`-truncated to the space available. Layout spacing tightened up with baseline-aware
+        positions.
+      - `lib/modalStack.ts` note: `DashboardPanel`'s Escape handler already guards on `modalOpen()`;
+        the runner's Cancel/reset don't need it.
+      - Not live-tested - a real large-account "ALL" run (progress/ETA/cancel/memory), the
+        name→id resolution, and the re-measured card.
+
+- [x] **Share card: avatar + segmented artist bars** (1.14.55) `avatarId` is now threaded from
+      `resolveUser` (→ `UserProfile.avatar_id`) / the signed-in profile through the runner and
+      `FavoritesAnalysisView` into `FavoritesCardDialog`, which resolves it via `useAvatarUrl` and
+      `fetch_image_data_url` (→ a same-origin `data:` URL, since the raw CDN image would taint the
+      rasterising canvas) and hands it to `buildFavoritesCardSvg`. The card draws it as a
+      clipped circle top-right with an accent ring, or a monogram circle when it can't be fetched;
+      the name column narrows to clear it. **Top-artist bars reworked**: the count moved out to the
+      right of the bar (was overlapping the bar's end), the bar is shorter, and the fill is now a
+      row of ~20 little accent blocks (`segBar()`) instead of one solid rounded rect - the "fun"
+      look asked for. Not live-tested.
+
+- [x] **Card avatar → aspect-preserving squircle + favourites-count gap explained** (1.14.56)
+      - **Squircle** - the card avatar is now a rounded-rect (`rx 24`) sized to the image's real
+        aspect ratio (max dimension 128), matching ProfilePanel, instead of a cropped circle.
+        `FavoritesCardDialog` loads the fetched `data:` URL into an `Image()` to read
+        `naturalWidth/Height` and passes `avatarAspect` to `buildFavoritesCardSvg`.
+      - **The "2,040 favourites but only 2,021 analysed" gap** - e621's `fav:<name>` search hides
+        posts that were later deleted, but `favorite_count` still counts them. Fixed by searching
+        `fav:<name> status:any`; the residual (hard-removed / destroyed posts) is now surfaced as a
+        one-line note under the results ("Analyzed N of M — the other K point to posts that have
+        been removed…"). Also: the accumulator now slices each page to the exact remaining budget
+        so "analyze 500" gives 500, not up to 819.
+      - Not live-tested.
+
+- [x] **Bulk un-favorite** (1.14.57) A new **Unfavorite** button in the grid multi-select
+      `SelectionBar` (shown when signed in, enabled when the selection contains favourited posts;
+      **two clicks to confirm** since it's bulk-destructive and tedious to undo). `App.tsx`'s
+      `bulkFavorite`'s `bulkFav` state generalised to `bulkAction {kind: "favorite"|"unfavorite",
+      done, total}` so the progress label + which button spins track the running op;
+      `bulkUnfavorite()` mirrors `bulkFavorite()` (sequential `mutateAsync`, skip single failures).
+      When the active query is the signed-in user's own favourites (`lib/searchQuery.ts`'s new
+      `isOwnFavoritesView` - `fav:me` or `fav:<name>`), the removed posts are pruned from the grid
+      immediately via `postCache.ts`'s new `removePostsFromCache` (and dropped from the selection);
+      anywhere else they stay put (still valid results) and just lose their heart. Not live-tested.
+
+- [x] **Favorites analysis: deleted-post toggle, exact user lookup, card polish** (1.14.58)
+      - **"Include deleted posts" toggle** (default on) in the runner config - `status:any` is now
+        opt-in rather than hardcoded; `favoritesAnalysis.ts` also counts `deletedCount` (posts
+        whose `flags.deleted`), surfaced as a note under the results. The gap note now tells you to
+        turn the toggle on if it's off.
+      - **Exact user lookup** - "analyze another user" resolved names via `autocomplete_users`
+        (prefix match, limit 10) then **fell back to `matches[0]` when the exact name wasn't in the
+        top 10** - so a common prefix (or a name past result 10) silently analysed the *wrong*
+        account, whose `favorite_count` might be null → "count isn't published". New
+        `get_user_by_name` command (`users.json?search[name_matches]=<name>*&limit=100`, exact
+        case-insensitive match, then re-fetches the show endpoint for the full stat attributes;
+        **no fuzzy fallback** - a clear "No user named X" instead). The runner now **resolves the
+        user up front** (before showing the count/ALL config) so the estimate is real, and says
+        "the favourite count isn't shown (may be private)" only when it genuinely is.
+      - **Card**: the avatar is bigger (172 vs 128) and vertically centred on the header text
+        block instead of pinned to the top. The rating "vibe" line is now data-driven -
+        `"72% explicit · top pick: wolf"` - replacing the three canned jokes (`RATING_VIBE`
+        deleted; *"No further questions."* was the Explicit one).
+      - Not live-tested.
+
+- [x] **Share card: image-backed artist rows + tag chips, "Final Verdict" line** (1.14.59)
+      - `favoritesAnalysis.ts`'s accumulator now also keeps, per top artist, the highest-scored
+        favourited post's thumbnail URL, and per top character/series tag a small reservoir of
+        favourite thumbnails (`Bar.image`). `FavoritesCardDialog` additionally does one
+        rate-limited `order:score` search per top-5 artist for their *all-time* top post (falling
+        back to the best favourite), then fetches every thumbnail as a `data:` URL
+        (`fetch_image_data_url`, CDN, parallel) and passes `artistImages`/`tagImages` to the card.
+        Save is gated behind a "Preparing card images…" state (25s timeout) while that runs.
+      - `favoritesCard.ts`: **top-artist rows** are now full-width bands (`rowH` 78) with the
+        artist's top post as a faded, scrimmed background (`bgImage()` - clipPath + image +
+        `#0e0e14` scrim so text contrast holds); the count sits top-right, the segmented bar
+        spans the bottom. **Tag chips** are bigger (h 56, 24px text) with a favourite behind each.
+        Card grew to 1080×1740.
+      - **"Final Verdict"** box near the bottom - a one-liner picked at random from a 25-line pool
+        keyed by the dominant rating (`RATING_VERDICT`), or, when the split is near-even across all
+        three ratings (max−min share ≤ 16pts), a label-less centred "secret" line from a separate
+        5-line pool (`VERDICT_BALANCED`, longer/multi-line). `pickFinalVerdict()` is called once by
+        `FavoritesCardDialog` (via `useState` initialiser) and passed in as `verdict`, so it's
+        stable across the preview's image-load rebuilds but fresh each time the dialog opens. The
+        header keeps its data-driven `"72% explicit · top pick: wolf"` line.
+      - **(1.14.60)** All four verdict pools filled with the user's real lines (25/25/25 + 5).
+        Card grew to 1080×1750; the verdict box wraps to 2 lines (rating pools) / up to 4 (the
+        longer secret lines) and sizes/positions itself off `CARD_H` and the footer.
+      - **(1.14.61 / .62 / .63)** Size-tiered verdict pools: `RATING_VERDICT_5K`/`_10K`
+        (Safe/Questionable/Explicit) + `VERDICT_BALANCED_5K`/`_10K`. `pickFinalVerdict` draws
+        **exclusively** from the highest tier the analysed sample qualifies for -
+        `total >= 10000` → 10k pool, else `>= 5000` → 5k pool, else the normal 25-line pool
+        (falling through only if a tier is empty). `{count}` tokens in any line are replaced with
+        the analysed count (`toLocaleString`) at card time. These run long, so the verdict
+        renderer switches to a centred / label-less / up-to-5-line layout automatically whenever
+        the chosen line wraps past 2 lines (was: only for the balanced pool).
+      - Not live-tested.
 
 ## Running it
 

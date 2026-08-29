@@ -44,6 +44,7 @@ import {
 import { useDownloadsStore } from "../../state/downloadsStore";
 import { useFullscreen } from "../../lib/useFullscreen";
 import { IconButton } from "../ui/IconButton";
+import { Spinner } from "../ui/Spinner";
 
 const SLIDESHOW_TRANSITION_ANIMATION: Record<string, string> = {
   fade: "animate-[fade-in_450ms_ease-out]",
@@ -245,6 +246,8 @@ export function PostViewer({
   const deletedOrMissing = deleted || !url;
   const voteTitle = isAuthenticated ? undefined : "Sign in (Settings) to vote";
   const favTitle = isAuthenticated ? undefined : "Sign in (Settings) to favorite";
+  const votePending = vote.isPending;
+  const favPending = favorite.isPending || unfavorite.isPending;
 
   return (
     <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] flex-col bg-black/90 backdrop-blur-sm">
@@ -283,33 +286,45 @@ export function PostViewer({
         <div className="ml-auto flex items-center gap-0.5 rounded-[var(--radius-md)] bg-white/5 p-0.5">
           <IconButton
             tone="invert"
-            disabled={!isAuthenticated}
+            disabled={!isAuthenticated || votePending}
             title={voteTitle ?? "Upvote"}
             onClick={() => vote.mutate({ postId: post.id, direction: 1 })}
             className={post.vote_by > 0 ? "!text-green-400" : ""}
           >
-            <ThumbsUp size={16} className={post.vote_by > 0 ? "fill-current" : ""} />
+            {votePending && vote.variables?.direction === 1 ? (
+              <Spinner size={16} />
+            ) : (
+              <ThumbsUp size={16} className={post.vote_by > 0 ? "fill-current" : ""} />
+            )}
           </IconButton>
           <span className="min-w-7 text-center text-sm tabular-nums">{post.score.total}</span>
           <IconButton
             tone="invert"
-            disabled={!isAuthenticated}
+            disabled={!isAuthenticated || votePending}
             title={voteTitle ?? "Downvote"}
             onClick={() => vote.mutate({ postId: post.id, direction: -1 })}
             className={post.vote_by < 0 ? "!text-red-400" : ""}
           >
-            <ThumbsDown size={16} className={post.vote_by < 0 ? "fill-current" : ""} />
+            {votePending && vote.variables?.direction === -1 ? (
+              <Spinner size={16} />
+            ) : (
+              <ThumbsDown size={16} className={post.vote_by < 0 ? "fill-current" : ""} />
+            )}
           </IconButton>
           <IconButton
             tone="invert"
-            disabled={!isAuthenticated}
+            disabled={!isAuthenticated || favPending}
             title={favTitle ?? (post.is_favorited ? "Remove favorite" : "Add favorite")}
             onClick={() =>
               post.is_favorited ? unfavorite.mutate(post.id) : favorite.mutate(post.id)
             }
             className={post.is_favorited ? "!text-pink-400" : ""}
           >
-            <Heart size={16} className={post.is_favorited ? "fill-current" : ""} />
+            {favPending ? (
+              <Spinner size={16} />
+            ) : (
+              <Heart size={16} className={post.is_favorited ? "fill-current" : ""} />
+            )}
           </IconButton>
           <IconButton
             tone="invert"

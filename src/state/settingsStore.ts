@@ -53,6 +53,10 @@ interface SettingsState {
   /** The hash (see lib/eula.ts) of whichever EULA text was last agreed to; null means never
    *  agreed. Compared against CURRENT_EULA_HASH to gate the app behind EulaScreen. */
   eulaAcceptedHash: string | null;
+  /** Whether the User Dashboard records local usage stats (posts viewed, time in app, API calls,
+   *  …). On by default - everything stays on this device, nothing is ever sent anywhere. Toggled
+   *  from the Dashboard's Manage section (state/statsStore.ts reads this to gate every recorder). */
+  usageStatsEnabled: boolean;
 
   setSite: (site: Site) => void;
   setEnabledRatings: (ratings: Rating[]) => void;
@@ -71,6 +75,7 @@ interface SettingsState {
   setSlideshowShuffle: (shuffle: boolean) => void;
   /** Pass the hash of the EULA text just agreed to, or null to clear (un-accept). */
   setEulaAccepted: (hash: string | null) => void;
+  setUsageStatsEnabled: (enabled: boolean) => void;
 
   /** e621 search syntax: leading `~` ORs ratings together; one enabled rating needs none; all enabled means no filter. */
   ratingTagFilter: () => string | null;
@@ -116,6 +121,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   slideshowTransition: DEFAULT_SLIDESHOW_TRANSITION,
   slideshowShuffle: DEFAULT_SLIDESHOW_SHUFFLE,
   eulaAcceptedHash: null,
+  usageStatsEnabled: true,
 
   setSite: (site) => {
     set({ site });
@@ -180,6 +186,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ eulaAcceptedHash });
     void persist("eulaAcceptedHash", eulaAcceptedHash);
   },
+  setUsageStatsEnabled: (usageStatsEnabled) => {
+    set({ usageStatsEnabled });
+    void persist("usageStatsEnabled", usageStatsEnabled);
+  },
 
   ratingTagFilter: () => {
     const { adultModeEnabled, enabledRatings } = get();
@@ -217,6 +227,7 @@ export async function loadSettings(): Promise<void> {
         (values.slideshowTransition as SlideshowTransition) ?? state.slideshowTransition,
       slideshowShuffle: (values.slideshowShuffle as boolean) ?? state.slideshowShuffle,
       eulaAcceptedHash: (values.eulaAcceptedHash as string | null) ?? state.eulaAcceptedHash,
+      usageStatsEnabled: (values.usageStatsEnabled as boolean) ?? state.usageStatsEnabled,
       isLoaded: true,
     };
   });

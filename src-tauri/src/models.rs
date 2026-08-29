@@ -52,6 +52,16 @@ fn default_rating() -> String {
     "e".to_string()
 }
 
+/// Deserialize a JSON string field that e621 sometimes sends as an explicit `null` (e.g.
+/// `post_versions.json`'s `reason`) - `#[serde(default)]` alone only covers a *missing* key, not a
+/// present-but-null one, so a null there is a hard deserialization error without this.
+fn null_to_empty_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Option::<String>::deserialize(deserializer)?.unwrap_or_default())
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PostFile {
     #[serde(default)]
@@ -582,10 +592,10 @@ pub struct PostVersion {
     pub source_changed: bool,
     #[serde(default)]
     pub description_changed: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_to_empty_string")]
     pub reason: String,
     pub updater_id: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_to_empty_string")]
     pub updater_name: String,
 }
 

@@ -4,6 +4,7 @@ mod cache;
 mod credentials;
 mod crypto;
 mod downloads;
+mod export;
 mod models;
 mod paths;
 mod rate_limit;
@@ -113,6 +114,7 @@ pub fn run() {
             api::get_posts,
             api::autocomplete_tags,
             api::autocomplete_users,
+            api::get_user_by_name,
             api::autocomplete_pools,
             api::get_current_user,
             api::get_user,
@@ -152,6 +154,7 @@ pub fn run() {
             api::get_post_versions,
             api::get_wiki_page,
             api::health_check,
+            api::get_api_metrics,
             cache::get_cache_info,
             cache::set_cache_limit_mb,
             cache::request_cache_clear,
@@ -161,6 +164,8 @@ pub fn run() {
             backup::import_backup,
             downloads::download_post_file,
             downloads::fetch_image_data_url,
+            export::save_export_file,
+            export::save_pdf_with_jpeg,
             credentials::save_credentials,
             credentials::load_credentials,
             credentials::delete_credentials,

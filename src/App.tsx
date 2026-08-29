@@ -23,6 +23,8 @@ import { CollectionPickerDialog } from "./components/Collections/CollectionPicke
 import { DownloadsPanel } from "./components/Downloads/DownloadsPanel";
 import { KeyboardCheatsheet } from "./components/KeyboardCheatsheet";
 import { HelpPanel } from "./components/Help/HelpPanel";
+import { DashboardPanel } from "./components/Dashboard/DashboardPanel";
+import { AboutPanel } from "./components/About/AboutPanel";
 import { SearchBuilder } from "./components/Search/SearchBuilder";
 import { IdListImportDialog } from "./components/Search/IdListImportDialog";
 import { ReverseSearchPanel } from "./components/ReverseSearch/ReverseSearchPanel";
@@ -30,8 +32,10 @@ import { EulaScreen } from "./components/Eula/EulaScreen";
 import { UnlockScreen } from "./components/Vault/UnlockScreen";
 import { Button } from "./components/ui/Button";
 import { Spinner } from "./components/ui/Spinner";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePostsQuery } from "./queries/usePostsQuery";
 import { usePostMutations } from "./queries/usePostMutations";
+import { removePostsFromCache } from "./queries/postCache";
 import { useUserProfileQuery } from "./queries/useUserProfileQuery";
 import { e621Api } from "./api/client";
 import { loadSettings, useSettingsStore } from "./state/settingsStore";
@@ -39,9 +43,12 @@ import { loadAllAccounts, useAccountStore } from "./state/accountStore";
 import { loadSavedSearches } from "./state/savedSearchesStore";
 import { loadCollections } from "./state/collectionsStore";
 import { loadSearchHistory, useSearchHistoryStore } from "./state/searchHistoryStore";
+import { loadStats, flushStats, useStatsStore } from "./state/statsStore";
+import { startUsageSession } from "./lib/usageSession";
+import { useApiMetricsFold } from "./queries/useApiMetricsFold";
 import { useSaucenaoStore } from "./state/saucenaoStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
-import { normalizeQuery, withRandomOrder } from "./lib/searchQuery";
+import { isOwnFavoritesView, normalizeQuery, withRandomOrder } from "./lib/searchQuery";
 import { useDownloadsStore } from "./state/downloadsStore";
 import { useFullscreen } from "./lib/useFullscreen";
 import { hexToRgbTriplet } from "./lib/color";
@@ -73,6 +80,7 @@ interface NavState {
   setsOpen: boolean;
   collectionsOpen: boolean;
   downloadsOpen: boolean;
+  dashboardOpen: boolean;
 }
 
 const INITIAL_NAV: NavState = {
@@ -91,6 +99,7 @@ const INITIAL_NAV: NavState = {
   setsOpen: false,
   collectionsOpen: false,
   downloadsOpen: false,
+  dashboardOpen: false,
 };
 
 const MAX_NAV_HISTORY = 50;
@@ -154,6 +163,7 @@ function App() {
     setsOpen,
     collectionsOpen,
     downloadsOpen,
+    dashboardOpen,
   } = nav;
 
   useEffect(() => {
@@ -164,6 +174,7 @@ function App() {
   const { toggle: toggleFullscreen } = useFullscreen();
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [idListOpen, setIdListOpen] = useState(false);
   useEffect(() => {
@@ -224,9 +235,23 @@ function App() {
       loadSavedSearches(),
       loadCollections(),
       loadSearchHistory(),
+      loadStats(),
       useSaucenaoStore.getState().load(),
-    ]).finally(() => setBooted(true));
+    ]).finally(() => {
+      setBooted(true);
+      startUsageSession();
+    });
   }, [vaultLocked]);
+
+  // Force a stats write when the window is hidden (tray / minimise) so a later kill doesn't lose
+  // the tail; usageSession.ts handles beforeunload + the periodic flush itself.
+  useEffect(() => {
+    function onHide() {
+      if (document.visibilityState === "hidden") void flushStats();
+    }
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, []);
 
   // Drag-and-drop reverse image search - Tauri's native drag-drop event hands over local file
   // system paths directly (unlike the browser's own HTML5 File API), so this never needs to read
@@ -255,6 +280,11 @@ function App() {
   const account = useAccountStore((s) => s.accounts[site]);
   const eulaAcceptedHash = useSettingsStore((s) => s.eulaAcceptedHash);
   const setEulaAccepted = useSettingsStore((s) => s.setEulaAccepted);
+  const usageStatsEnabled = useSettingsStore((s) => s.usageStatsEnabled);
+
+  // Fold the Rust backend's API call/byte counters into local usage stats (no-op when tracking
+  // is off). Mounted once, here.
+  useApiMetricsFold(booted && usageStatsEnabled);
 
   // Backs AppShell's Messages badge - shares its cache/query key with ProfilePanel's own-profile
   // fetch, just with polling turned on here so the badge stays current without opening Settings.
@@ -357,11 +387,14 @@ function App() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [setPickerOpen, setSetPickerOpen] = useState(false);
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
-  const [bulkFav, setBulkFav] = useState<{ done: number; total: number } | null>(null);
+  const [bulkAction, setBulkAction] = useState<
+    { kind: "favorite" | "unfavorite"; done: number; total: number } | null
+  >(null);
   const lastSelIndexRef = useRef<number | null>(null);
   const shownPostsRef = useRef(shownPosts);
   shownPostsRef.current = shownPosts;
-  const { favorite: favoriteMutation } = usePostMutations(site);
+  const { favorite: favoriteMutation, unfavorite: unfavoriteMutation } = usePostMutations(site);
+  const queryClient = useQueryClient();
   const enqueueDownloads = useDownloadsStore((s) => s.enqueue);
   const downloadsPending = useDownloadsStore(
     (s) => s.jobs.filter((j) => j.status === "queued" || j.status === "active").length,
@@ -391,7 +424,7 @@ function App() {
     setSelectionActive(false);
     setSelectedIds(new Set());
     lastSelIndexRef.current = null;
-    setBulkFav(null);
+    setBulkAction(null);
     setSetPickerOpen(false);
     setCollectionPickerOpen(false);
   }, []);
@@ -498,17 +531,44 @@ function App() {
 
   async function bulkFavorite() {
     const targets = selectedPosts.filter((p) => !p.is_favorited);
-    if (targets.length === 0 || bulkFav) return;
-    setBulkFav({ done: 0, total: targets.length });
+    if (targets.length === 0 || bulkAction) return;
+    setBulkAction({ kind: "favorite", done: 0, total: targets.length });
     for (const p of targets) {
       try {
         await favoriteMutation.mutateAsync(p.id);
       } catch {
         /* skip a single failure - a bulk op shouldn't abort on one */
       }
-      setBulkFav((s) => (s ? { ...s, done: s.done + 1 } : s));
+      setBulkAction((s) => (s ? { ...s, done: s.done + 1 } : s));
     }
-    setBulkFav(null);
+    setBulkAction(null);
+  }
+
+  async function bulkUnfavorite() {
+    const targets = selectedPosts.filter((p) => p.is_favorited);
+    if (targets.length === 0 || bulkAction) return;
+    setBulkAction({ kind: "unfavorite", done: 0, total: targets.length });
+    const removed: number[] = [];
+    for (const p of targets) {
+      try {
+        await unfavoriteMutation.mutateAsync(p.id);
+        removed.push(p.id);
+      } catch {
+        /* skip a single failure */
+      }
+      setBulkAction((s) => (s ? { ...s, done: s.done + 1 } : s));
+    }
+    setBulkAction(null);
+    // On your own favourites view, prune the just-removed posts from the grid so it reads as a
+    // cleanup; anywhere else the posts are still valid results, so leave them (heart just empties).
+    if (removed.length > 0 && isOwnFavoritesView(activeQuery, account?.username)) {
+      removePostsFromCache(queryClient, removed);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of removed) next.delete(id);
+        return next;
+      });
+    }
   }
 
   // Blacklisting a tag the open post matches can shrink `shownPosts` out from under the viewer's
@@ -524,6 +584,33 @@ function App() {
     }
   }, [viewerIndex, shownPosts.length, slideshowActive, replaceNav]);
 
+  // Usage stats: record a post view whenever the viewer lands on a new post (open, arrow-key nav,
+  // slideshow auto-advance) - dedupes consecutive repeats. Pool/Popular panels have their own
+  // nested viewers and aren't covered here.
+  const lastViewedIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (viewerIndex === null) {
+      lastViewedIdRef.current = null;
+      return;
+    }
+    const post = shownPosts[viewerIndex];
+    if (!post || post.id === lastViewedIdRef.current) return;
+    lastViewedIdRef.current = post.id;
+    useStatsStore.getState().recordPostView(post, site);
+  }, [viewerIndex, shownPosts, site]);
+
+  // Usage stats: bank slideshow watch time when it stops (or the viewer closes while running).
+  const slideshowStartRef = useRef<number | null>(null);
+  useEffect(() => {
+    const running = slideshowActive && viewerIndex !== null;
+    if (running && slideshowStartRef.current === null) {
+      slideshowStartRef.current = Date.now();
+    } else if (!running && slideshowStartRef.current !== null) {
+      useStatsStore.getState().recordSlideshow(Date.now() - slideshowStartRef.current);
+      slideshowStartRef.current = null;
+    }
+  }, [slideshowActive, viewerIndex]);
+
   const anyOverlayOpen =
     viewerIndex !== null ||
     settingsOpen ||
@@ -537,7 +624,8 @@ function App() {
     wikiTarget !== null ||
     setsOpen ||
     collectionsOpen ||
-    downloadsOpen;
+    downloadsOpen ||
+    dashboardOpen;
 
   // Escape leaves selection mode when it's the frontmost thing (no overlay, no set picker).
   useEffect(() => {
@@ -558,6 +646,7 @@ function App() {
   function runNewSearch(query: string) {
     exitSelection();
     useSearchHistoryStore.getState().record(query);
+    useStatsStore.getState().recordSearch(query, site);
     if (!anyOverlayOpen && normalizeQuery(query) === normalizeQuery(activeQuery)) {
       void refresh();
       return;
@@ -578,6 +667,7 @@ function App() {
       setsOpen: false,
       collectionsOpen: false,
       downloadsOpen: false,
+      dashboardOpen: false,
     });
   }
 
@@ -620,6 +710,8 @@ function App() {
       onOpenSettings={() => navigate({ settingsOpen: true })}
       onOpenCheatsheet={() => setCheatsheetOpen(true)}
       onOpenHelp={() => setHelpOpen(true)}
+      onOpenDashboard={() => navigate({ dashboardOpen: true })}
+      onOpenAbout={() => setAboutOpen(true)}
       onOpenFavorites={account?.username ? () => runNewSearch(`fav:${account.username}`) : null}
       onOpenProfile={account?.username ? () => navigate({ profileTarget: "me" }) : null}
       onOpenMessages={account?.username ? () => navigate({ messagesOpen: true }) : null}
@@ -695,13 +787,15 @@ function App() {
                 count={selectedIds.size}
                 total={shownPosts.length}
                 canInteract={!!account?.username}
-                favoriteProgress={bulkFav}
+                favoritedCount={selectedPosts.filter((p) => p.is_favorited).length}
+                progress={bulkAction}
                 onSelectAll={() => setSelectedIds(new Set(shownPosts.map((p) => p.id)))}
                 onClear={() => {
                   setSelectedIds(new Set());
                   lastSelIndexRef.current = null;
                 }}
                 onFavorite={() => void bulkFavorite()}
+                onUnfavorite={() => void bulkUnfavorite()}
                 onAddToSet={() => setSetPickerOpen(true)}
                 onAddToCollection={() => setCollectionPickerOpen(true)}
                 onDownload={() => {
@@ -857,9 +951,15 @@ function App() {
 
       {downloadsOpen && <DownloadsPanel onClose={goBack} />}
 
+      {dashboardOpen && (
+        <DashboardPanel site={site} onClose={goBack} onSearch={runNewSearch} />
+      )}
+
       {cheatsheetOpen && <KeyboardCheatsheet onClose={() => setCheatsheetOpen(false)} />}
 
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
+
+      {aboutOpen && <AboutPanel onClose={() => setAboutOpen(false)} />}
 
       {builderOpen && (
         <SearchBuilder

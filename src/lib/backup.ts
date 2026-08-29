@@ -20,6 +20,11 @@ import type { ThemeMode } from "./theme";
 import { useAccountStore } from "../state/accountStore";
 import { useSaucenaoStore } from "../state/saucenaoStore";
 import { useSettingsStore } from "../state/settingsStore";
+import {
+  applyStatsBackup,
+  statsBackupAggregates,
+  type StatsBackupAggregates,
+} from "../state/statsStore";
 
 export interface SettingsBackup {
   version: 1;
@@ -52,6 +57,11 @@ export interface SettingsBackup {
   /** Absent on a backup made before this field existed - `?? false` on read. */
   slideshowShuffle?: boolean;
   eulaAcceptedHash: string | null;
+  /** Absent on a backup made before this field existed - `?? true` on read. */
+  usageStatsEnabled?: boolean;
+  /** User Dashboard lifetime totals only (per-day history, seen-post list and tag tallies are
+   *  deliberately left out - see state/statsStore.ts). Absent on an older backup. */
+  usageStats?: StatsBackupAggregates;
 }
 
 export async function buildBackup(): Promise<SettingsBackup> {
@@ -83,6 +93,8 @@ export async function buildBackup(): Promise<SettingsBackup> {
     slideshowTransition: settings.slideshowTransition,
     slideshowShuffle: settings.slideshowShuffle,
     eulaAcceptedHash: settings.eulaAcceptedHash,
+    usageStatsEnabled: settings.usageStatsEnabled,
+    usageStats: statsBackupAggregates(),
   };
 }
 
@@ -116,6 +128,8 @@ export async function applyBackup(backup: SettingsBackup): Promise<void> {
   settings.setSlideshowShuffle(backup.slideshowShuffle ?? false);
   // `?? null` for forward compatibility with a backup made before this field existed.
   settings.setEulaAccepted(backup.eulaAcceptedHash ?? null);
+  settings.setUsageStatsEnabled(backup.usageStatsEnabled ?? true);
+  applyStatsBackup(backup.usageStats);
 
   const accountStore = useAccountStore.getState();
   const tasks: Promise<void>[] = [];
