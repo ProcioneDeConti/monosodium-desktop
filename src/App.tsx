@@ -27,6 +27,7 @@ import { e621Api } from "./api/client";
 import { loadSettings, useSettingsStore } from "./state/settingsStore";
 import { loadAllAccounts, useAccountStore } from "./state/accountStore";
 import { loadSavedSearches } from "./state/savedSearchesStore";
+import { loadSearchHistory, useSearchHistoryStore } from "./state/searchHistoryStore";
 import { useSaucenaoStore } from "./state/saucenaoStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
 import { normalizeQuery, withRandomOrder } from "./lib/searchQuery";
@@ -184,6 +185,7 @@ function App() {
       loadSettings(),
       loadAllAccounts(),
       loadSavedSearches(),
+      loadSearchHistory(),
       useSaucenaoStore.getState().load(),
     ]).finally(() => setBooted(true));
   }, [vaultLocked]);
@@ -395,6 +397,7 @@ function App() {
   // re-randomises per request) rather than no-op'ing on an unchanged query key.
   function runNewSearch(query: string) {
     exitSelection();
+    useSearchHistoryStore.getState().record(query);
     if (!anyOverlayOpen && normalizeQuery(query) === normalizeQuery(activeQuery)) {
       void refresh();
       return;

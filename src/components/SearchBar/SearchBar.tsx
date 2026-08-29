@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Clock, X } from "lucide-react";
 import type { Site } from "../../models/site";
 import { useTagAutocomplete } from "../../queries/useTagAutocomplete";
+import { useSearchHistoryStore } from "../../state/searchHistoryStore";
 import { TAG_CATEGORY_STYLE } from "../../lib/tagCategoryStyle";
 import { cacheTagCategory, getCachedTagCategory } from "../../lib/tagCategoryCache";
 import { tagSuggestionCategory } from "../../models/user";
@@ -71,6 +72,15 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
     EASTER_EGG_WORD.startsWith(eggPrefix) &&
     eggPrefix.length >= EASTER_EGG_WORD.length - 2 &&
     eggPrefix !== EASTER_EGG_WORD;
+
+  const searchHistory = useSearchHistoryStore((s) => s.history);
+  const removeHistory = useSearchHistoryStore((s) => s.remove);
+  const clearHistory = useSearchHistoryStore((s) => s.clear);
+  const recentSearches = useMemo(
+    () => searchHistory.filter((q) => q !== activeQuery).slice(0, 8),
+    [searchHistory, activeQuery],
+  );
+  const showHistory = open && draft.trim() === "" && recentSearches.length > 0;
 
   const { data: suggestions } = useTagAutocomplete(site, draft);
   const shownSuggestions = useMemo(
@@ -228,6 +238,56 @@ export function SearchBar({ site, activeQuery, onSearch }: SearchBarProps) {
           className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-0.5"
         />
       </div>
+      {showHistory && !almostThereEgg && (
+        <ul
+          className="absolute z-20 mt-1 w-full overflow-hidden rounded-[var(--radius-md)] border
+                     border-black/10 dark:border-white/10 bg-[rgb(250,250,250)] dark:bg-[rgb(38,38,38)] shadow-lg"
+        >
+          <li className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-50">
+            Recent
+            <button
+              type="button"
+              className="normal-case hover:text-[rgb(var(--accent))]"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                clearHistory();
+              }}
+            >
+              Clear
+            </button>
+          </li>
+          {recentSearches.map((q) => (
+            <li key={q} className="group flex items-center">
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setTags(splitTags(q));
+                  setDraft("");
+                  setOpen(false);
+                  onSearch(q);
+                }}
+              >
+                <Clock size={12} className="shrink-0 opacity-40" />
+                <span className="truncate">{q}</span>
+              </button>
+              <button
+                type="button"
+                aria-label={`Remove ${q}`}
+                className="mr-1 shrink-0 rounded p-1 opacity-0 hover:bg-black/5 group-hover:opacity-60 dark:hover:bg-white/10"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  removeHistory(q);
+                }}
+              >
+                <X size={12} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {open && almostThereEgg && (
         <div
           className="absolute z-20 mt-1 w-full rounded-[var(--radius-md)] border border-black/10

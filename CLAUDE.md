@@ -1077,6 +1077,13 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       (`App`), plus a `Maximize`/`Minimize` button in `PostViewer`'s toolbar. Needed
       `core:window:allow-set-fullscreen` + `core:window:allow-is-fullscreen` capabilities (the
       narrowest, matching the existing `allow-set-title` precedent). Bumped to 1.14.24.
+- [x] **Phase 4: Recent search history** `state/searchHistoryStore.ts` - auto-recorded, most-recent-
+      first, deduped, capped at 25, its own `search-history.json` (`tauri-plugin-store`), same
+      pattern as `savedSearchesStore` and (like it) deliberately out of the backup snapshot.
+      `App`'s `runNewSearch` records every non-blank query. `SearchBar` shows a "Recent" dropdown
+      (up to 8, current search filtered out) when the input is focused and empty - each entry
+      runs the search or can be individually removed; a "Clear" wipes the list. Distinct from
+      Saved Searches (deliberate, named, never auto-pruned). Bumped to 1.14.25.
 
 ## Running it
 
