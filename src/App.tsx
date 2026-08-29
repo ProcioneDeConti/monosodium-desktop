@@ -289,7 +289,23 @@ function App() {
     isRefetching,
   } = usePostsQuery(site, effectiveTags, blacklistEntries, booted);
 
-  const posts = useMemo(() => data?.pages.flatMap((p) => p.posts) ?? [], [data]);
+  // Flatten pages, de-duping by id. Numbered pagination for `order:random` (and any transient
+  // overlap at a page boundary) can hand back a post that's already on screen; masonic keys
+  // cells by `post.id`, so a duplicate would collide. Dropping repeats here keeps the grid and
+  // the viewer's index mapping clean.
+  const posts = useMemo(() => {
+    const seen = new Set<number>();
+    const out: Post[] = [];
+    for (const page of data?.pages ?? []) {
+      for (const p of page.posts) {
+        if (!seen.has(p.id)) {
+          seen.add(p.id);
+          out.push(p);
+        }
+      }
+    }
+    return out;
+  }, [data]);
 
   // Opportunistically learns each loaded post's tag categories so SearchBar's committed-tag
   // chips can be category-colored like TagChip/the autocomplete dropdown already are, without a

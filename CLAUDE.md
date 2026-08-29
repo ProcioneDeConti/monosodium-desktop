@@ -1171,6 +1171,34 @@ fullscreen, recent search history, keyboard cheatsheet, metatag autocomplete, ta
 live-tested beyond what the user has confirmed inline (adding to sets works; shuffle reshuffle
 and related-tags fixes verified via e621ng source).
 
+- [x] **Fixed (high priority): broken pagination for non-default `order:` searches** (1.14.36)
+      User hit it with `solo male order:score` - after a few pages the results collapsed to
+      single-digit-score posts, with big gaps and repeats vs. the website. Root cause: `usePostsQuery`
+      always used e621's `page=b<id>` keyset cursor, which **only honours the default id-descending
+      order** - with `order:score` (or favcount/random/…) e621 silently reinterprets it as "id < N"
+      and returns a near-random low-relevance slice. Reproduced directly against the API (keyset
+      page 2 of `order:score` → scores 87/4/17/97/12 instead of ~6900). Fix: `paginationMode(tags)`
+      - keyset for no-order / `order:id` / `order:id_desc`, e621's **numbered `page=N`** (capped at
+      750, its hard limit) for everything else, which honours the sort. `fetchLogicalPage` handles
+      both modes (the blacklist-hop logic advances a page number instead of a cursor in numbered
+      mode). `App.tsx`'s `posts` memo now also **de-dupes by id** - defends against `order:random`
+      handing back an already-shown post across numbered pages (masonic keys cells by id), and any
+      transient page-boundary overlap.
+- [x] **Delete dmails** (1.14.37) `DELETE /dmails/:id.json` - `delete_dmail` command; e621ng's
+      `dmails#destroy` soft-deletes (`update_column(:is_deleted, true)`) *before* rendering a
+      template-less JSON response, so like `create_dmail`'s 406 a success can come back non-2xx -
+      only 401/403/404 are surfaced as errors, and the frontend refetches the inbox as the source
+      of truth. `useDeleteDmails(site)` deletes a batch sequentially (rate limit), optimistically
+      (`removeDmailsFromCache`), and invalidates the inbox + `me` profile on settle. `MessagesPanel`:
+      a `CheckSquare` toggle in the list header enters multi-select (checkbox per `DmailRow`, click
+      toggles instead of opening) with a bottom Delete/Cancel bar; `MessageDetail` gets a two-click
+      Delete button.
+- [ ] **Username change history** - researched, not implementable. e621ng still tracks it
+      (`UserNameChangeRequest` model + `user_name_change_requests` table), but the only API is
+      `moderator_only` for the index and self-only-by-id for `show` (with no way to enumerate your
+      own request ids). It isn't in any of `users.json`'s serialized attribute lists, and e621's
+      own current profile pages don't surface it either. No member-accessible data to build this on.
+
 ## Running it
 
 **The user runs/tests the app themselves — don't launch it or drive the GUI to verify changes**
