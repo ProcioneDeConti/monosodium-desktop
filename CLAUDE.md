@@ -1218,6 +1218,26 @@ and related-tags fixes verified via e621ng source).
         tag-stripped snippet, click opens that topic). Titles come from one batched
         `get_forum_topics(ids=…)` call (new optional `ids` param → `search[id]=1,2,3`), via
         `useForumTopicTitles`.
+- [x] **Fixed: intermittent "signed out / theme reset / factory reset" on relaunch** (1.14.40)
+      User saw it especially during dev sessions (my rebuilds). Three compounding causes, all
+      worsened by `tauri dev` SIGKILLing the running app on every rebuild:
+      1. **`paths::data_root()` was not stable.** It probed `exe_dir/data` for writability every
+         call and fell back to `%LOCALAPPDATA%\Monosodium Desktop` (empty) on *any* failure - and
+         an antivirus scan of a freshly-built exe, or a lock during an active rebuild, makes that
+         probe fail transiently. The app then read its config from the empty location = looks
+         factory-reset. Now: **once either location already holds real data (any of settings.json
+         / saved-searches.json / credentials.dat / .vault_check / search-history.json), that
+         location wins unconditionally** - the writability probe (now retried 6×) only decides for
+         a genuinely-fresh install.
+      2. **Every write in the app was `std::fs::write` (non-atomic).** A kill mid-write truncates
+         the file; a truncated `credentials.dat` decrypts to nothing = silently signed out. New
+         `paths::write_atomic` (temp file + flush + rename-over, atomic on Windows and POSIX) now
+         used by `credentials.rs`, `vault.rs` (`.vault_check` + the enable/disable rewrites), and
+         `cache.rs`.
+      3. **`tauri-plugin-store` also does non-atomic `fs::write`** for settings.json /
+         saved-searches.json (can't patch it). `paths::guard_store_files`, run at startup before
+         the plugin loads, keeps a `.bak` of the last-known-good copy and restores it if the live
+         file comes back empty/corrupt. `reset_vault` clears the `.bak`s too.
 
 ## Running it
 

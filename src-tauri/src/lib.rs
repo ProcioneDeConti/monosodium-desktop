@@ -41,6 +41,9 @@ fn show_main_window(app: &tauri::AppHandle) {
 pub fn run() {
     // Must run before the webview is created - see cache.rs's module doc comment.
     cache::bootstrap();
+    // Restore settings.json / saved-searches.json from a .bak if a previous run's store write was
+    // truncated (tauri-plugin-store's fs::write isn't atomic) - must run before the store plugin.
+    paths::guard_store_files(vault::is_password_protected());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())

@@ -82,11 +82,8 @@ pub(crate) fn write_all(data: &CredentialsFile) -> Result<(), String> {
         payload: BASE64.encode(ciphertext),
     };
     let json = serde_json::to_string(&envelope).map_err(|e| e.to_string())?;
-    let path = file_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(path, json).map_err(|e| e.to_string())
+    // Atomic - a truncated credentials.dat decrypts to nothing, i.e. silently signs the user out.
+    paths::write_atomic(&file_path(), json.as_bytes()).map_err(|e| e.to_string())
 }
 
 fn site_slot(data: &mut CredentialsFile, site: Site) -> &mut Option<SiteCredentials> {

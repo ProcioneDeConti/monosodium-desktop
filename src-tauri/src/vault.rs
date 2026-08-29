@@ -92,8 +92,7 @@ fn write_check_file(password: &str) -> Result<Vec<u8>, String> {
         payload: BASE64.encode(ciphertext),
     };
     let json = serde_json::to_string(&envelope).map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(paths::data_root()).map_err(|e| e.to_string())?;
-    std::fs::write(check_file_path(), json).map_err(|e| e.to_string())?;
+    paths::write_atomic(&check_file_path(), json.as_bytes()).map_err(|e| e.to_string())?;
     Ok(salt.to_vec())
 }
 
@@ -237,11 +236,11 @@ pub fn enable_password_encryption(app: AppHandle, password: String) -> Result<()
 
     if let Some(cache) = settings_cache {
         let encrypted = store_serialize(&cache).map_err(|e| e.to_string())?;
-        std::fs::write(&settings_path, encrypted).map_err(|e| e.to_string())?;
+        paths::write_atomic(&settings_path, &encrypted).map_err(|e| e.to_string())?;
     }
     if let Some(cache) = saved_searches_cache {
         let encrypted = store_serialize(&cache).map_err(|e| e.to_string())?;
-        std::fs::write(&saved_searches_path, encrypted).map_err(|e| e.to_string())?;
+        paths::write_atomic(&saved_searches_path, &encrypted).map_err(|e| e.to_string())?;
     }
 
     Ok(())
@@ -276,11 +275,11 @@ pub fn disable_password_encryption(app: AppHandle) -> Result<(), String> {
 
     if let Some(cache) = settings_cache {
         let plaintext = serde_json::to_vec_pretty(&cache).map_err(|e| e.to_string())?;
-        std::fs::write(&settings_path, plaintext).map_err(|e| e.to_string())?;
+        paths::write_atomic(&settings_path, &plaintext).map_err(|e| e.to_string())?;
     }
     if let Some(cache) = saved_searches_cache {
         let plaintext = serde_json::to_vec_pretty(&cache).map_err(|e| e.to_string())?;
-        std::fs::write(&saved_searches_path, plaintext).map_err(|e| e.to_string())?;
+        paths::write_atomic(&saved_searches_path, &plaintext).map_err(|e| e.to_string())?;
     }
 
     Ok(())
@@ -299,6 +298,9 @@ pub fn reset_vault() -> Result<(), String> {
         if path.exists() {
             std::fs::remove_file(&path).map_err(|e| e.to_string())?;
         }
+    }
+    for bak in paths::store_bak_paths() {
+        let _ = std::fs::remove_file(bak);
     }
     Ok(())
 }

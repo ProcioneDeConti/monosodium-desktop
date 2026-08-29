@@ -99,7 +99,9 @@ pub fn set_cache_limit_mb(limit_mb: Option<i64>) -> Result<(), String> {
     std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
     let path = root.join(LIMIT_FILE);
     match limit_mb {
-        Some(mb) if mb > 0 => std::fs::write(&path, mb.to_string()).map_err(|e| e.to_string()),
+        Some(mb) if mb > 0 => {
+            paths::write_atomic(&path, mb.to_string().as_bytes()).map_err(|e| e.to_string())
+        }
         _ => {
             if path.exists() {
                 std::fs::remove_file(&path).map_err(|e| e.to_string())?;
@@ -115,5 +117,5 @@ pub fn set_cache_limit_mb(limit_mb: Option<i64>) -> Result<(), String> {
 pub fn request_cache_clear() -> Result<(), String> {
     let root = app_data_root();
     std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
-    std::fs::write(root.join(CLEAR_MARKER_FILE), "1").map_err(|e| e.to_string())
+    paths::write_atomic(&root.join(CLEAR_MARKER_FILE), b"1").map_err(|e| e.to_string())
 }
