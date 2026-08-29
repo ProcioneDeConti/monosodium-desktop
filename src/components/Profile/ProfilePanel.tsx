@@ -217,10 +217,11 @@ function ProfileContent({
           )}
           {profile.is_verified && (
             <span
-              className="inline-flex items-center gap-1 rounded-full bg-black/[0.06] px-2 py-0.5 text-[11px] font-semibold opacity-70 dark:bg-white/10"
+              className="inline-flex items-center gap-1 rounded-full border border-[#fcb328] bg-[#012e57]
+                         px-2 py-0.5 text-[11px] font-semibold text-white"
               title="Verified email"
             >
-              <BadgeCheck size={11} />
+              <BadgeCheck size={11} className="text-[#fcb328]" />
               Verified
             </span>
           )}
