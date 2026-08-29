@@ -426,10 +426,10 @@ pub struct CreatePostSetFields {
     pub is_public: bool,
 }
 
-/// Body for `post_sets/:id/add_posts.json` / `remove_posts.json`. **Confidence caveat**: the
-/// reference Android app has no post-set code at all, so the `{ post_ids: [...] }` JSON shape is
-/// inferred from the e621ng route definition, not verified against a live call - same class of
-/// caveat as `CreateTicketRequest`.
+/// Body for `POST post_sets/:id/add_posts.json` / `remove_posts.json`. Verified against e621ng
+/// source: `PostSetsController#add_remove_posts_params` is
+/// `params.extract!(:post_ids).permit(post_ids: []).require(:post_ids)`, i.e. a top-level
+/// `post_ids` array (not nested under `post_set`, and not the web form's `post_ids_string`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SetPostIdsRequest {
     pub post_ids: Vec<i64>,

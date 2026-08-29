@@ -778,7 +778,9 @@ pub async fn create_post_set(
         .map_err(|e| e.to_string())
 }
 
-/// Requires Basic Auth as the set's owner (or a maintainer). See `SetPostIdsRequest`'s caveat.
+/// Requires Basic Auth as the set's owner (or a maintainer). e621ng's `add_posts` action reads a
+/// top-level `post_ids` array (`params.extract!(:post_ids).permit(post_ids: []).require(:post_ids)`)
+/// and rejects an empty one, so an empty list is a no-op here.
 #[tauri::command]
 pub async fn add_posts_to_set(
     state: tauri::State<'_, AppState>,
@@ -786,6 +788,9 @@ pub async fn add_posts_to_set(
     set_id: i64,
     post_ids: Vec<i64>,
 ) -> Result<(), String> {
+    if post_ids.is_empty() {
+        return Ok(());
+    }
     let response = request(&state, site, Method::POST, &format!("post_sets/{set_id}/add_posts.json"))
         .await?
         .json(&SetPostIdsRequest { post_ids })
@@ -803,6 +808,9 @@ pub async fn remove_posts_from_set(
     set_id: i64,
     post_ids: Vec<i64>,
 ) -> Result<(), String> {
+    if post_ids.is_empty() {
+        return Ok(());
+    }
     let response = request(
         &state,
         site,

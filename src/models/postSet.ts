@@ -23,5 +23,7 @@ export function deriveShortname(name: string): string {
 }
 
 export function isValidShortname(shortname: string): boolean {
-  return /^[a-z0-9_]{3,50}$/.test(shortname);
+  // e621ng: 3-50 chars, lowercase a-z/0-9/underscore, AND at least one letter or underscore
+  // (a purely numeric shortname is rejected server-side).
+  return /^[a-z0-9_]{3,50}$/.test(shortname) && /[a-z_]/.test(shortname);
 }

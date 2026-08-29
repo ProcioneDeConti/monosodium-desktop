@@ -1012,9 +1012,15 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       `parent:<id>`. The reference app only ever printed parent ids as plain text. Bumped to 1.14.15.
 - [x] **Phase 4: Post sets** e621's user-curated post collections (`post_sets.json`) - never surfaced
       by either app. Backend: `PostSet` model + `get_post_sets`/`get_post_set`/`create_post_set`/
-      `add_posts_to_set`/`remove_posts_from_set` commands. **Confidence caveat** (`SetPostIdsRequest`
-      doc comment): the reference app has zero post-set code, so the add/remove `{ post_ids: [...] }`
-      JSON body is inferred from the e621ng route, not verified live. Frontend: `SetsPanel`
+      `add_posts_to_set`/`remove_posts_from_set` commands. **Verified against e621ng source** (1.14.20)
+      - `PostSetsController` + `PostSet` model + `routes.rb`: `{add,remove}_posts` are `POST
+      /post_sets/:id/{add,remove}_posts` reading a top-level `post_ids` array
+      (`params.extract!(:post_ids).permit(post_ids: []).require(:post_ids)`; an empty array is
+      rejected, so the commands no-op on empty); `create` permits `post_set[name/shortname/
+      description/is_public]`; `index` search params `name/shortname/creator_id/creator_name`; the
+      model has no `api_attributes` whitelist so all columns (incl. the `post_ids` PG array) are in
+      the JSON. Shortname: 3-50 `[a-z0-9_]` with at least one letter/underscore (`isValidShortname`
+      now matches). Frontend: `SetsPanel`
       (shell `SquareStack` button, gated on sign-in like Favorites) lists your sets, creates one
       (name → `deriveShortname`), and opens a set into a `PostGrid`/`PostViewer` view (`SetGridView`,
       same fixed-list pattern as `PoolPanel`/`PopularPanel`, `usePostSetPostsQuery` re-sorts by
