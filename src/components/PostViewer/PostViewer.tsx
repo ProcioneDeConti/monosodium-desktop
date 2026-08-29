@@ -6,6 +6,8 @@ import {
   ChevronRight,
   Download,
   Heart,
+  Maximize,
+  Minimize,
   Minus,
   Pause,
   Play,
@@ -39,6 +41,7 @@ import {
   SLIDESHOW_TRANSITIONS,
 } from "../../lib/slideshow";
 import { useDownloadsStore } from "../../state/downloadsStore";
+import { useFullscreen } from "../../lib/useFullscreen";
 import { IconButton } from "../ui/IconButton";
 
 const SLIDESHOW_TRANSITION_ANIMATION: Record<string, string> = {
@@ -111,6 +114,7 @@ export function PostViewer({
   const setSlideshowShuffle = useSettingsStore((s) => s.setSlideshowShuffle);
   const [downloadStatus, setDownloadStatus] = useState<"idle" | "queued">("idle");
   const enqueueDownload = useDownloadsStore((s) => s.enqueue);
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
   const [slideshowPaused, setSlideshowPaused] = useState(false);
   const [transitionMenuOpen, setTransitionMenuOpen] = useState(false);
   const transitionMenuRef = useRef<HTMLDivElement>(null);
@@ -247,6 +251,15 @@ export function PostViewer({
 
         <IconButton tone="invert" onClick={popOutWindow} title="Open in new window">
           <AppWindow size={16} />
+        </IconButton>
+
+        <IconButton
+          tone="invert"
+          onClick={() => void toggleFullscreen()}
+          title={isFullscreen ? "Exit fullscreen (F11)" : "Fullscreen (F11)"}
+          className={isFullscreen ? "!text-[rgb(var(--accent))]" : ""}
+        >
+          {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
         </IconButton>
 
         <IconButton

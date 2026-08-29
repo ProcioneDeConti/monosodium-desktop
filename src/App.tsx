@@ -31,6 +31,7 @@ import { useSaucenaoStore } from "./state/saucenaoStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
 import { normalizeQuery, withRandomOrder } from "./lib/searchQuery";
 import { useDownloadsStore } from "./state/downloadsStore";
+import { useFullscreen } from "./lib/useFullscreen";
 import { hexToRgbTriplet } from "./lib/color";
 import { cacheTagCategory } from "./lib/tagCategoryCache";
 import { CURRENT_EULA_HASH } from "./lib/eula";
@@ -136,6 +137,19 @@ function App() {
   useEffect(() => {
     void e621Api.getVaultStatus().then((status) => setVaultLocked(status.locked));
   }, []);
+
+  // F11 toggles OS fullscreen from anywhere (most useful for the viewer/slideshow).
+  const { toggle: toggleFullscreen } = useFullscreen();
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "F11") {
+        e.preventDefault();
+        void toggleFullscreen();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [toggleFullscreen]);
 
   // Global "back" affordances beyond the header button (which the full-screen overlays cover):
   // Alt+Left, the mouse's dedicated back button, and Backspace when not typing into a field.

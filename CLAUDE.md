@@ -1071,6 +1071,12 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       button (its old inline saving/saved/error state collapsed to a transient "queued" tick).
       No new e621 endpoints - all of this is `download_post_file` (the CDN) plus local state.
       Bumped to 1.14.23.
+- [x] **Phase 4: True fullscreen** `lib/useFullscreen.ts` - OS-level `getCurrentWindow().setFullscreen()`
+      (not the browser Fullscreen API; a Tauri window isn't in a fullscreen-capable document),
+      re-syncing via `onResized` so an OS-side exit is reflected. **F11** toggles it from anywhere
+      (`App`), plus a `Maximize`/`Minimize` button in `PostViewer`'s toolbar. Needed
+      `core:window:allow-set-fullscreen` + `core:window:allow-is-fullscreen` capabilities (the
+      narrowest, matching the existing `allow-set-title` precedent). Bumped to 1.14.24.
 
 ## Running it
 
