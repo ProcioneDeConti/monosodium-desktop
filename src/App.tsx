@@ -17,6 +17,7 @@ import { PopularPanel } from "./components/Popular/PopularPanel";
 import { SetsPanel } from "./components/Sets/SetsPanel";
 import { DownloadsPanel } from "./components/Downloads/DownloadsPanel";
 import { KeyboardCheatsheet } from "./components/KeyboardCheatsheet";
+import { HelpPanel } from "./components/Help/HelpPanel";
 import { ReverseSearchPanel } from "./components/ReverseSearch/ReverseSearchPanel";
 import { EulaScreen } from "./components/Eula/EulaScreen";
 import { UnlockScreen } from "./components/Vault/UnlockScreen";
@@ -144,6 +145,7 @@ function App() {
   // F11 toggles OS fullscreen from anywhere (most useful for the viewer/slideshow).
   const { toggle: toggleFullscreen } = useFullscreen();
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "F11") {
@@ -563,6 +565,7 @@ function App() {
       onSearch={runNewSearch}
       onOpenSettings={() => navigate({ settingsOpen: true })}
       onOpenCheatsheet={() => setCheatsheetOpen(true)}
+      onOpenHelp={() => setHelpOpen(true)}
       onOpenFavorites={account?.username ? () => runNewSearch(`fav:${account.username}`) : null}
       onOpenProfile={account?.username ? () => navigate({ profileTarget: "me" }) : null}
       onOpenMessages={account?.username ? () => navigate({ messagesOpen: true }) : null}
@@ -758,6 +761,8 @@ function App() {
       {downloadsOpen && <DownloadsPanel onClose={goBack} />}
 
       {cheatsheetOpen && <KeyboardCheatsheet onClose={() => setCheatsheetOpen(false)} />}
+
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
 
       {droppedImagePath && (
         <ReverseSearchPanel

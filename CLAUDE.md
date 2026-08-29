@@ -1124,7 +1124,18 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
         Your favorites, Your sets, Messages (count), ───, Switch to {other site}, and a
         non-interactive connection-health status line (absorbs the old site-toggle button + its
         health dot). Signed-out: a single "Sign in (Settings)" item + the site switch.
-      Bumped to 1.14.29.
+      Bumped to 1.14.29. View-menu icon later changed to `Eye` (1.14.30).
+- [x] **Profile redesign + Help page** (1.14.31)
+      - `ProfilePanel` reworked: an accent-gradient hero banner with a 112px avatar punched out
+        over its lower edge, larger name + level pill, a `Joined · #id` meta line and an "Open on
+        {site}" external link. "Posts" / "Favorites" are now `BigAction` cards (accent icon
+        circle, hint line, chevron); the stats grid gained a per-tile lucide icon; feedback is a
+        3-up tile row. Same props/data (`useUserProfileQuery` + `useAvatarUrl`), no new fields.
+      - `components/Help/HelpPanel.tsx` - a full-screen guide (Menu → Help, plain local state
+        like the cheatsheet, `Esc` to close) with a `md:` sticky section list on the left and 14
+        prose sections (getting started, searching, ratings, blacklist, grid, multi-select,
+        viewer, slideshow, tabs, places, downloads, reverse search, settings, tray/hotkey).
+        Section-list clicks `scrollIntoView` the matching `<section>` ref.
 
 This finishes the user's brainstormed post-Phase-3 batch (Popular, random/shuffle, grid hover
 quick-actions, parent/child, post sets, related tags, multi-select + bulk, download queue, true

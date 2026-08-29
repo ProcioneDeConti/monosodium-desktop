@@ -10,6 +10,7 @@ import {
   Eye,
   Heart,
   Keyboard,
+  LifeBuoy,
   LogIn,
   Mail,
   Maximize,
@@ -54,6 +55,7 @@ interface AppShellProps {
   onSearch: (query: string) => void;
   onOpenSettings: () => void;
   onOpenCheatsheet: () => void;
+  onOpenHelp: () => void;
   onOpenFavorites: (() => void) | null;
   onOpenProfile: (() => void) | null;
   onOpenMessages: (() => void) | null;
@@ -91,6 +93,7 @@ export function AppShell({
   onSearch,
   onOpenSettings,
   onOpenCheatsheet,
+  onOpenHelp,
   onOpenFavorites,
   onOpenProfile,
   onOpenMessages,
@@ -332,6 +335,9 @@ export function AppShell({
           </MenuItem>
 
           <MenuSeparator />
+          <MenuItem icon={<LifeBuoy size={15} />} onClick={onOpenHelp}>
+            Help
+          </MenuItem>
           <MenuItem icon={<Keyboard size={15} />} trailing="?" onClick={onOpenCheatsheet}>
             Keyboard shortcuts
           </MenuItem>
