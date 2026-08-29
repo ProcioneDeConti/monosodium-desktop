@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteLoader, useMasonry, usePositioner, useResizeObserver } from "masonic";
-import { downloadFileName, isVideo, playableUrl, type Post } from "../../models/post";
+import { playableUrl, type Post } from "../../models/post";
 import type { Site } from "../../models/site";
 import { PostThumbnail } from "./PostThumbnail";
 import { isBlacklisted, visiblePosts, type BlacklistEntries } from "../../lib/blacklist";
 import { usePostMutations } from "../../queries/usePostMutations";
 import { useAccountStore } from "../../state/accountStore";
 import { useSettingsStore } from "../../state/settingsStore";
-import { e621Api } from "../../api/client";
+import { useDownloadsStore } from "../../state/downloadsStore";
 
 interface PostGridProps {
   site: Site;
@@ -58,6 +58,7 @@ export function PostGrid({
   // referentially stable, so the callbacks below stay stable and don't churn masonic's cells.
   const canInteract = useAccountStore((s) => s.isAuthenticated(site));
   const downloadDir = useSettingsStore((s) => s.downloadDir);
+  const enqueueDownload = useDownloadsStore((s) => s.enqueue);
   const { vote, favorite, unfavorite } = usePostMutations(site);
   const onToggleFavorite = useCallback(
     (post: Post) => (post.is_favorited ? unfavorite.mutate(post.id) : favorite.mutate(post.id)),
@@ -67,13 +68,14 @@ export function PostGrid({
     (post: Post) => vote.mutate({ postId: post.id, direction: 1 }),
     [vote.mutate],
   );
+  // Route thumbnail downloads through the shared queue (see state/downloadsStore.ts + the
+  // Downloads panel). Resolves immediately - the thumbnail's own check just means "queued".
   const onDownload = useCallback(
     (post: Post) => {
-      const url = playableUrl(post);
-      if (!url) return Promise.reject(new Error("no file"));
-      return e621Api.downloadPostFile(url, downloadFileName(post), downloadDir, isVideo(post));
+      if (playableUrl(post)) enqueueDownload([post], downloadDir);
+      return Promise.resolve();
     },
-    [downloadDir],
+    [downloadDir, enqueueDownload],
   );
   const scrollIdleTimer = useRef<number | undefined>(undefined);
   const scrollRafPending = useRef(false);

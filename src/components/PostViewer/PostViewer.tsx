@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Post } from "../../models/post";
-import { downloadFileName, isDeleted, isVideo, playableUrl } from "../../models/post";
+import { isDeleted, isVideo, playableUrl } from "../../models/post";
 import type { Site } from "../../models/site";
 import { ZoomableImage } from "./ZoomableImage";
 import { VideoPlayer } from "./VideoPlayer";
@@ -38,7 +38,7 @@ import {
   MIN_SLIDESHOW_INTERVAL_SEC,
   SLIDESHOW_TRANSITIONS,
 } from "../../lib/slideshow";
-import { e621Api } from "../../api/client";
+import { useDownloadsStore } from "../../state/downloadsStore";
 import { IconButton } from "../ui/IconButton";
 
 const SLIDESHOW_TRANSITION_ANIMATION: Record<string, string> = {
@@ -109,9 +109,8 @@ export function PostViewer({
   const setSlideshowIntervalSec = useSettingsStore((s) => s.setSlideshowIntervalSec);
   const setSlideshowTransition = useSettingsStore((s) => s.setSlideshowTransition);
   const setSlideshowShuffle = useSettingsStore((s) => s.setSlideshowShuffle);
-  const [downloadStatus, setDownloadStatus] = useState<"idle" | "saving" | "saved" | "error">(
-    "idle",
-  );
+  const [downloadStatus, setDownloadStatus] = useState<"idle" | "queued">("idle");
+  const enqueueDownload = useDownloadsStore((s) => s.enqueue);
   const [slideshowPaused, setSlideshowPaused] = useState(false);
   const [transitionMenuOpen, setTransitionMenuOpen] = useState(false);
   const transitionMenuRef = useRef<HTMLDivElement>(null);
@@ -122,19 +121,11 @@ export function PostViewer({
     setDownloadStatus("idle");
   }, [post?.id]);
 
-  async function handleDownload() {
-    if (!post) return;
-    const fileUrl = playableUrl(post);
-    if (!fileUrl) return;
-    setDownloadStatus("saving");
-    try {
-      await e621Api.downloadPostFile(fileUrl, downloadFileName(post), downloadDir, isVideo(post));
-      setDownloadStatus("saved");
-      setTimeout(() => setDownloadStatus("idle"), 1500);
-    } catch {
-      setDownloadStatus("error");
-      setTimeout(() => setDownloadStatus("idle"), 2000);
-    }
+  function handleDownload() {
+    if (!post || !playableUrl(post)) return;
+    enqueueDownload([post], downloadDir);
+    setDownloadStatus("queued");
+    setTimeout(() => setDownloadStatus("idle"), 1500);
   }
 
   function popOutWindow() {
@@ -304,18 +295,12 @@ export function PostViewer({
           </IconButton>
           <IconButton
             tone="invert"
-            disabled={downloadStatus === "saving" || deletedOrMissing}
-            title={
-              downloadStatus === "saved"
-                ? "Saved"
-                : downloadStatus === "error"
-                  ? "Download failed"
-                  : "Download original file"
-            }
-            onClick={() => void handleDownload()}
-            className={downloadStatus === "saved" ? "!text-green-400" : downloadStatus === "error" ? "!text-red-400" : ""}
+            disabled={deletedOrMissing}
+            title={downloadStatus === "queued" ? "Added to downloads" : "Download original file"}
+            onClick={handleDownload}
+            className={downloadStatus === "queued" ? "!text-green-400" : ""}
           >
-            {downloadStatus === "saved" ? <Check size={16} /> : <Download size={16} />}
+            {downloadStatus === "queued" ? <Check size={16} /> : <Download size={16} />}
           </IconButton>
           {extraToolbarActions?.(post)}
           <AddToSetButton site={site} postId={post.id} isAuthenticated={isAuthenticated} />

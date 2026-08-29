@@ -164,7 +164,7 @@ function PostThumbnailImpl({
                 () => setDl("err"),
               );
             }}
-            title={dl === "err" ? "Download failed" : dl === "done" ? "Saved" : "Download file"}
+            title={dl === "err" ? "Download failed" : dl === "done" ? "Queued" : "Download file"}
             className={`pointer-events-auto flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white
                         hover:bg-black/75 ${dl === "done" ? "!text-green-400" : dl === "err" ? "!text-red-400" : ""}
                         ${dl === "saving" ? "opacity-60" : ""}`}

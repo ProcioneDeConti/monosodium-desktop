@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Bookmark,
   CheckSquare,
+  Download,
   Heart,
   Mail,
   MessagesSquare,
@@ -55,6 +56,8 @@ interface AppShellProps {
   onShuffle: () => void;
   onToggleSelection: () => void;
   selectionActive: boolean;
+  onOpenDownloads: () => void;
+  downloadsPending: number;
   isRefreshing: boolean;
   isLoadingPosts: boolean;
   children: ReactNode;
@@ -80,6 +83,8 @@ export function AppShell({
   onShuffle,
   onToggleSelection,
   selectionActive,
+  onOpenDownloads,
+  downloadsPending,
   isRefreshing,
   isLoadingPosts,
   children,
@@ -193,6 +198,20 @@ export function AppShell({
         >
           <CheckSquare size={16} />
         </IconButton>
+
+        <div className="relative">
+          <IconButton onClick={onOpenDownloads} title="Downloads">
+            <Download size={16} />
+          </IconButton>
+          {downloadsPending > 0 && (
+            <span
+              className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center
+                         rounded-full bg-[rgb(var(--accent))] px-1 text-[10px] font-bold leading-none text-white"
+            >
+              {downloadsPending > 9 ? "9+" : downloadsPending}
+            </span>
+          )}
+        </div>
 
         <Button onClick={toggleSite} title={`Switch active site · ${healthTitle}`}>
           <span

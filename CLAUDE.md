@@ -1059,6 +1059,18 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       `state/downloadsStore.ts`). Escape or the shell `CheckSquare` toggle exits; a new search
       clears the selection. `downloadsStore` is a session-only queue (concurrency 2, background
       `pump()`) that feeds the download queue panel (next entry). Bumped to 1.14.21.
+- [x] **Viewer chevron position** The next-post chevron sat at the far right edge of the window,
+      over the sidebar; both prev/next chevrons now live inside the media pane, so "next" bumps
+      against the left edge of the info/tags panel. Bumped to 1.14.22.
+- [x] **Phase 4: Download queue panel** `DownloadsPanel` (shell `Download` button with a pending-count
+      badge, `nav.downloadsOpen`) over `state/downloadsStore.ts`. Per-job rows: queued/active
+      (spinner)/done/error, with retry (error), remove, and "show in folder" (`revealItemInDir`
+      from `@tauri-apps/plugin-opener` - already covered by `opener:default`, no capability change).
+      Clear-finished / clear-all. **Every download now routes through the queue**: bulk "download
+      selected" (opens the panel), the `PostThumbnail` hover button, and the `PostViewer` toolbar
+      button (its old inline saving/saved/error state collapsed to a transient "queued" tick).
+      No new e621 endpoints - all of this is `download_post_file` (the CDN) plus local state.
+      Bumped to 1.14.23.
 
 ## Running it
 

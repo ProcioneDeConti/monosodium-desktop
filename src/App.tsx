@@ -14,6 +14,7 @@ import { ForumPanel } from "./components/Forum/ForumPanel";
 import { PoolPanel } from "./components/Pool/PoolPanel";
 import { PopularPanel } from "./components/Popular/PopularPanel";
 import { SetsPanel } from "./components/Sets/SetsPanel";
+import { DownloadsPanel } from "./components/Downloads/DownloadsPanel";
 import { ReverseSearchPanel } from "./components/ReverseSearch/ReverseSearchPanel";
 import { EulaScreen } from "./components/Eula/EulaScreen";
 import { UnlockScreen } from "./components/Vault/UnlockScreen";
@@ -54,6 +55,7 @@ interface NavState {
   poolTarget: number | null;
   popularOpen: boolean;
   setsOpen: boolean;
+  downloadsOpen: boolean;
 }
 
 const INITIAL_NAV: NavState = {
@@ -68,6 +70,7 @@ const INITIAL_NAV: NavState = {
   poolTarget: null,
   popularOpen: false,
   setsOpen: false,
+  downloadsOpen: false,
 };
 
 const MAX_NAV_HISTORY = 50;
@@ -127,6 +130,7 @@ function App() {
     poolTarget,
     popularOpen,
     setsOpen,
+    downloadsOpen,
   } = nav;
 
   useEffect(() => {
@@ -278,12 +282,14 @@ function App() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [setPickerOpen, setSetPickerOpen] = useState(false);
   const [bulkFav, setBulkFav] = useState<{ done: number; total: number } | null>(null);
-  const [queuedNote, setQueuedNote] = useState<number | null>(null);
   const lastSelIndexRef = useRef<number | null>(null);
   const shownPostsRef = useRef(shownPosts);
   shownPostsRef.current = shownPosts;
   const { favorite: favoriteMutation } = usePostMutations(site);
   const enqueueDownloads = useDownloadsStore((s) => s.enqueue);
+  const downloadsPending = useDownloadsStore(
+    (s) => s.jobs.filter((j) => j.status === "queued" || j.status === "active").length,
+  );
 
   const handleSelectToggle = useCallback((post: Post, opts: { range: boolean }) => {
     setSelectionActive(true);
@@ -355,7 +361,8 @@ function App() {
     forumOpen ||
     poolTarget !== null ||
     popularOpen ||
-    setsOpen;
+    setsOpen ||
+    downloadsOpen;
 
   // Escape leaves selection mode when it's the frontmost thing (no overlay, no set picker).
   useEffect(() => {
@@ -390,6 +397,7 @@ function App() {
       poolTarget: null,
       popularOpen: false,
       setsOpen: false,
+      downloadsOpen: false,
     });
   }
 
@@ -441,6 +449,8 @@ function App() {
       onShuffle={() => runNewSearch(withRandomOrder(activeQuery))}
       onToggleSelection={() => (selectionActive ? exitSelection() : setSelectionActive(true))}
       selectionActive={selectionActive}
+      onOpenDownloads={() => navigate({ downloadsOpen: true })}
+      downloadsPending={downloadsPending}
       isRefreshing={isRefetching}
       isLoadingPosts={isLoading || isFetchingNextPage || isRefetching}
     >
@@ -503,11 +513,9 @@ function App() {
                 onFavorite={() => void bulkFavorite()}
                 onAddToSet={() => setSetPickerOpen(true)}
                 onDownload={() => {
-                  const n = enqueueDownloads(selectedPosts, downloadDir);
-                  setQueuedNote(n);
-                  window.setTimeout(() => setQueuedNote(null), 2500);
+                  enqueueDownloads(selectedPosts, downloadDir);
+                  navigate({ downloadsOpen: true });
                 }}
-                queuedNote={queuedNote}
                 onExit={exitSelection}
               />
             )}
@@ -613,6 +621,8 @@ function App() {
           onClose={() => setSetPickerOpen(false)}
         />
       )}
+
+      {downloadsOpen && <DownloadsPanel onClose={goBack} />}
 
       {droppedImagePath && (
         <ReverseSearchPanel

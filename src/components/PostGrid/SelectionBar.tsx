@@ -6,8 +6,6 @@ interface SelectionBarProps {
   total: number;
   canInteract: boolean;
   favoriteProgress: { done: number; total: number } | null;
-  /** Transient "queued N downloads" note after pressing Download. */
-  queuedNote: number | null;
   onSelectAll: () => void;
   onClear: () => void;
   onFavorite: () => void;
@@ -22,7 +20,6 @@ export function SelectionBar({
   total,
   canInteract,
   favoriteProgress,
-  queuedNote,
   onSelectAll,
   onClear,
   onFavorite,
@@ -42,9 +39,7 @@ export function SelectionBar({
         <span className="px-2 font-semibold tabular-nums">
           {favoriteProgress
             ? `Favoriting ${favoriteProgress.done}/${favoriteProgress.total}…`
-            : queuedNote !== null
-              ? `Queued ${queuedNote} download${queuedNote === 1 ? "" : "s"}`
-              : `${count} selected`}
+            : `${count} selected`}
         </span>
 
         <button
