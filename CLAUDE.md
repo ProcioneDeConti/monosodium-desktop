@@ -1310,6 +1310,12 @@ live call before implementing (per user instruction - no more guessing).
       "every tag present" check the real filter uses (so it faithfully mirrors the app's
       no-negation behaviour, confirmed against the reference app's `entry.all { it in postTags }`).
       No Rust changes.
+- [x] **ID list import** (1.14.49) `components/Search/IdListImportDialog.tsx` - a modal (Menu →
+      "Open post IDs…") that takes a free-form paste (commas / spaces / newlines / post URLs),
+      pulls every `\d+` out, dedupes, caps at 320, and runs it as one `id:a,b,c` search through
+      the normal grid. Verified live that e621 accepts a comma list in one `id:` metatag (returns
+      the posts in id-desc order regardless of input order - fine for a grid, and keyset
+      pagination Just Works since that's the default order). No Rust changes.
 
 ## Running it
 

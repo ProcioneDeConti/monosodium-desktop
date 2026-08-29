@@ -24,6 +24,7 @@ import { DownloadsPanel } from "./components/Downloads/DownloadsPanel";
 import { KeyboardCheatsheet } from "./components/KeyboardCheatsheet";
 import { HelpPanel } from "./components/Help/HelpPanel";
 import { SearchBuilder } from "./components/Search/SearchBuilder";
+import { IdListImportDialog } from "./components/Search/IdListImportDialog";
 import { ReverseSearchPanel } from "./components/ReverseSearch/ReverseSearchPanel";
 import { EulaScreen } from "./components/Eula/EulaScreen";
 import { UnlockScreen } from "./components/Vault/UnlockScreen";
@@ -164,6 +165,7 @@ function App() {
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
+  const [idListOpen, setIdListOpen] = useState(false);
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "F11") {
@@ -613,6 +615,7 @@ function App() {
       onBack={goBack}
       onSearch={runNewSearch}
       onOpenSearchBuilder={() => setBuilderOpen(true)}
+      onOpenIdList={() => setIdListOpen(true)}
       onOpenWiki={() => navigate({ wikiTarget: "" })}
       onOpenSettings={() => navigate({ settingsOpen: true })}
       onOpenCheatsheet={() => setCheatsheetOpen(true)}
@@ -864,6 +867,16 @@ function App() {
           onClose={() => setBuilderOpen(false)}
           onApply={(q) => {
             setBuilderOpen(false);
+            runNewSearch(q);
+          }}
+        />
+      )}
+
+      {idListOpen && (
+        <IdListImportDialog
+          onClose={() => setIdListOpen(false)}
+          onSubmit={(q) => {
+            setIdListOpen(false);
             runNewSearch(q);
           }}
         />

@@ -10,6 +10,7 @@ import {
   Download,
   Eye,
   Heart,
+  Hash,
   Keyboard,
   Library,
   LifeBuoy,
@@ -56,6 +57,7 @@ interface AppShellProps {
   onBack: () => void;
   onSearch: (query: string) => void;
   onOpenSearchBuilder: () => void;
+  onOpenIdList: () => void;
   onOpenWiki: () => void;
   onOpenSettings: () => void;
   onOpenCheatsheet: () => void;
@@ -97,6 +99,7 @@ export function AppShell({
   onBack,
   onSearch,
   onOpenSearchBuilder,
+  onOpenIdList,
   onOpenWiki,
   onOpenSettings,
   onOpenCheatsheet,
@@ -351,6 +354,9 @@ export function AppShell({
           </MenuItem>
           <MenuItem icon={<Shuffle size={15} />} onClick={onShuffle}>
             Random posts
+          </MenuItem>
+          <MenuItem icon={<Hash size={15} />} onClick={onOpenIdList}>
+            Open post IDs…
           </MenuItem>
 
           <MenuSeparator />
