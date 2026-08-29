@@ -1525,6 +1525,24 @@ live call before implementing (per user instruction - no more guessing).
         the chosen line wraps past 2 lines (was: only for the balanced pool).
       - Not live-tested.
 
+- [x] **Favorites analysis: 30-minute result cache + 30-second start gap** (1.14.64 / .65)
+      `state/favoritesAnalysisCache.ts` (own plaintext `favorites-analysis-cache.json`
+      tauri-plugin-store file, not in the backup) does two things, both honouring e621's "make as
+      few API requests as possible" guidance:
+      - **Result cache**: a completed analysis (per site + user, ≤10 entries) is shown from cache
+        for **30 minutes** - re-opening the Dashboard renders the cached result instead of
+        re-fetching, skipping even the name→id lookup. `FavoritesAnalysisResult` gained
+        `cancelled` / `favoriteCount` / `gap` / `includeDeleted` so the cached view reproduces the
+        live-run notes. "Analyze again" is available (subject to the gap) - looking at cached
+        results doesn't lock you out.
+      - **Start gap**: starting *any* analysis (Start / Analyze again, across both the
+        "your favorites" and "another user" runners - it's a shared `lastStartedAt`) is gated to
+        once per **30 seconds**, with a "wait ~Ns (API courtesy)" note and a 1s ticker that
+        re-enables the button. Both the cache timestamp and the last-start time persist across app
+        restart.
+      - Not live-tested. (The card dialog's 5 `order:score` artist lookups are still per-open,
+        outside this.)
+
 ## Running it
 
 **The user runs/tests the app themselves — don't launch it or drive the GUI to verify changes**

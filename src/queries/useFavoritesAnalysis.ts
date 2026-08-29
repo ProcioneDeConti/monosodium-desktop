@@ -27,6 +27,20 @@ export interface ResolvedUser {
 
 export type AnalysisPhase = "idle" | "fetching" | "done" | "error";
 
+export interface FavoritesAnalysisResult {
+  analysis: FavoritesAnalysis;
+  sampled: number;
+  name: string;
+  avatarId: number | null;
+  /** Run stopped early by the user. */
+  cancelled: boolean;
+  /** The account's reported favourite count (null if private), for the "analyzed N of M" note. */
+  favoriteCount: number | null;
+  /** favouriteCount − sampled on a full run (posts that no longer exist); 0 otherwise. */
+  gap: number;
+  includeDeleted: boolean;
+}
+
 export interface FavoritesAnalysisState {
   phase: AnalysisPhase;
   name: string;
@@ -40,12 +54,7 @@ export interface FavoritesAnalysisState {
   elapsedMs: number;
   cancelled: boolean;
   error: string | null;
-  result: {
-    analysis: FavoritesAnalysis;
-    sampled: number;
-    name: string;
-    avatarId: number | null;
-  } | null;
+  result: FavoritesAnalysisResult | null;
 }
 
 const INITIAL: FavoritesAnalysisState = {
@@ -163,10 +172,14 @@ export function useFavoritesAnalysis(site: Site) {
       }
       if (!alive()) return;
 
+      const wasCancelled = cancelRef.current;
+      const fullRun = want === "all" || (fc != null && want >= fc);
+      const gap = !wasCancelled && fullRun && fc != null ? Math.max(0, fc - acc.total) : 0;
+
       setState((s) => ({
         ...s,
         phase: "done",
-        cancelled: cancelRef.current,
+        cancelled: wasCancelled,
         fetched: acc.total,
         elapsedMs: Date.now() - startedAtRef.current,
         result: {
@@ -174,6 +187,10 @@ export function useFavoritesAnalysis(site: Site) {
           sampled: acc.total,
           name: user.name,
           avatarId: user.avatarId,
+          cancelled: wasCancelled,
+          favoriteCount: fc,
+          gap,
+          includeDeleted: opts.includeDeleted,
         },
       }));
     },

@@ -43,6 +43,7 @@ import { loadAllAccounts, useAccountStore } from "./state/accountStore";
 import { loadSavedSearches } from "./state/savedSearchesStore";
 import { loadCollections } from "./state/collectionsStore";
 import { loadSearchHistory, useSearchHistoryStore } from "./state/searchHistoryStore";
+import { loadFavoritesAnalysisCache } from "./state/favoritesAnalysisCache";
 import { loadStats, flushStats, useStatsStore } from "./state/statsStore";
 import { startUsageSession } from "./lib/usageSession";
 import { useApiMetricsFold } from "./queries/useApiMetricsFold";
@@ -236,6 +237,7 @@ function App() {
       loadCollections(),
       loadSearchHistory(),
       loadStats(),
+      loadFavoritesAnalysisCache(),
       useSaucenaoStore.getState().load(),
     ]).finally(() => {
       setBooted(true);
