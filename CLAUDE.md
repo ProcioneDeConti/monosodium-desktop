@@ -1144,6 +1144,13 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
         `Access-Control-Allow-Origin: https://e621.net` (not `*`), so a canvas read of the plain
         `<img>` taints - a new `downloads::fetch_image_data_url` command (CDN image → `data:` URL,
         4 MB cap) makes the bytes same-origin so the canvas can read them.
+      - **(1.14.33)** Three tweaks after user feedback: (1) the banner now **fades out at the
+        bottom** via a `mask-image` alpha gradient instead of ending on a hard line; (2) the
+        colour algorithm was picking a large grey region over the actual hue - `pickDominant` is
+        now the **saturation²-weighted average** of the colourful, non-extreme pixels (falls back
+        to the plain average only when there's almost no colour anywhere), which returns the
+        avatar's real accent instead of grey (verified offline against a real avatar: old picked
+        `#c2b9b4`, new picks `#aad560`); (3) a stronger drop shadow behind the avatar.
 
 This finishes the user's brainstormed post-Phase-3 batch (Popular, random/shuffle, grid hover
 quick-actions, parent/child, post sets, related tags, multi-select + bulk, download queue, true
