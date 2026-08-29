@@ -16,6 +16,7 @@ import { e621Api } from "../api/client";
 import type { Rating } from "../models/post";
 import type { Site } from "../models/site";
 import type { SlideshowTransition } from "./slideshow";
+import type { ThemeMode } from "./theme";
 import { useAccountStore } from "../state/accountStore";
 import { useSaucenaoStore } from "../state/saucenaoStore";
 import { useSettingsStore } from "../state/settingsStore";
@@ -39,6 +40,8 @@ export interface SettingsBackup {
   adultModeEnabled: boolean;
   blacklist: string;
   accentColor: string;
+  /** Absent on a backup made before this field existed - `?? "system"` on read. */
+  themeMode?: ThemeMode;
   gridThumbnailSizePx: number;
   videoLoopEnabled: boolean;
   videoPlaybackSpeed: number;
@@ -70,6 +73,7 @@ export async function buildBackup(): Promise<SettingsBackup> {
     adultModeEnabled: settings.adultModeEnabled,
     blacklist: settings.blacklist,
     accentColor: settings.accentColor,
+    themeMode: settings.themeMode,
     gridThumbnailSizePx: settings.gridThumbnailSizePx,
     videoLoopEnabled: settings.videoLoopEnabled,
     videoPlaybackSpeed: settings.videoPlaybackSpeed,
@@ -101,6 +105,7 @@ export async function applyBackup(backup: SettingsBackup): Promise<void> {
   settings.setAdultModeEnabled(backup.adultModeEnabled);
   settings.setBlacklist(backup.blacklist);
   settings.setAccentColor(backup.accentColor);
+  settings.setThemeMode(backup.themeMode ?? "system");
   settings.setGridThumbnailSizePx(backup.gridThumbnailSizePx);
   settings.setVideoLoopEnabled(backup.videoLoopEnabled);
   settings.setVideoPlaybackSpeed(backup.videoPlaybackSpeed);

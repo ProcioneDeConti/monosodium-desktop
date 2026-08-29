@@ -44,6 +44,7 @@ import { normalizeQuery, withRandomOrder } from "./lib/searchQuery";
 import { useDownloadsStore } from "./state/downloadsStore";
 import { useFullscreen } from "./lib/useFullscreen";
 import { hexToRgbTriplet } from "./lib/color";
+import { applyTheme } from "./lib/theme";
 import { cacheTagCategory } from "./lib/tagCategoryCache";
 import { CURRENT_EULA_HASH } from "./lib/eula";
 import { notify } from "./lib/notifications";
@@ -245,6 +246,7 @@ function App() {
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
   const downloadDir = useSettingsStore((s) => s.downloadDir);
   const accentColor = useSettingsStore((s) => s.accentColor);
+  const themeMode = useSettingsStore((s) => s.themeMode);
   const ratingTagFilter = useSettingsStore((s) => s.ratingTagFilter);
   const adultModeEnabled = useSettingsStore((s) => s.adultModeEnabled);
   const enabledRatings = useSettingsStore((s) => s.enabledRatings);
@@ -281,6 +283,10 @@ function App() {
   useEffect(() => {
     document.documentElement.style.setProperty("--accent", hexToRgbTriplet(accentColor));
   }, [accentColor]);
+
+  // Re-applies whenever the mode changes and keeps a live listener for OS theme changes while
+  // on "system" - see lib/theme.ts.
+  useEffect(() => applyTheme(themeMode), [themeMode]);
 
   const blacklistEntries = useMemo(() => parseBlacklist(blacklist), [blacklist]);
 

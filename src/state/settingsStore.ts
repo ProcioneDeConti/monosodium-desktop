@@ -11,6 +11,7 @@ import { e621Api } from "../api/client";
 import type { Rating } from "../models/post";
 import type { Site } from "../models/site";
 import { parseBlacklist, type BlacklistEntries } from "../lib/blacklist";
+import type { ThemeMode } from "../lib/theme";
 import {
   clampSlideshowInterval,
   DEFAULT_SLIDESHOW_INTERVAL_SEC,
@@ -39,6 +40,8 @@ interface SettingsState {
   blacklistEntries: BlacklistEntries;
   blacklistDisabled: boolean;
   accentColor: string;
+  /** "system" follows the OS; "light"/"dark" force it (see lib/theme.ts). */
+  themeMode: ThemeMode;
   gridThumbnailSizePx: number;
   videoLoopEnabled: boolean;
   videoPlaybackSpeed: number;
@@ -57,6 +60,7 @@ interface SettingsState {
   setBlacklist: (blacklist: string) => void;
   setBlacklistDisabled: (disabled: boolean) => void;
   setAccentColor: (color: string) => void;
+  setThemeMode: (mode: ThemeMode) => void;
   setGridThumbnailSizePx: (size: number) => void;
   setVideoLoopEnabled: (enabled: boolean) => void;
   setVideoPlaybackSpeed: (speed: number) => void;
@@ -102,6 +106,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   blacklistEntries: [],
   blacklistDisabled: false,
   accentColor: "#6366f1",
+  themeMode: "system",
   gridThumbnailSizePx: DEFAULT_THUMBNAIL_SIZE_PX,
   videoLoopEnabled: true,
   videoPlaybackSpeed: DEFAULT_VIDEO_SPEED,
@@ -132,6 +137,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setAccentColor: (accentColor) => {
     set({ accentColor });
     void persist("accentColor", accentColor);
+  },
+  setThemeMode: (themeMode) => {
+    set({ themeMode });
+    void persist("themeMode", themeMode);
   },
   setGridThumbnailSizePx: (size) => {
     const clamped = Math.min(MAX_THUMBNAIL_SIZE_PX, Math.max(MIN_THUMBNAIL_SIZE_PX, size));
@@ -196,6 +205,7 @@ export async function loadSettings(): Promise<void> {
       blacklist,
       blacklistEntries: parseBlacklist(blacklist),
       accentColor: (values.accentColor as string) ?? state.accentColor,
+      themeMode: (values.themeMode as ThemeMode) ?? state.themeMode,
       gridThumbnailSizePx: (values.gridThumbnailSizePx as number) ?? state.gridThumbnailSizePx,
       videoLoopEnabled: (values.videoLoopEnabled as boolean) ?? state.videoLoopEnabled,
       videoPlaybackSpeed: (values.videoPlaybackSpeed as number) ?? state.videoPlaybackSpeed,

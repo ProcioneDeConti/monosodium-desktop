@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getVersion } from "@tauri-apps/api/app";
-import { CheckCircle2, FolderOpen, X } from "lucide-react";
+import { CheckCircle2, FolderOpen, Monitor, Moon, Sun, X } from "lucide-react";
 import {
   DEFAULT_THUMBNAIL_SIZE_PX,
   MAX_VIDEO_SPEED,
@@ -42,6 +42,12 @@ const ACCENT_PRESETS = [
   "#06b6d4", // cyan
 ];
 
+const THEME_OPTIONS = [
+  { value: "system", label: "System", icon: Monitor },
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+] as const;
+
 const RATING_OPTIONS: { value: Rating; label: string }[] = [
   { value: "s", label: "Safe" },
   { value: "q", label: "Questionable" },
@@ -63,6 +69,8 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   const setEnabledRatings = useSettingsStore((s) => s.setEnabledRatings);
   const accentColor = useSettingsStore((s) => s.accentColor);
   const setAccentColor = useSettingsStore((s) => s.setAccentColor);
+  const themeMode = useSettingsStore((s) => s.themeMode);
+  const setThemeMode = useSettingsStore((s) => s.setThemeMode);
   const videoLoopEnabled = useSettingsStore((s) => s.videoLoopEnabled);
   const setVideoLoopEnabled = useSettingsStore((s) => s.setVideoLoopEnabled);
   const videoAutoplayEnabled = useSettingsStore((s) => s.videoAutoplayEnabled);
@@ -170,6 +178,27 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
           </Section>
 
           <Section title="Appearance">
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-sm w-36 shrink-0">Theme</span>
+              <div className="inline-flex overflow-hidden rounded-[var(--radius-md)] border border-black/10 dark:border-white/10">
+                {THEME_OPTIONS.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => setThemeMode(o.value)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors ${
+                      themeMode === o.value
+                        ? "bg-[rgb(var(--accent))]/20 text-[rgb(var(--accent))]"
+                        : "hover:bg-black/5 dark:hover:bg-white/10"
+                    }`}
+                  >
+                    <o.icon size={14} />
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex items-center gap-2">
               {ACCENT_PRESETS.map((color) => (
                 <button

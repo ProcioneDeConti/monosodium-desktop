@@ -11,6 +11,7 @@ import { loadSettings, useSettingsStore } from "../state/settingsStore";
 import { loadAllAccounts } from "../state/accountStore";
 import { parseBlacklist } from "../lib/blacklist";
 import { hexToRgbTriplet } from "../lib/color";
+import { applyTheme } from "../lib/theme";
 
 interface PostWindowProps {
   postId: number;
@@ -29,6 +30,7 @@ interface PostWindowProps {
 export function PostWindow({ postId, site }: PostWindowProps) {
   const [booted, setBooted] = useState(false);
   const accentColor = useSettingsStore((s) => s.accentColor);
+  const themeMode = useSettingsStore((s) => s.themeMode);
   const blacklist = useSettingsStore((s) => s.blacklist);
   const blacklistDisabled = useSettingsStore((s) => s.blacklistDisabled);
 
@@ -39,6 +41,8 @@ export function PostWindow({ postId, site }: PostWindowProps) {
   useEffect(() => {
     document.documentElement.style.setProperty("--accent", hexToRgbTriplet(accentColor));
   }, [accentColor]);
+
+  useEffect(() => applyTheme(themeMode), [themeMode]);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["standalonePost", site, postId],

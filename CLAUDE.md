@@ -1290,6 +1290,17 @@ live call before implementing (per user instruction - no more guessing).
       `useCollectionPostsQuery` (`id:` search, re-sorted to stored order, 320 cap - same approach
       as `usePoolPostsQuery`). Wired into `App.tsx` as `NavState.collectionsOpen`; reachable from
       `AppShell`'s Menu → Collections (works signed out). No Rust changes.
+- [x] **Theme override** (1.14.47) `Settings > Appearance` gains a System / Light / Dark segmented
+      control (`settingsStore.themeMode`, persisted). `lib/theme.ts` resolves the mode to a
+      concrete light/dark and stamps `data-theme` on `<html>` (+ `style.colorScheme`), keeping a
+      `matchMedia` listener alive for OS changes while on "system". `index.css` swaps Tailwind's
+      `dark:` variant to an `@custom-variant` that keys off `[data-theme="dark"]`, with a
+      `prefers-color-scheme` + `:root:not([data-theme])` fallback for the pre-boot frame; the
+      plain-CSS body rules got the same treatment. `main.tsx` calls `applyTheme(cachedThemeMode())`
+      before first paint from a `localStorage` mirror so a forced theme doesn't flash the OS one
+      before the store hydrates; `App.tsx`/`PostWindow.tsx` re-apply from the store on
+      `themeMode` change. Added to `lib/backup.ts`'s snapshot (`?? "system"` on read). No Rust
+      changes.
 
 ## Running it
 

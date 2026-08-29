@@ -6,7 +6,12 @@ import { queryClient } from "./lib/queryClient";
 import App from "./App";
 import { PostWindow } from "./components/PostWindow";
 import { BrowserNotice } from "./components/BrowserNotice";
+import { applyTheme, cachedThemeMode } from "./lib/theme";
 import "./index.css";
+
+// Stamp the theme before first paint from the localStorage cache (settingsStore re-applies the
+// authoritative value once it hydrates) so a forced light/dark doesn't flash the OS theme.
+applyTheme(cachedThemeMode());
 
 // A popped-out post window (see PostViewer's "Open in new window" button) loads this same
 // index.html with ?post=<id>&site=<site> in its URL instead of a route - this app has no

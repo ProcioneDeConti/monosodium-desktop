@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/* Theme override (lib/theme.ts / Settings > Appearance): lib/theme.ts stamps a concrete
+   `data-theme="light|dark"` on <html>. Tailwind's `dark:` variant keys off that, with a
+   prefers-color-scheme fallback for the single frame before the JS runs (system users only -
+   a forced theme is cached in localStorage and applied in main.tsx before first paint). */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme]), :root:not([data-theme]) *) {
+      @slot;
+    }
+  }
+}
+
 :root {
   color-scheme: light dark;
   --accent: 99 102 241; /* indigo-500, default accent - overridden by Settings via --accent */
@@ -31,10 +46,20 @@ body {
 }
 
 @media (prefers-color-scheme: dark) {
-  body {
+  :root:not([data-theme]) body {
     background-color: rgb(32 32 32 / 0.6);
     color: rgb(240 240 240);
   }
+}
+
+[data-theme="dark"] body {
+  background-color: rgb(32 32 32 / 0.6);
+  color: rgb(240 240 240);
+}
+
+[data-theme="light"] body {
+  background-color: rgb(243 243 243 / 0.6);
+  color: rgb(20 20 20);
 }
 
 * {
