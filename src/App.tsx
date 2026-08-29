@@ -562,6 +562,7 @@ function App() {
       onBack={goBack}
       onSearch={runNewSearch}
       onOpenSettings={() => navigate({ settingsOpen: true })}
+      onOpenCheatsheet={() => setCheatsheetOpen(true)}
       onOpenFavorites={account?.username ? () => runNewSearch(`fav:${account.username}`) : null}
       onOpenProfile={account?.username ? () => navigate({ profileTarget: "me" }) : null}
       onOpenMessages={account?.username ? () => navigate({ messagesOpen: true }) : null}
@@ -579,6 +580,10 @@ function App() {
       onOpenDownloads={() => navigate({ downloadsOpen: true })}
       downloadsPending={downloadsPending}
       onNewTab={newTab}
+      blacklistActive={blacklistEntries.length > 0}
+      blacklistDisabled={blacklistDisabled}
+      onToggleBlacklistDisabled={setBlacklistDisabled}
+      accountAvatarId={ownProfile?.avatar_id ?? null}
       tabBar={
         tabs.length >= 2 ? (
           <TabBar
@@ -609,19 +614,8 @@ function App() {
         </div>
       ) : (
         <div className="flex h-full flex-col">
-          {blacklistEntries.length > 0 && (
-            <div className="flex items-center justify-end gap-2 px-3 py-1 text-xs opacity-70 shrink-0">
-              <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={blacklistDisabled}
-                  onChange={(e) => setBlacklistDisabled(e.target.checked)}
-                  className="accent-[rgb(var(--accent))]"
-                />
-                Show blacklisted posts
-              </label>
-            </div>
-          )}
+          {/* "Show blacklisted posts" moved into the View menu (AppShell). A caution stripe still
+              marks any shown-but-blacklisted post so the state stays visible. */}
           <div className="relative flex-1 min-h-0">
             <PostGrid
               key={`${site}:${effectiveTags}`}

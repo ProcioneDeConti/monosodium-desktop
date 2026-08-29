@@ -1109,6 +1109,23 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       already-paged results, though scroll resets to top. `TabBar` (shell, shown only at 2+ tabs)
       + a `Columns2` shell button + `Ctrl+T`/`Ctrl+W`/`Ctrl+Tab`/`Ctrl+1..9`. Bumped to 1.14.28.
 
+- [x] **Top-bar declutter into 3 menus** The header had ~15 controls; the user asked to keep only
+      Refresh + Select on the bar and fold the rest into menus. New shared `components/ui/Menu.tsx`
+      (`Menu`/`MenuItem`/`MenuSeparator`/`MenuLabel`/`MenuRow`, outside-click/Escape/`MenuCloseContext`
+      auto-close - replaces the hand-rolled popover pattern). Bar is now:
+      `[Back?] [home] [Search] [Refresh] [Select] [View ▾] [Menu ▾] [Account ▾]`.
+      - **View** (`SlidersHorizontal`): thumbnail-size slider, "Show blacklisted posts" toggle
+        (moved out of the loose row above the grid), New tab, Fullscreen, and the full Slideshow
+        section (interval/transition/shuffle/Start - the old `AppShell` popover, inlined).
+      - **Menu** (hamburger): Popular, Saved searches, Forum (dot), Downloads (count), Random posts,
+        ───, Keyboard shortcuts, Settings. Trigger shows an accent dot when forum-unread or a
+        download is active.
+      - **Account** (avatar via `useAvatarUrl`, or `User` glyph signed-out; mail dot): Profile,
+        Your favorites, Your sets, Messages (count), ───, Switch to {other site}, and a
+        non-interactive connection-health status line (absorbs the old site-toggle button + its
+        health dot). Signed-out: a single "Sign in (Settings)" item + the site switch.
+      Bumped to 1.14.29.
+
 This finishes the user's brainstormed post-Phase-3 batch (Popular, random/shuffle, grid hover
 quick-actions, parent/child, post sets, related tags, multi-select + bulk, download queue, true
 fullscreen, recent search history, keyboard cheatsheet, metatag autocomplete, tabs). None
