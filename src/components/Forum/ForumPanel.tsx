@@ -1,14 +1,35 @@
-import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, Send, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, MessagesSquare, Search, Send, X } from "lucide-react";
 import type { Site } from "../../models/site";
+import type { ForumPost } from "../../models/forum";
 import { errorMessage } from "../../lib/errors";
-import { useForumPostsQuery, useForumReply, useForumTopicQuery, useForumTopicsQuery } from "../../queries/useForumQuery";
+import { useDebouncedValue } from "../../lib/useDebouncedValue";
+import {
+  useForumPostsQuery,
+  useForumReply,
+  useForumSearchQuery,
+  useForumTopicQuery,
+  useForumTopicsQuery,
+  useForumTopicTitles,
+} from "../../queries/useForumQuery";
 import { useAccountStore } from "../../state/accountStore";
+import { useUserAvatarUrl } from "../../queries/useAvatarUrl";
+import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Spinner } from "../ui/Spinner";
 import { ForumPostRow } from "./ForumPostRow";
 import { ForumTopicRow } from "./ForumTopicRow";
+
+/** Rough DText-tag strip for a plain-text search snippet. */
+function snippet(body: string, len = 220): string {
+  const plain = body
+    .replace(/\[\/?[a-z][^\]]*\]/gi, "")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return plain.length > len ? `${plain.slice(0, len)}…` : plain;
+}
 
 interface ForumPanelProps {
   site: Site;
@@ -26,6 +47,8 @@ type View = { type: "list" } | { type: "topic"; id: number; title: string };
  *  replying to existing ones (forum_posts.json), never creating a topic. */
 export function ForumPanel({ site, onClose, onOpenSettings, onOpenProfile }: ForumPanelProps) {
   const [view, setView] = useState<View>({ type: "list" });
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search.trim(), 350);
 
   // Stable identity (never recreated across renders) - TopicDetail depends on this in a
   // useEffect, and a fresh closure every render would otherwise re-fire that effect every time
@@ -49,9 +72,37 @@ export function ForumPanel({ site, onClose, onOpenSettings, onOpenProfile }: For
           </IconButton>
         </div>
 
+        {view.type === "list" && (
+          <div className="shrink-0 border-b border-black/10 dark:border-white/10 px-3 py-2">
+            <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/30 px-2 py-1">
+              <Search size={14} className="shrink-0 opacity-50" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search forum posts…"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch("")} aria-label="Clear" className="shrink-0 opacity-50 hover:opacity-100">
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto">
           {view.type === "list" ? (
-            <TopicsList site={site} onOpenTopic={(id, title) => setView({ type: "topic", id, title })} />
+            debouncedSearch.length >= 2 ? (
+              <ForumSearchResults
+                site={site}
+                query={debouncedSearch}
+                onOpenTopic={(id, title) => setView({ type: "topic", id, title })}
+                onOpenProfile={onOpenProfile}
+              />
+            ) : (
+              <TopicsList site={site} onOpenTopic={(id, title) => setView({ type: "topic", id, title })} />
+            )
           ) : (
             <TopicDetail
               site={site}
@@ -111,6 +162,127 @@ function TopicsList({ site, onOpenTopic }: { site: Site; onOpenTopic: (id: numbe
         </div>
       )}
     </div>
+  );
+}
+
+function ForumSearchResults({
+  site,
+  query,
+  onOpenTopic,
+  onOpenProfile,
+}: {
+  site: Site;
+  query: string;
+  onOpenTopic: (id: number, title: string) => void;
+  onOpenProfile: (userId: number) => void;
+}) {
+  const { data, isLoading, isError, error, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useForumSearchQuery(site, query);
+  const posts = useMemo(() => data?.pages.flatMap((p) => p.posts) ?? [], [data]);
+  const { data: titles } = useForumTopicTitles(
+    site,
+    useMemo(() => posts.map((p) => p.topic_id), [posts]),
+  );
+
+  function onScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    if (hasNextPage && !isFetchingNextPage && el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
+      void fetchNextPage();
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center gap-2 text-sm opacity-60">
+        <Spinner size={15} />
+        Searching…
+      </div>
+    );
+  }
+  if (isError) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
+        <span className="max-w-xs text-center text-red-500">{errorMessage(error)}</span>
+        <Button onClick={() => void refetch()}>Retry</Button>
+      </div>
+    );
+  }
+  if (posts.length === 0) {
+    return <div className="flex h-32 items-center justify-center text-sm opacity-60">No matching posts.</div>;
+  }
+
+  return (
+    <div className="h-full overflow-y-auto px-2" onScroll={onScroll}>
+      <div className="flex flex-col">
+        {posts.map((p) => (
+          <ForumSearchResultRow
+            key={p.id}
+            site={site}
+            post={p}
+            topicTitle={titles?.[p.topic_id]}
+            onOpen={() => onOpenTopic(p.topic_id, titles?.[p.topic_id] ?? `Topic #${p.topic_id}`)}
+            onOpenProfile={onOpenProfile}
+          />
+        ))}
+      </div>
+      {isFetchingNextPage && (
+        <div className="flex items-center justify-center py-3">
+          <Spinner size={16} className="opacity-60" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ForumSearchResultRow({
+  site,
+  post,
+  topicTitle,
+  onOpen,
+  onOpenProfile,
+}: {
+  site: Site;
+  post: ForumPost;
+  topicTitle: string | undefined;
+  onOpen: () => void;
+  onOpenProfile: (userId: number) => void;
+}) {
+  const { data: avatarUrl } = useUserAvatarUrl(site, post.creator_id);
+  const creatorId = post.creator_id;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full gap-2.5 rounded-[var(--radius-sm)] border-b border-black/5 px-2 py-3 text-left
+                 transition-colors last:border-0 hover:bg-black/[0.03] dark:border-white/5 dark:hover:bg-white/[0.04]"
+    >
+      <Avatar url={avatarUrl} name={post.creator_name ?? "?"} size={30} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 text-xs text-[rgb(var(--accent))]">
+          <MessagesSquare size={12} className="shrink-0" />
+          <span className="truncate font-semibold">{topicTitle ?? `Topic #${post.topic_id}`}</span>
+        </div>
+        <div className="mt-0.5 flex items-center gap-2 text-[11px] opacity-55">
+          <span
+            role={creatorId != null ? "link" : undefined}
+            onClick={
+              creatorId != null
+                ? (e) => {
+                    e.stopPropagation();
+                    onOpenProfile(creatorId);
+                  }
+                : undefined
+            }
+            className={creatorId != null ? "font-medium hover:text-[rgb(var(--accent))] hover:underline" : ""}
+          >
+            {post.creator_name ?? "?"}
+          </span>
+          {post.created_at && <span>· {new Date(post.created_at).toLocaleDateString()}</span>}
+        </div>
+        <p className="mt-1 text-sm leading-relaxed opacity-80">{snippet(post.body)}</p>
+      </div>
+    </button>
   );
 }
 

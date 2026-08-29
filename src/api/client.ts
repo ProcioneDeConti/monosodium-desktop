@@ -208,8 +208,9 @@ export const e621Api = {
     return invoke("get_wiki_page", { site, title });
   },
 
-  getForumTopics(site: Site, page?: string): Promise<ForumTopic[]> {
-    return invoke("get_forum_topics", { site, page: page ?? null });
+  /** `ids` (comma-separated) does a batch topic lookup for forum-search result titles. */
+  getForumTopics(site: Site, page?: string | null, ids?: string | null): Promise<ForumTopic[]> {
+    return invoke("get_forum_topics", { site, page: page ?? null, ids: ids ?? null });
   },
 
   /** Used to check is_locked/is_sticky before allowing a reply. */
@@ -219,6 +220,11 @@ export const e621Api = {
 
   getForumPosts(site: Site, topicId: number, page?: string): Promise<ForumPost[]> {
     return invoke("get_forum_posts", { site, topicId, page: page ?? null });
+  },
+
+  /** Full-text search over forum post bodies. */
+  searchForumPosts(site: Site, query: string, page?: string): Promise<ForumPost[]> {
+    return invoke("search_forum_posts", { site, query, page: page ?? null });
   },
 
   createForumPost(site: Site, topicId: number, body: string): Promise<ForumPost> {

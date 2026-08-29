@@ -1206,6 +1206,18 @@ and related-tags fixes verified via e621ng source).
       rendered off-screen+hidden until measured, and closed on any scroll/resize (a fixed element
       can't track the scrolling sidebar). The `AppShell` `Menu` component is safe by construction
       (header at top, right-aligned).
+- [x] **Forum: oldest-first threads + post search** (1.14.39)
+      - **Ordering**: `forum_posts.json` defaults to newest-first; a thread should read
+        top-to-bottom. `get_forum_posts` now sends `search[order]=id_asc` and `useForumPostsQuery`
+        switched to numbered pages (keyset `b<id>` only works for the default order - same lesson
+        as the `get_posts` pagination fix). A new reply is still the highest id / last page, so
+        `useForumReply`'s append-to-last-page patch is still correct.
+      - **Search**: `search_forum_posts` command (`forum_posts.json?search[body_matches]=`, public,
+        newest-first, numbered). `ForumPanel`'s list view gets a debounced search box; a query
+        (≥2 chars) swaps the topics list for result rows (topic title + creator/date + a
+        tag-stripped snippet, click opens that topic). Titles come from one batched
+        `get_forum_topics(ids=…)` call (new optional `ids` param → `search[id]=1,2,3`), via
+        `useForumTopicTitles`.
 
 ## Running it
 

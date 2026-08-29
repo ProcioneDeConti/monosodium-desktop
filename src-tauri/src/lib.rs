@@ -131,6 +131,7 @@ pub fn run() {
             api::get_forum_topics,
             api::get_forum_topic,
             api::get_forum_posts,
+            api::search_forum_posts,
             api::create_forum_post,
             api::get_pool,
             api::get_popular_posts,

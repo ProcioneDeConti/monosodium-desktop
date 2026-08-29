@@ -599,10 +599,18 @@ pub async fn get_forum_topics(
     state: tauri::State<'_, AppState>,
     site: Site,
     page: Option<String>,
+    // Comma-separated topic ids for a batch title lookup (forum-search results). Overrides `page`.
+    ids: Option<String>,
 ) -> Result<Vec<ForumTopic>, String> {
-    let mut query: Vec<(&str, String)> = vec![("limit", "50".to_string())];
-    if let Some(p) = page {
-        query.push(("page", p));
+    let mut query: Vec<(&str, String)> = Vec::new();
+    if let Some(i) = ids {
+        query.push(("search[id]", i));
+        query.push(("limit", "320".to_string()));
+    } else {
+        query.push(("limit", "50".to_string()));
+        if let Some(p) = page {
+            query.push(("page", p));
+        }
     }
     let response = request(&state, site, Method::GET, "forum_topics.json")
         .await?
@@ -636,7 +644,10 @@ pub async fn get_forum_topic(
         .map_err(|e| e.to_string())
 }
 
-/// Public; no auth required to browse.
+/// Public; no auth required to browse. Ordered **oldest-first** (`search[order]=id_asc`) - a
+/// thread reads top-to-bottom like every other forum; the API's default is newest-first.
+/// `page` is a numbered page (`"1"`, `"2"`, …), not a keyset cursor - keyset only works for the
+/// default order (same reason `get_posts` uses numbered pages for non-default orders).
 #[tauri::command]
 pub async fn get_forum_posts(
     state: tauri::State<'_, AppState>,
@@ -644,14 +655,47 @@ pub async fn get_forum_posts(
     topic_id: i64,
     page: Option<String>,
 ) -> Result<Vec<ForumPost>, String> {
-    let mut query: Vec<(&str, String)> =
-        vec![("search[topic_id]", topic_id.to_string()), ("limit", "50".to_string())];
+    let mut query: Vec<(&str, String)> = vec![
+        ("search[topic_id]", topic_id.to_string()),
+        ("search[order]", "id_asc".to_string()),
+        ("limit", "50".to_string()),
+    ];
     if let Some(p) = page {
         query.push(("page", p));
     }
     let response = request(&state, site, Method::GET, "forum_posts.json")
         .await?
         .query(&query)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Vec<ForumPost>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Full-text search over forum post bodies (`search[body_matches]`). Public; newest-first;
+/// numbered pages.
+#[tauri::command]
+pub async fn search_forum_posts(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    query: String,
+    page: Option<String>,
+) -> Result<Vec<ForumPost>, String> {
+    let mut params: Vec<(&str, String)> = vec![
+        ("search[body_matches]", query),
+        ("search[order]", "id_desc".to_string()),
+        ("limit", "40".to_string()),
+    ];
+    if let Some(p) = page {
+        params.push(("page", p));
+    }
+    let response = request(&state, site, Method::GET, "forum_posts.json")
+        .await?
+        .query(&params)
         .send()
         .await
         .map_err(|e| e.to_string())?;

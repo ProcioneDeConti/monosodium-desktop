@@ -39,25 +39,70 @@ export function useForumTopicQuery(site: Site, topicId: number | null) {
   });
 }
 
+const FORUM_PAGE_LIMIT = 50;
+const FORUM_SEARCH_LIMIT = 40;
+const MAX_FORUM_PAGE = 750;
+
 export interface ForumPostsPage {
   posts: ForumPost[];
-  nextCursor: string | null;
+  nextPage: number | null;
 }
 
 export function forumPostsQueryKey(site: Site, topicId: number) {
   return ["forumPosts", site, topicId] as const;
 }
 
+/** Oldest-first (see get_forum_posts) via numbered pages - keyset only works for the default
+ *  newest-first order. */
 export function useForumPostsQuery(site: Site, topicId: number) {
   return useInfiniteQuery({
     queryKey: forumPostsQueryKey(site, topicId),
     queryFn: async ({ pageParam }): Promise<ForumPostsPage> => {
-      const posts = await e621Api.getForumPosts(site, topicId, pageParam);
-      return { posts, nextCursor: posts.length > 0 ? `b${posts[posts.length - 1].id}` : null };
+      const posts = await e621Api.getForumPosts(site, topicId, String(pageParam));
+      const nextPage =
+        posts.length === FORUM_PAGE_LIMIT && pageParam < MAX_FORUM_PAGE ? pageParam + 1 : null;
+      return { posts, nextPage };
     },
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
     staleTime: 30_000,
+  });
+}
+
+export interface ForumSearchPage {
+  posts: ForumPost[];
+  nextPage: number | null;
+}
+
+/** Full-text search over forum post bodies (newest-first, numbered pages). */
+export function useForumSearchQuery(site: Site, query: string) {
+  const trimmed = query.trim();
+  return useInfiniteQuery({
+    queryKey: ["forumSearch", site, trimmed],
+    queryFn: async ({ pageParam }): Promise<ForumSearchPage> => {
+      const posts = await e621Api.searchForumPosts(site, trimmed, String(pageParam));
+      const nextPage =
+        posts.length === FORUM_SEARCH_LIMIT && pageParam < MAX_FORUM_PAGE ? pageParam + 1 : null;
+      return { posts, nextPage };
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
+    enabled: trimmed.length >= 2,
+    staleTime: 60_000,
+  });
+}
+
+/** Batch topic-title lookup for forum-search results (one request for the whole result set). */
+export function useForumTopicTitles(site: Site, topicIds: number[]) {
+  const key = [...new Set(topicIds)].sort((a, b) => a - b).join(",");
+  return useQuery({
+    queryKey: ["forumTopicTitles", site, key],
+    queryFn: async () => {
+      const topics = await e621Api.getForumTopics(site, null, key);
+      return Object.fromEntries(topics.map((t) => [t.id, t.title])) as Record<number, string>;
+    },
+    enabled: key.length > 0,
+    staleTime: 5 * 60_000,
   });
 }
 
