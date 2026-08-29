@@ -7,6 +7,7 @@ import {
   CheckSquare,
   Columns2,
   Download,
+  Eye,
   Heart,
   Keyboard,
   LogIn,
@@ -21,7 +22,6 @@ import {
   Repeat,
   Settings as SettingsIcon,
   Shuffle,
-  SlidersHorizontal,
   SquareStack,
   TrendingUp,
   User,
@@ -207,7 +207,7 @@ export function AppShell({
         </IconButton>
 
         {/* View menu - how the results look and play */}
-        <Menu icon={<SlidersHorizontal size={16} />} title="View options" width="w-64">
+        <Menu icon={<Eye size={16} />} title="View options" width="w-64">
           <MenuLabel>Display</MenuLabel>
           <MenuRow>
             <span className="opacity-80">Thumbnail size</span>

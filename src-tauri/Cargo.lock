@@ -2445,7 +2445,7 @@ dependencies = [
 
 [[package]]
 name = "monosodium-desktop"
-version = "1.14.29"
+version = "1.14.30"
 dependencies = [
  "aes-gcm",
  "base64 0.23.1",
