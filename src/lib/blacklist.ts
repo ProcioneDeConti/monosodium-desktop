@@ -49,6 +49,25 @@ export function matchingBlacklistTags(entries: BlacklistEntries, post: Post): Se
   return new Set(matchingEntries(entries, post).flat());
 }
 
+export interface BlacklistLineTest {
+  /** The line's tags, space-joined, as written. */
+  line: string;
+  tags: string[];
+  matched: boolean;
+  /** Tags on this line the post does NOT have - why the line didn't match (empty when it did). */
+  missingTags: string[];
+}
+
+/** Per-line breakdown of how `post` fares against each blacklist line - powers Settings'
+ *  blacklist tester. A post is hidden iff any line has `matched: true`. */
+export function testBlacklist(entries: BlacklistEntries, post: Post): BlacklistLineTest[] {
+  const postTags = postTagSet(post);
+  return entries.map((tags) => {
+    const missingTags = tags.filter((t) => !postTags.has(t));
+    return { line: tags.join(" "), tags, matched: missingTags.length === 0, missingTags };
+  });
+}
+
 /** The post list as actually displayed: unfiltered while the blacklist is disabled (posts get a
  *  caution-stripe instead), otherwise blacklisted posts removed entirely. Shared between PostGrid
  *  and the post viewer so both index into the exact same array. */

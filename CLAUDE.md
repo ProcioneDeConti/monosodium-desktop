@@ -1301,6 +1301,15 @@ live call before implementing (per user instruction - no more guessing).
       before the store hydrates; `App.tsx`/`PostWindow.tsx` re-apply from the store on
       `themeMode` change. Added to `lib/backup.ts`'s snapshot (`?? "system"` on read). No Rust
       changes.
+- [x] **Blacklist tester** (1.14.48) A `BlacklistTester` sub-component in
+      `components/Settings/BlacklistSection.tsx` - paste a post ID or a `posts/<id>` URL, fetch it
+      (`getPosts` `id:` search), and see a line-by-line breakdown of how the *draft* blacklist
+      (unsaved edits included) treats it: verdict ("hidden by N lines" / "not blacklisted"), each
+      matching line highlighted red, each non-matching line greyed with "post lacks {tags}".
+      `lib/blacklist.ts`'s new `testBlacklist(entries, post)` reuses the same `postTagSet` +
+      "every tag present" check the real filter uses (so it faithfully mirrors the app's
+      no-negation behaviour, confirmed against the reference app's `entry.all { it in postTags }`).
+      No Rust changes.
 
 ## Running it
 
