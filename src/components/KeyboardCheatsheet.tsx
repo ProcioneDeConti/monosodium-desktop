@@ -64,7 +64,7 @@ export function KeyboardCheatsheet({ onClose }: KeyboardCheatsheetProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4"
       onClick={onClose}
     >
       <div

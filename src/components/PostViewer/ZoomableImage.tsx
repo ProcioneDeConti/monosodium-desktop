@@ -206,7 +206,7 @@ function NoteOverlay({
         <div
           onClick={(e) => e.stopPropagation()}
           className="absolute left-0 top-full z-10 mt-1 w-56 max-w-[80vw] rounded-[var(--radius-sm)]
-                     border border-white/10 bg-black/90 p-2 text-xs text-white shadow-xl backdrop-blur-sm"
+                     border border-white/10 bg-black/90 p-2 text-xs text-white shadow-xl"
         >
           <DText text={note.body} site={site} className="leading-relaxed" />
         </div>

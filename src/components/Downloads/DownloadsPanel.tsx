@@ -32,7 +32,7 @@ export function DownloadsPanel({ onClose }: DownloadsPanelProps) {
   const hasFinished = jobs.some((j) => j.status === "done" || j.status === "error");
 
   return (
-    <div className="fixed inset-0 z-[55] flex justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[55] flex justify-center bg-black/60 p-4" onClick={onClose}>
       <div
         className="mt-8 flex h-fit max-h-[80vh] w-full max-w-md animate-[scale-in_120ms_ease-out] flex-col
                    rounded-[var(--radius-md)] border border-black/10 dark:border-white/10

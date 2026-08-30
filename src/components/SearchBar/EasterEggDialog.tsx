@@ -20,7 +20,7 @@ export function EasterEggDialog({ onClose }: EasterEggDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex animate-[fade-in_150ms_ease-out] items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex animate-[fade-in_150ms_ease-out] items-center justify-center bg-black/70"
       onClick={onClose}
     >
       <div

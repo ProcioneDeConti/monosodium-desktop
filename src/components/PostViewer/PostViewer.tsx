@@ -250,7 +250,7 @@ export function PostViewer({
   const favPending = favorite.isPending || unfavorite.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] flex-col bg-black/90 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] flex-col bg-black/90">
       <div className="flex shrink-0 items-center gap-2 px-3 py-2 text-white">
         <IconButton tone="invert" onClick={onClose} title="Close (Esc)">
           <X size={18} />

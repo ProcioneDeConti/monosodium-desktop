@@ -59,7 +59,7 @@ export function SelectionBar({
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center p-3">
       <div
         className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-black/10 dark:border-white/10
-                   bg-[rgb(250,250,250)]/95 dark:bg-[rgb(28,28,28)]/95 px-2 py-1.5 text-sm shadow-xl shadow-black/20 backdrop-blur"
+                   bg-[rgb(250,250,250)]/95 dark:bg-[rgb(28,28,28)]/95 px-2 py-1.5 text-sm shadow-xl shadow-black/20"
       >
         <span className="px-2 font-semibold tabular-nums">
           {progress
