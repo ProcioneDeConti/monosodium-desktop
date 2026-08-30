@@ -23,9 +23,10 @@
   --radius-sm: 6px;
 }
 
-/* The Tauri window is created transparent with Mica applied (see src-tauri/src/lib.rs), so the
-   page background must stay translucent for the backdrop to actually show through - an opaque
-   body here would just paint over it. */
+/* The window is opaque (see src-tauri/src/lib.rs / tauri.conf.json). A transparent window +
+   Mica backdrop forces the whole webview to be alpha-composited over the desktop every frame,
+   which on Windows disables WebView2's GPU compositing fast paths and makes all scrolling and
+   animation materially slower - not worth the translucency. Keep these backgrounds fully opaque. */
 html,
 body,
 #root {
@@ -34,7 +35,7 @@ body,
 }
 
 body {
-  background-color: rgb(243 243 243 / 0.6);
+  background-color: rgb(243 243 243);
   color: rgb(20 20 20);
   font-family:
     "Segoe UI Variable",
@@ -47,18 +48,18 @@ body {
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) body {
-    background-color: rgb(32 32 32 / 0.6);
+    background-color: rgb(32 32 32);
     color: rgb(240 240 240);
   }
 }
 
 [data-theme="dark"] body {
-  background-color: rgb(32 32 32 / 0.6);
+  background-color: rgb(32 32 32);
   color: rgb(240 240 240);
 }
 
 [data-theme="light"] body {
-  background-color: rgb(243 243 243 / 0.6);
+  background-color: rgb(243 243 243);
   color: rgb(20 20 20);
 }
 

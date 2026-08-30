@@ -14,11 +14,11 @@ This is a personal project, not affiliated with or endorsed by e621 or e6AI. It 
 - **User profiles** - your own profile and any post's uploader (avatar, level, join date, stats, feedback, about/artist info), with shortcuts into their posts and favorites.
 - **Downloads** - save a post's original file with one click, into your Pictures/Videos folder by default or a folder of your choice (Settings).
 - **Adjustable content ratings** - an adult-mode master switch plus per-rating (Safe/Questionable/Explicit) toggles.
-- **Accent color theming**, a Mica window backdrop, and a random welcome greeting in Settings.
+- **Accent color theming**, a light/dark/system theme override, and a random welcome greeting in Settings.
 
 ## Requirements
 
-- Windows 11 (uses the built-in WebView2 runtime and Mica backdrop)
+- Windows 11 (uses the built-in WebView2 runtime)
 - An e621 and/or e6AI account (optional, and separate from each other) - required for voting, favoriting, and blacklist sync; browsing works without one
 
 ## Building

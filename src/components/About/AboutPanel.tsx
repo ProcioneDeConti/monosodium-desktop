@@ -36,7 +36,6 @@ const STACK: { group: string; items: string[] }[] = [
       "serde",
       "governor",
       "aes-gcm · pbkdf2 · sha2",
-      "window-vibrancy",
     ],
   },
   { group: "Platform", items: ["Windows 11 WebView2 (Chromium)"] },

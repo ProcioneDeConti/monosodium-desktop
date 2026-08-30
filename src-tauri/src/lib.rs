@@ -66,10 +66,9 @@ pub fn run() {
         .manage(api::AppState::new())
         .setup(|app| {
             let window = app.get_webview_window("main").expect("main window");
-            // Windows 11 Mica backdrop; `None` follows the system light/dark preference.
-            // Best-effort: older Windows builds without Mica support just keep the plain
-            // background, so a failure here shouldn't prevent the app from starting.
-            let _ = window_vibrancy::apply_mica(&window, None);
+            // The window is intentionally opaque (no `transparent: true`, no Mica). A translucent
+            // window is alpha-composited over the desktop every frame, which disables WebView2's
+            // GPU compositing fast paths on Windows and makes all scrolling/animation slower.
 
             // Closing the window hides it to the tray instead of quitting, so the tray icon and
             // notifications mean something (a fully-quit app can't notify) - "Quit" in the tray

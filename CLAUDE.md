@@ -60,7 +60,8 @@ src-tauri/src/
   downloads.rs    download_post_file - fetches a post's CDN URL and writes it to disk
                   (Pictures/Videos/"Monosodium Desktop" by default, or the Settings-configured
                   folder)
-  lib.rs          plugin/window/command wiring, Mica backdrop setup
+  lib.rs          plugin/window/command wiring, tray icon, global shortcut (window is opaque -
+                  no transparency/Mica, for WebView2 compositing performance on Windows)
 
 src/
   models/         TS interfaces mirroring src-tauri/src/models.rs (post.ts, user.ts, site.ts)
