@@ -211,7 +211,10 @@ export function PostGrid({
     height: size.height || 1,
     scrollTop,
     isScrolling,
-    overscanBy: 3,
+    // How many viewport-heights of off-screen cells to keep mounted. Each PostThumbnail is a
+    // dozen-odd nodes plus SVG icons, so 3 was a lot of resident DOM on a large monitor; 2 still
+    // covers a fast fling without popping.
+    overscanBy: 2,
     itemHeightEstimate: thumbnailSizePx,
     itemKey: (post) => post.id,
     render: renderCell,

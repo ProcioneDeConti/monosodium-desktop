@@ -60,6 +60,10 @@ function PostThumbnailImpl({
   const rating = RATING_STYLE[post.rating] ?? RATING_STYLE.e;
   const [loaded, setLoaded] = useState(() => !!thumbUrl && loadedThumbUrls.has(thumbUrl));
   const [errored, setErrored] = useState(false);
+  // The hover action cluster is only mounted while the pointer is actually over this cell -
+  // masonic keeps a couple of viewport-heights of cells mounted, so a permanently-mounted
+  // (just visually hidden) cluster meant thousands of extra nodes + SVG icons resident.
+  const [hovered, setHovered] = useState(false);
   const [dl, setDl] = useState<"idle" | "saving" | "done" | "err">("idle");
   const [favBusy, setFavBusy] = useState(false);
   const [voteBusy, setVoteBusy] = useState(false);
@@ -79,6 +83,8 @@ function PostThumbnailImpl({
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{ aspectRatio: aspectRatio(post) }}
       className={`group relative block w-full overflow-hidden rounded-[var(--radius-md)] border
                   bg-black/5 dark:bg-white/5 transition-shadow duration-150
@@ -122,10 +128,10 @@ function PostThumbnailImpl({
         >
           {selected && <Check size={14} strokeWidth={3} />}
         </span>
-      ) : (
+      ) : hovered ? (
         /* Hover quick-actions - favourite / upvote / download without opening the viewer. Each
-         *  swallows the click so it doesn't also open the post. */
-        <div className="pointer-events-none absolute left-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+         *  swallows the click so it doesn't also open the post. Mounted only while hovered. */
+        <div className="pointer-events-none absolute left-1.5 top-1.5 flex gap-1 animate-[fade-in_120ms_ease-out]">
           {canInteract && (
             <>
               <span
@@ -192,7 +198,7 @@ function PostThumbnailImpl({
             {dl === "done" ? <Check size={13} /> : <Download size={13} />}
           </span>
         </div>
-      )}
+      ) : null}
 
       {/* Always-visible info dock, mirroring the reference app's PostThumbnail InfoDock: rating
        *  anchors the left edge and filetype the right, with score and the favorite star between -
