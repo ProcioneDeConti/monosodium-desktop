@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Download,
   Heart,
+  Expand,
   Maximize,
   Minimize,
   Minus,
@@ -119,6 +120,11 @@ export function PostViewer({
   const setSlideshowTransition = useSettingsStore((s) => s.setSlideshowTransition);
   const setSlideshowShuffle = useSettingsStore((s) => s.setSlideshowShuffle);
   const [downloadStatus, setDownloadStatus] = useState<"idle" | "queued">("idle");
+  // Images display the ~850px `sample` by default - decoding a full-res original (routinely
+  // several thousand px / many MB, and animated GIF/APNG playing at full size) on the main
+  // thread is a real source of stutter, especially advancing a slideshow. Toggle loads the
+  // original for the current post (resets each time you navigate).
+  const [showOriginal, setShowOriginal] = useState(false);
   const enqueueDownload = useDownloadsStore((s) => s.enqueue);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
   const [slideshowPaused, setSlideshowPaused] = useState(false);
@@ -129,6 +135,7 @@ export function PostViewer({
 
   useEffect(() => {
     setDownloadStatus("idle");
+    setShowOriginal(false);
   }, [post?.id]);
 
   function handleDownload() {
@@ -244,6 +251,12 @@ export function PostViewer({
   const url = playableUrl(post);
   const deleted = isDeleted(post);
   const deletedOrMissing = deleted || !url;
+  // The image the viewer actually displays: the sample by default, the original when toggled
+  // (or when there's no distinct sample). Videos always play the original `url`.
+  const sampleUrl = post.sample.url;
+  const canToggleResolution = !isVideo(post) && !!sampleUrl && sampleUrl !== post.file.url;
+  // Falls back to `url` (and "" only in the deleted/missing branch, which never renders the image).
+  const imageSrc: string = (showOriginal || !canToggleResolution ? url : sampleUrl) ?? url ?? "";
   const voteTitle = isAuthenticated ? undefined : "Sign in (Settings) to vote";
   const favTitle = isAuthenticated ? undefined : "Sign in (Settings) to favorite";
   const votePending = vote.isPending;
@@ -282,6 +295,17 @@ export function PostViewer({
             <Play size={16} className="fill-current" />
           )}
         </IconButton>
+
+        {canToggleResolution && (
+          <IconButton
+            tone="invert"
+            onClick={() => setShowOriginal((v) => !v)}
+            title={showOriginal ? "Viewing original - click for the smaller sample" : "View original resolution"}
+            className={showOriginal ? "!text-[rgb(var(--accent))]" : ""}
+          >
+            <Expand size={16} />
+          </IconButton>
+        )}
 
         <div className="ml-auto flex items-center gap-0.5 rounded-[var(--radius-md)] bg-white/5 p-0.5">
           <IconButton
@@ -379,7 +403,7 @@ export function PostViewer({
             ) : (
               <ZoomableImage
                 key={post.id}
-                src={url}
+                src={imageSrc}
                 alt={`Post ${post.id}`}
                 site={site}
                 notes={notes}
