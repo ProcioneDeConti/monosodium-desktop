@@ -1574,6 +1574,35 @@ live call before implementing (per user instruction - no more guessing).
       user shows the cache too (the runner re-checks after resolving). 1s ticker in the component
       drives the countdown and drops expired rows. Not live-tested.
 
+- [x] **Performance pass 2** (1.14.70 - 1.14.73) Static-check only, no behaviour change beyond
+      the two noted below. Investigated after a report of app-wide sluggishness on a fast laptop.
+      - **(1.14.70) Opaque window.** Dropped `transparent: true` + `window_vibrancy::apply_mica`
+        + the 60%-opacity body backgrounds. A translucent window is alpha-composited over the
+        desktop every frame, which disables WebView2's GPU compositing fast paths on Windows and
+        slows *all* scrolling/animation regardless of what's on screen - the single biggest
+        always-on cost. `window-vibrancy` removed as a dependency. **Visible change**: no more
+        Mica see-through; the window is a plain solid `rgb(243 243 243)` / `rgb(32 32 32)`.
+      - **(1.14.71) No more `backdrop-blur`.** A viewport-sized `backdrop-filter` is one of the
+        priciest paints in Chromium and re-runs whenever anything behind it changes. Every
+        overlay already sat on a `bg-black/60`-`90` scrim, so it cost a lot and showed little.
+        Removed from every overlay/dialog and the grid `SelectionBar`.
+      - **(1.14.72) Viewer shows the sample, not the original.** `PostViewer` decoded
+        `post.file.url` (full-res original, often multi-thousand-px / many MB, animated GIF/APNG
+        at full size) on every open and slideshow advance. Now displays `post.sample.url` (~850px)
+        with an **Expand** toolbar button to load the original for the current post (resets on
+        nav). Videos unchanged; downloads still fetch the original; note-overlay alignment is
+        measured from the rendered box so it's unaffected.
+      - **(1.14.73) Lighter grid.** `PostGrid` `overscanBy` 3 → 2; `PostThumbnail`'s hover
+        quick-action cluster is mounted only while that cell is hovered instead of permanently
+        mounted-but-hidden on every cell.
+      - **Deliberately not done this pass** (noted for later): the steady-state 30-60s polls
+        (`useUserProfileQuery("me")`, `useApiMetricsFold`, `useHealthCheck`) that re-render App
+        while idle; `statsStore.recordPostView` serializing the full snapshot (incl. a 20k-int
+        array) through the vault crypto path on every viewed post; `usageSession`'s per-mousemove
+        work; `display:none`-ing the grid behind an open overlay (marginal, and risks masonic
+        scroll-position drift).
+      - Not live-tested - the user profiles/tests the app.
+
 ## Running it
 
 **The user runs/tests the app themselves — don't launch it or drive the GUI to verify changes**
