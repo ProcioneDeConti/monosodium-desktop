@@ -30,6 +30,11 @@ export function ZoomableImage({ src, alt, site, notes, imageWidth, imageHeight }
   const dragState = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(
     null,
   );
+  // Pan updates are coalesced to one setOffset per frame - a fast drag fires several mousemove
+  // events between paints, and each state update re-renders this component (and, with notes, a
+  // getBoundingClientRect pass).
+  const dragRaf = useRef<number | null>(null);
+  const pendingMouse = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     setScale(1);
@@ -38,11 +43,18 @@ export function ZoomableImage({ src, alt, site, notes, imageWidth, imageHeight }
     setImgRect(null);
   }, [src]);
 
+  useEffect(() => () => {
+    if (dragRaf.current != null) cancelAnimationFrame(dragRaf.current);
+  }, []);
+
   // Tracks the image's actual on-screen box (already reflecting the pan/zoom transform below,
   // since getBoundingClientRect() reports the post-transform box) so note overlays can be
   // positioned in plain screen pixels without duplicating the transform math - see NoteOverlay.
+  // Only runs when there are notes to place: otherwise this fired two getBoundingClientRect()s
+  // per zoom/pan frame on every image for nothing (the overwhelming majority have no notes).
+  const hasNotes = !!notes && notes.length > 0;
   useLayoutEffect(() => {
-    if (!loaded) return;
+    if (!loaded || !hasNotes) return;
     function measure() {
       const img = imgRef.current;
       const container = containerRef.current;
@@ -59,7 +71,7 @@ export function ZoomableImage({ src, alt, site, notes, imageWidth, imageHeight }
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [loaded, scale, offset]);
+  }, [loaded, hasNotes, scale, offset]);
 
   function clampScale(next: number) {
     return Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
@@ -104,12 +116,28 @@ export function ZoomableImage({ src, alt, site, notes, imageWidth, imageHeight }
 
   function onMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     if (!dragState.current) return;
-    const { startX, startY, originX, originY } = dragState.current;
-    setOffset({ x: originX + (e.clientX - startX), y: originY + (e.clientY - startY) });
+    pendingMouse.current = { x: e.clientX, y: e.clientY };
+    if (dragRaf.current != null) return;
+    dragRaf.current = requestAnimationFrame(() => {
+      dragRaf.current = null;
+      const d = dragState.current;
+      const m = pendingMouse.current;
+      if (!d || !m) return;
+      setOffset({ x: d.originX + (m.x - d.startX), y: d.originY + (m.y - d.startY) });
+    });
   }
 
   function endDrag() {
+    const d = dragState.current;
     dragState.current = null;
+    if (dragRaf.current != null) {
+      cancelAnimationFrame(dragRaf.current);
+      dragRaf.current = null;
+    }
+    // Commit the final mouse position so the image doesn't snap back the last sub-frame of drag.
+    const m = pendingMouse.current;
+    if (d && m) setOffset({ x: d.originX + (m.x - d.startX), y: d.originY + (m.y - d.startY) });
+    pendingMouse.current = null;
   }
 
   return (
