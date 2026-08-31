@@ -35,7 +35,11 @@ import { HistoryPanel } from "./HistoryPanel";
 import { usePostMutations } from "../../queries/usePostMutations";
 import { usePostNotesQuery } from "../../queries/usePostNotesQuery";
 import { useAccountStore } from "../../state/accountStore";
-import { useSettingsStore } from "../../state/settingsStore";
+import {
+  clampViewerSidebar,
+  DEFAULT_VIEWER_SIDEBAR_PX,
+  useSettingsStore,
+} from "../../state/settingsStore";
 import { matchingBlacklistTags, type BlacklistEntries } from "../../lib/blacklist";
 import {
   MAX_SLIDESHOW_INTERVAL_SEC,
@@ -132,6 +136,44 @@ export function PostViewer({
   const transitionMenuRef = useRef<HTMLDivElement>(null);
   const [sidebarTab, setSidebarTab] = useState<"tags" | "comments" | "history">("tags");
   const [relatedTagFor, setRelatedTagFor] = useState<string | null>(null);
+
+  // Resizable info/tags sidebar - drag the divider; width persists in settings (and the backup).
+  const sidebarWidth = useSettingsStore((s) => s.viewerSidebarWidthPx);
+  const setSidebarWidth = useSettingsStore((s) => s.setViewerSidebarWidthPx);
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const resizeStart = useRef<{ x: number; w: number } | null>(null);
+  const effectiveSidebarWidth = dragWidth ?? sidebarWidth;
+
+  function onSidebarResizeStart(e: React.MouseEvent) {
+    e.preventDefault();
+    resizeStart.current = { x: e.clientX, w: sidebarWidth };
+    setDragWidth(sidebarWidth);
+  }
+
+  useEffect(() => {
+    if (dragWidth === null) return;
+    function onMove(e: MouseEvent) {
+      const s = resizeStart.current;
+      if (s) setDragWidth(clampViewerSidebar(s.w + (s.x - e.clientX)));
+    }
+    function onUp() {
+      const s = resizeStart.current;
+      resizeStart.current = null;
+      setDragWidth((w) => {
+        if (w != null && s && w !== s.w) setSidebarWidth(w);
+        return null;
+      });
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    // Attaches once when a drag begins (dragWidth: null -> number) and detaches on release;
+    // onMove mutates dragWidth but the null/non-null identity the guard keys on doesn't change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragWidth === null, setSidebarWidth]);
 
   useEffect(() => {
     setDownloadStatus("idle");
@@ -520,7 +562,19 @@ export function PostViewer({
           )}
         </div>
 
-        <aside className="w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[rgb(20,20,20)]/95 px-3 py-3 text-white">
+        <div
+          onMouseDown={onSidebarResizeStart}
+          onDoubleClick={() => setSidebarWidth(DEFAULT_VIEWER_SIDEBAR_PX)}
+          title="Drag to resize · double-click to reset"
+          className={`z-20 w-1.5 shrink-0 cursor-col-resize transition-colors hover:bg-[rgb(var(--accent))]/70
+                      ${dragWidth !== null ? "bg-[rgb(var(--accent))]" : "bg-white/10"}`}
+        />
+
+        <aside
+          style={{ width: effectiveSidebarWidth }}
+          className={`shrink-0 overflow-y-auto bg-[rgb(20,20,20)]/95 px-3 py-3 text-white
+                      ${dragWidth !== null ? "select-none" : ""}`}
+        >
           <section className="mb-4">
             <h2 className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-60">Info</h2>
             <InfoPanel

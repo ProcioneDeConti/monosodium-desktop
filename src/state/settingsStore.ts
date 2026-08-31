@@ -29,6 +29,11 @@ export const MIN_VIDEO_SPEED = 0.25;
 export const MAX_VIDEO_SPEED = 2.0;
 export const STEP_VIDEO_SPEED = 0.25;
 export const DEFAULT_VIDEO_SPEED = 1;
+export const DEFAULT_VIEWER_SIDEBAR_PX = 320;
+export const MIN_VIEWER_SIDEBAR_PX = 260;
+export const MAX_VIEWER_SIDEBAR_PX = 620;
+export const clampViewerSidebar = (px: number) =>
+  Math.round(Math.min(MAX_VIEWER_SIDEBAR_PX, Math.max(MIN_VIEWER_SIDEBAR_PX, px)));
 
 interface SettingsState {
   isLoaded: boolean;
@@ -43,6 +48,8 @@ interface SettingsState {
   /** "system" follows the OS; "light"/"dark" force it (see lib/theme.ts). */
   themeMode: ThemeMode;
   gridThumbnailSizePx: number;
+  /** Width of the post viewer's info/tags sidebar, in px (drag the divider to resize). */
+  viewerSidebarWidthPx: number;
   videoLoopEnabled: boolean;
   videoPlaybackSpeed: number;
   videoAutoplayEnabled: boolean;
@@ -66,6 +73,7 @@ interface SettingsState {
   setAccentColor: (color: string) => void;
   setThemeMode: (mode: ThemeMode) => void;
   setGridThumbnailSizePx: (size: number) => void;
+  setViewerSidebarWidthPx: (px: number) => void;
   setVideoLoopEnabled: (enabled: boolean) => void;
   setVideoPlaybackSpeed: (speed: number) => void;
   setVideoAutoplayEnabled: (enabled: boolean) => void;
@@ -113,6 +121,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   accentColor: "#6366f1",
   themeMode: "system",
   gridThumbnailSizePx: DEFAULT_THUMBNAIL_SIZE_PX,
+  viewerSidebarWidthPx: DEFAULT_VIEWER_SIDEBAR_PX,
   videoLoopEnabled: true,
   videoPlaybackSpeed: DEFAULT_VIDEO_SPEED,
   videoAutoplayEnabled: true,
@@ -152,6 +161,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const clamped = Math.min(MAX_THUMBNAIL_SIZE_PX, Math.max(MIN_THUMBNAIL_SIZE_PX, size));
     set({ gridThumbnailSizePx: clamped });
     void persist("gridThumbnailSizePx", clamped);
+  },
+  setViewerSidebarWidthPx: (px) => {
+    const clamped = clampViewerSidebar(px);
+    set({ viewerSidebarWidthPx: clamped });
+    void persist("viewerSidebarWidthPx", clamped);
   },
   setVideoLoopEnabled: (videoLoopEnabled) => {
     set({ videoLoopEnabled });
@@ -217,6 +231,10 @@ export async function loadSettings(): Promise<void> {
       accentColor: (values.accentColor as string) ?? state.accentColor,
       themeMode: (values.themeMode as ThemeMode) ?? state.themeMode,
       gridThumbnailSizePx: (values.gridThumbnailSizePx as number) ?? state.gridThumbnailSizePx,
+      viewerSidebarWidthPx:
+        values.viewerSidebarWidthPx != null
+          ? clampViewerSidebar(values.viewerSidebarWidthPx as number)
+          : state.viewerSidebarWidthPx,
       videoLoopEnabled: (values.videoLoopEnabled as boolean) ?? state.videoLoopEnabled,
       videoPlaybackSpeed: (values.videoPlaybackSpeed as number) ?? state.videoPlaybackSpeed,
       videoAutoplayEnabled: (values.videoAutoplayEnabled as boolean) ?? state.videoAutoplayEnabled,

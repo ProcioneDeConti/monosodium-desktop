@@ -19,7 +19,7 @@ import type { SlideshowTransition } from "./slideshow";
 import type { ThemeMode } from "./theme";
 import { useAccountStore } from "../state/accountStore";
 import { useSaucenaoStore } from "../state/saucenaoStore";
-import { useSettingsStore } from "../state/settingsStore";
+import { DEFAULT_VIEWER_SIDEBAR_PX, useSettingsStore } from "../state/settingsStore";
 import {
   applyStatsBackup,
   statsBackupAggregates,
@@ -48,6 +48,8 @@ export interface SettingsBackup {
   /** Absent on a backup made before this field existed - `?? "system"` on read. */
   themeMode?: ThemeMode;
   gridThumbnailSizePx: number;
+  /** Absent on a backup made before this field existed - `?? DEFAULT_VIEWER_SIDEBAR_PX` on read. */
+  viewerSidebarWidthPx?: number;
   videoLoopEnabled: boolean;
   videoPlaybackSpeed: number;
   videoAutoplayEnabled: boolean;
@@ -85,6 +87,7 @@ export async function buildBackup(): Promise<SettingsBackup> {
     accentColor: settings.accentColor,
     themeMode: settings.themeMode,
     gridThumbnailSizePx: settings.gridThumbnailSizePx,
+    viewerSidebarWidthPx: settings.viewerSidebarWidthPx,
     videoLoopEnabled: settings.videoLoopEnabled,
     videoPlaybackSpeed: settings.videoPlaybackSpeed,
     videoAutoplayEnabled: settings.videoAutoplayEnabled,
@@ -119,6 +122,7 @@ export async function applyBackup(backup: SettingsBackup): Promise<void> {
   settings.setAccentColor(backup.accentColor);
   settings.setThemeMode(backup.themeMode ?? "system");
   settings.setGridThumbnailSizePx(backup.gridThumbnailSizePx);
+  settings.setViewerSidebarWidthPx(backup.viewerSidebarWidthPx ?? DEFAULT_VIEWER_SIDEBAR_PX);
   settings.setVideoLoopEnabled(backup.videoLoopEnabled);
   settings.setVideoPlaybackSpeed(backup.videoPlaybackSpeed);
   settings.setVideoAutoplayEnabled(backup.videoAutoplayEnabled);
