@@ -1603,6 +1603,32 @@ live call before implementing (per user instruction - no more guessing).
         scroll-position drift).
       - Not live-tested - the user profiles/tests the app.
 
+- [x] **Performance pass 3** (1.14.74 - 1.14.76) Static-check only, no behaviour change.
+      - **(1.14.74) Credentials decrypted once, not per API call.** `api.rs::request()` - the
+        chokepoint every e621/e6AI call goes through - loads the site's credentials to attach
+        Basic Auth, and `credentials::read_all()` ran a full PBKDF2-HMAC-SHA256 derivation (210k
+        iterations, ~100ms) + AES-GCM decrypt of `credentials.dat` *every time*: every posts
+        page, every autocomplete fetch, every vote, the health/profile polls - latency on every
+        response, a pinned worker thread. `credentials.rs` now caches the decrypted
+        `CredentialsFile` in memory keyed by the secret string it was decrypted under. One writer
+        (this process, via `write_all`, which refreshes the cache), so it only needs invalidating
+        there; keying on the secret means a vault unlock/enable/disable forces a re-derive on the
+        next read for free. `vault::reset_vault` clears it explicitly.
+      - **(1.14.75) `usageSession` input handler throttled.** `onInput` (bound to `mousemove`
+        among others) re-armed the idle timer + called `document.hasFocus()` on every event -
+        dozens/sec - for a 5-minute idle cutoff. Now updates the exact last-input timestamp
+        cheaply every event but does the real work at most 1x/sec.
+      - **(1.14.76) `statsStore` write churn.** Persist debounce 3s -> 12s (stats are derived
+        data; `usageSession` flushes every 15s and `flushStats()` fires on window-hide/unload, so
+        nothing meaningful is at risk). `recordPostView`'s `seenPostIds` update was
+        `.concat(id).slice(-CAP)` = two full copies of a 20k-element array per new post viewed;
+        now one copy, trimmed only when actually over cap.
+      - **Still not done** (from pass 2's list): the steady-state 30-60s polls re-rendering App
+        while idle (`AppShell` isn't memoised); `skeleton-shimmer` animating `background-position`
+        (per-frame repaint per loading cell); `ZoomableImage` re-measuring via
+        `getBoundingClientRect()` every frame during a pan; `tokio` on the `full` feature set.
+      - Not live-tested - the user profiles/tests the app.
+
 ## Running it
 
 **The user runs/tests the app themselves — don't launch it or drive the GUI to verify changes**
