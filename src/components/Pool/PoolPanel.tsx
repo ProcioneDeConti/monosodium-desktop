@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { Site } from "../../models/site";
 import { usePoolPostsQuery, usePoolQuery } from "../../queries/usePoolQuery";
@@ -8,6 +8,7 @@ import { PostGrid } from "../PostGrid/PostGrid";
 import { PostViewer } from "../PostViewer/PostViewer";
 import { DText } from "../ui/DText";
 import { IconButton } from "../ui/IconButton";
+import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Spinner } from "../ui/Spinner";
 
 interface PoolPanelProps {
@@ -32,6 +33,19 @@ export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile, onOp
   const { data: posts, isLoading: postsLoading, isError: postsError } = usePoolPostsQuery(site, pool);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [nestedPoolId, setNestedPoolId] = useState<number | null>(null);
+  const overlay = useRef<OverlayHandle>(null);
+
+  // Esc closes this panel only when nothing is stacked on top (the nested PostViewer / PoolPanel
+  // handle their own Esc; their state is still set at keydown time, so this no-ops).
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && viewerIndex === null && nestedPoolId === null) {
+        overlay.current?.close();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [viewerIndex, nestedPoolId]);
 
   const blacklist = useSettingsStore((s) => s.blacklist);
   const setBlacklist = useSettingsStore((s) => s.setBlacklist);
@@ -60,7 +74,7 @@ export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile, onOp
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col animate-[fade-in_150ms_ease-out] bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)]">
+    <Overlay ref={overlay} onClose={onClose} variant="full" closeOnEsc={false}>
       <div className="flex shrink-0 items-start gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-semibold">{pool?.name.replace(/_/g, " ") || "Pool"}</h1>
@@ -72,7 +86,7 @@ export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile, onOp
             </p>
           )}
         </div>
-        <IconButton onClick={onClose} title="Close (Esc)">
+        <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)">
           <X size={18} />
         </IconButton>
       </div>
@@ -152,6 +166,6 @@ export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile, onOp
           onOpenWiki={onOpenWiki}
         />
       )}
-    </div>
+    </Overlay>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, MessagesSquare, Search, Send, X } from "lucide-react";
 import type { Site } from "../../models/site";
 import type { ForumPost } from "../../models/forum";
@@ -18,6 +18,7 @@ import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
+import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Spinner } from "../ui/Spinner";
 import { ForumPostRow } from "./ForumPostRow";
 import { ForumTopicRow } from "./ForumTopicRow";
@@ -58,9 +59,20 @@ export function ForumPanel({ site, onClose, onOpenSettings, onOpenProfile }: For
     setView((v) => (v.type === "topic" && v.title !== title ? { ...v, title } : v));
   }, []);
 
+  const overlay = useRef<OverlayHandle>(null);
+  // Esc backs out of a topic first, then closes the panel.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (view.type === "topic") setView({ type: "list" });
+      else overlay.current?.close();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [view.type]);
+
   return (
-    <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] justify-center bg-black/60">
-      <div className="flex h-full w-full max-w-md animate-[scale-in_150ms_ease-out] flex-col bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl">
+    <Overlay ref={overlay} onClose={onClose} variant="sheet" closeOnEsc={false}>
         <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
           {view.type === "topic" && (
             <IconButton onClick={() => setView({ type: "list" })} title="Back">
@@ -68,7 +80,7 @@ export function ForumPanel({ site, onClose, onOpenSettings, onOpenProfile }: For
             </IconButton>
           )}
           <h1 className="truncate text-sm font-semibold">{view.type === "topic" ? view.title : "Forum"}</h1>
-          <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+          <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
             <X size={18} />
           </IconButton>
         </div>
@@ -114,8 +126,7 @@ export function ForumPanel({ site, onClose, onOpenSettings, onOpenProfile }: For
             />
           )}
         </div>
-      </div>
-    </div>
+    </Overlay>
   );
 }
 

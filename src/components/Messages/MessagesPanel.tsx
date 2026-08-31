@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckSquare, ChevronLeft, Mail, Pencil, Reply, Send, Trash2, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Dmail } from "../../models/dmail";
@@ -10,6 +10,7 @@ import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { DText } from "../ui/DText";
 import { EmptyState } from "../ui/EmptyState";
+import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { IconButton } from "../ui/IconButton";
 import { Spinner } from "../ui/Spinner";
 import { useUserAvatarUrl } from "../../queries/useAvatarUrl";
@@ -36,6 +37,7 @@ export function MessagesPanel({ site, onClose, onOpenProfile }: MessagesPanelPro
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const deleteDmails = useDeleteDmails(site);
+  const overlay = useRef<OverlayHandle>(null);
 
   const exitSelecting = () => {
     setSelecting(false);
@@ -47,11 +49,11 @@ export function MessagesPanel({ site, onClose, onOpenProfile }: MessagesPanelPro
       if (e.key !== "Escape") return;
       if (selecting) exitSelecting();
       else if (view.type !== "list") setView({ type: "list" });
-      else onClose();
+      else overlay.current?.close();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [view.type, onClose, selecting]);
+  }, [view.type, selecting]);
 
   function toggleSelect(id: number) {
     setSelectedIds((prev) => {
@@ -69,8 +71,7 @@ export function MessagesPanel({ site, onClose, onOpenProfile }: MessagesPanelPro
   const isList = view.type === "list";
 
   return (
-    <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] justify-center bg-black/60">
-      <div className="relative flex h-full w-full max-w-md animate-[scale-in_150ms_ease-out] flex-col bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl">
+    <Overlay ref={overlay} onClose={onClose} variant="sheet" closeOnEsc={false} className="relative">
         <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
           {!isList && (
             <IconButton onClick={() => setView({ type: "list" })} title="Back">
@@ -104,13 +105,13 @@ export function MessagesPanel({ site, onClose, onOpenProfile }: MessagesPanelPro
                   <Pencil size={16} />
                 </IconButton>
               )}
-              <IconButton onClick={onClose} title="Close (Esc)">
+              <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)">
                 <X size={18} />
               </IconButton>
             </div>
           )}
           {!isList && (
-            <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+            <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
               <X size={18} />
             </IconButton>
           )}
@@ -176,8 +177,7 @@ export function MessagesPanel({ site, onClose, onOpenProfile }: MessagesPanelPro
             </Button>
           </div>
         )}
-      </div>
-    </div>
+    </Overlay>
   );
 }
 

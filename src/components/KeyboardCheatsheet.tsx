@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useRef } from "react";
 import { Keyboard, X } from "lucide-react";
 import { IconButton } from "./ui/IconButton";
+import { Overlay, type OverlayHandle } from "./ui/Overlay";
 
 interface KeyboardCheatsheetProps {
   onClose: () => void;
@@ -54,32 +55,21 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
 
 /** `?` from anywhere (unless typing) opens this. Plain help modal - not part of the nav stack. */
 export function KeyboardCheatsheet({ onClose }: KeyboardCheatsheetProps) {
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [onClose]);
+  const overlay = useRef<OverlayHandle>(null);
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4"
-      onClick={onClose}
+    <Overlay
+      ref={overlay}
+      onClose={onClose}
+      variant="dialog"
+      sheetWidth="max-w-lg"
+      zClassName="z-[70]"
+      closeOnScrimClick
     >
-      <div
-        className="flex max-h-[85vh] w-full max-w-lg animate-[scale-in_120ms_ease-out] flex-col
-                   rounded-[var(--radius-md)] border border-black/10 dark:border-white/10
-                   bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
         <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
           <Keyboard size={15} className="text-[rgb(var(--accent))]" />
           <h1 className="text-sm font-semibold">Keyboard shortcuts</h1>
-          <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+          <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
             <X size={17} />
           </IconButton>
         </div>
@@ -110,7 +100,6 @@ export function KeyboardCheatsheet({ onClose }: KeyboardCheatsheetProps) {
             ))}
           </div>
         </div>
-      </div>
-    </div>
+    </Overlay>
   );
 }

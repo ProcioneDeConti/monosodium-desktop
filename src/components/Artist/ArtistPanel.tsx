@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useRef } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { AlertTriangle, ExternalLink, Images, Lock, Palette, UserRound, X } from "lucide-react";
 import type { Site } from "../../models/site";
@@ -9,6 +9,7 @@ import { useArtistQuery, useArtistDnpQuery } from "../../queries/useArtist";
 import { Button } from "../ui/Button";
 import { DText } from "../ui/DText";
 import { IconButton } from "../ui/IconButton";
+import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Section } from "../ui/Section";
 import { Spinner } from "../ui/Spinner";
 
@@ -27,25 +28,17 @@ export function ArtistPanel({ site, name, onClose, onSearch, onOpenProfile }: Ar
   const { data: artist, isLoading, isError, error } = useArtistQuery(site, name);
   const { data: dnp } = useArtistDnpQuery(site, artist?.id);
   const displayName = name.replace(/_/g, " ");
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const overlay = useRef<OverlayHandle>(null);
 
   const activeUrls = (artist?.urls ?? []).filter((u) => u.is_active);
   const inactiveUrls = (artist?.urls ?? []).filter((u) => !u.is_active);
 
   return (
-    <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] justify-center bg-black/60">
-      <div className="flex h-full w-full max-w-md animate-[scale-in_150ms_ease-out] flex-col bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl">
+    <Overlay ref={overlay} onClose={onClose} variant="sheet">
         <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
           <Palette size={15} className="text-[rgb(var(--accent))]" />
           <h1 className="truncate text-sm font-semibold">{displayName}</h1>
-          <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+          <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
             <X size={18} />
           </IconButton>
         </div>
@@ -158,8 +151,7 @@ export function ArtistPanel({ site, name, onClose, onSearch, onOpenProfile }: Ar
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Overlay>
   );
 }
 

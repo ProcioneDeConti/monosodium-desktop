@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   ChevronLeft,
@@ -21,6 +21,7 @@ import { PoolPanel } from "../Pool/PoolPanel";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
+import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Spinner } from "../ui/Spinner";
 
 interface CollectionsPanelProps {
@@ -51,16 +52,17 @@ export function CollectionsPanel({
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const overlay = useRef<OverlayHandle>(null);
 
   const selected = collections.find((c) => c.id === selectedId) ?? null;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && selectedId === null) onClose();
+      if (e.key === "Escape" && selectedId === null) overlay.current?.close();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose, selectedId]);
+  }, [selectedId]);
 
   // Group by category, "" last as "Uncategorized". Categories sorted alphabetically.
   const groups = useMemo(() => {
@@ -109,11 +111,11 @@ export function CollectionsPanel({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col animate-[fade-in_150ms_ease-out] bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)]">
+    <Overlay ref={overlay} onClose={onClose} variant="full" closeOnEsc={false}>
       <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
         <Library size={16} className="text-[rgb(var(--accent))]" />
         <h1 className="text-sm font-semibold">Collections</h1>
-        <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+        <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
           <X size={18} />
         </IconButton>
       </div>
@@ -214,7 +216,7 @@ export function CollectionsPanel({
           )}
         </div>
       </div>
-    </div>
+    </Overlay>
   );
 }
 

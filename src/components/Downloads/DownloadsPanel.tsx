@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useRef } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Check, Clock, Download, FolderOpen, RotateCw, Trash2, X } from "lucide-react";
 import { useDownloadsStore, type DownloadJob } from "../../state/downloadsStore";
 import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
+import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Spinner } from "../ui/Spinner";
 
 interface DownloadsPanelProps {
@@ -18,14 +19,7 @@ export function DownloadsPanel({ onClose }: DownloadsPanelProps) {
   const remove = useDownloadsStore((s) => s.remove);
   const clearFinished = useDownloadsStore((s) => s.clearFinished);
   const clearAll = useDownloadsStore((s) => s.clearAll);
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const overlay = useRef<OverlayHandle>(null);
 
   const active = jobs.filter((j) => j.status === "queued" || j.status === "active").length;
   const done = jobs.filter((j) => j.status === "done").length;
@@ -33,13 +27,7 @@ export function DownloadsPanel({ onClose }: DownloadsPanelProps) {
   const hasFinished = jobs.some((j) => j.status === "done" || j.status === "error");
 
   return (
-    <div className="fixed inset-0 z-[55] flex justify-center bg-black/60 p-4" onClick={onClose}>
-      <div
-        className="mt-8 flex h-fit max-h-[80vh] w-full max-w-md animate-[scale-in_120ms_ease-out] flex-col
-                   rounded-[var(--radius-md)] border border-black/10 dark:border-white/10
-                   bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Overlay ref={overlay} onClose={onClose} variant="dialog" zClassName="z-[55]" closeOnScrimClick>
         <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
           <Download size={15} className="text-[rgb(var(--accent))]" />
           <h1 className="text-sm font-semibold">Downloads</h1>
@@ -48,7 +36,7 @@ export function DownloadsPanel({ onClose }: DownloadsPanelProps) {
               .filter(Boolean)
               .join(" · ") || "idle"}
           </span>
-          <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+          <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
             <X size={17} />
           </IconButton>
         </div>
@@ -94,8 +82,7 @@ export function DownloadsPanel({ onClose }: DownloadsPanelProps) {
             </ul>
           )}
         </div>
-      </div>
-    </div>
+    </Overlay>
   );
 }
 

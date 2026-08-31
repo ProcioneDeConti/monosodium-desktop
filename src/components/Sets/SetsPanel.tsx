@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, FolderMinus, Globe, Lock, Plus, SquareStack, X } from "lucide-react";
 import type { Site } from "../../models/site";
 import type { PostSet } from "../../models/postSet";
@@ -17,6 +17,7 @@ import { PostViewer } from "../PostViewer/PostViewer";
 import { PoolPanel } from "../Pool/PoolPanel";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
+import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Spinner } from "../ui/Spinner";
 
 interface SetsPanelProps {
@@ -38,14 +39,15 @@ export function SetsPanel({ site, onClose, onSearch, onOpenProfile, onOpenArtist
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+  const overlay = useRef<OverlayHandle>(null);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && selectedId === null) onClose();
+      if (e.key === "Escape" && selectedId === null) overlay.current?.close();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose, selectedId]);
+  }, [selectedId]);
 
   const selectedSet = sets?.find((s) => s.id === selectedId) ?? null;
   const shortname = useMemo(() => deriveShortname(newName), [newName]);
@@ -79,11 +81,11 @@ export function SetsPanel({ site, onClose, onSearch, onOpenProfile, onOpenArtist
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col animate-[fade-in_150ms_ease-out] bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)]">
+    <Overlay ref={overlay} onClose={onClose} variant="full" closeOnEsc={false}>
       <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
         <SquareStack size={16} className="text-[rgb(var(--accent))]" />
         <h1 className="text-sm font-semibold">My sets</h1>
-        <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+        <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
           <X size={18} />
         </IconButton>
       </div>
@@ -163,7 +165,7 @@ export function SetsPanel({ site, onClose, onSearch, onOpenProfile, onOpenArtist
           )}
         </div>
       </div>
-    </div>
+    </Overlay>
   );
 }
 

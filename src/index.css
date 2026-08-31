@@ -80,6 +80,21 @@ body {
   }
 }
 
+/* Overlay/dialog exit (components/ui/Overlay.tsx) - the mirror of fade-in / scale-in, played
+   while the overlay is still mounted for its close-out before the parent unmounts it. */
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes scale-out {
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
 /* Indeterminate top progress bar (App.tsx / AppShell) - a bar sweeps left-to-right, growing then
    shrinking, like the browser's/GitHub's own top-of-page loading indicator. */
 @keyframes progress-sweep {

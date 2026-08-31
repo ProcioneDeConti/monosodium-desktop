@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   BadgeCheck,
@@ -30,6 +30,7 @@ import { useAvatarUrl } from "../../queries/useAvatarUrl";
 import { Button } from "../ui/Button";
 import { DText } from "../ui/DText";
 import { IconButton } from "../ui/IconButton";
+import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Section } from "../ui/Section";
 import { Spinner } from "../ui/Spinner";
 
@@ -62,14 +63,7 @@ const STATS: StatDef[] = [
 export function ProfilePanel({ site, userId, onClose, onSearch }: ProfilePanelProps) {
   const { data: profile, isLoading, isError, error, refetch } = useUserProfileQuery(site, userId);
   const { data: avatarUrl } = useAvatarUrl(site, profile?.avatar_id ?? null);
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const overlay = useRef<OverlayHandle>(null);
 
   function openPosts() {
     if (!profile) return;
@@ -84,11 +78,10 @@ export function ProfilePanel({ site, userId, onClose, onSearch }: ProfilePanelPr
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] justify-center bg-black/60">
-      <div className="flex h-full w-full max-w-md animate-[scale-in_150ms_ease-out] flex-col bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl">
+    <Overlay ref={overlay} onClose={onClose} variant="sheet">
         <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
           <h1 className="text-sm font-semibold">Profile</h1>
-          <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+          <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
             <X size={18} />
           </IconButton>
         </div>
@@ -114,8 +107,7 @@ export function ProfilePanel({ site, userId, onClose, onSearch }: ProfilePanelPr
             />
           )}
         </div>
-      </div>
-    </div>
+    </Overlay>
   );
 }
 

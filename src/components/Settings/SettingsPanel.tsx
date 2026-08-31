@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { getVersion } from "@tauri-apps/api/app";
@@ -24,6 +24,7 @@ import { EulaReadOnlyDialog } from "../Eula/EulaReadOnlyDialog";
 import { SaucenaoSection } from "./SaucenaoSection";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
+import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Section } from "../ui/Section";
 
 interface SettingsPanelProps {
@@ -63,6 +64,7 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   const [greeting] = useState(randomGreeting);
   const [showEula, setShowEula] = useState(false);
   const [passwordProtected, setPasswordProtected] = useState<boolean | null>(null);
+  const overlay = useRef<OverlayHandle>(null);
   const adultModeEnabled = useSettingsStore((s) => s.adultModeEnabled);
   const setAdultModeEnabled = useSettingsStore((s) => s.setAdultModeEnabled);
   const enabledRatings = useSettingsStore((s) => s.enabledRatings);
@@ -83,14 +85,6 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   const setDownloadDir = useSettingsStore((s) => s.setDownloadDir);
 
   useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
-  useEffect(() => {
     void e621Api.getVaultStatus().then((status) => setPasswordProtected(status.password_protected));
   }, []);
 
@@ -107,11 +101,10 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] justify-center bg-black/60">
-      <div className="flex h-full w-full max-w-2xl animate-[scale-in_150ms_ease-out] flex-col bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl">
+    <Overlay ref={overlay} onClose={onClose} variant="sheet" sheetWidth="max-w-2xl">
         <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
           <h1 className="text-sm font-semibold">Settings</h1>
-          <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+          <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
             <X size={18} />
           </IconButton>
         </div>
@@ -322,10 +315,9 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
 
           <CreditsFooter />
         </div>
-      </div>
 
       {showEula && <EulaReadOnlyDialog onClose={() => setShowEula(false)} />}
-    </div>
+    </Overlay>
   );
 }
 

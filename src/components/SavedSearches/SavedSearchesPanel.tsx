@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { Bookmark, Plus, Trash2, X } from "lucide-react";
 import { useSavedSearchesStore } from "../../state/savedSearchesStore";
 import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
+import { Overlay, type OverlayHandle } from "../ui/Overlay";
 
 interface SavedSearchesPanelProps {
   currentQuery: string;
@@ -18,14 +19,7 @@ export function SavedSearchesPanel({ currentQuery, onClose, onApply }: SavedSear
   const add = useSavedSearchesStore((s) => s.add);
   const remove = useSavedSearchesStore((s) => s.remove);
   const [label, setLabel] = useState("");
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const overlay = useRef<OverlayHandle>(null);
 
   function handleSave() {
     if (!label.trim()) return;
@@ -39,11 +33,10 @@ export function SavedSearchesPanel({ currentQuery, onClose, onApply }: SavedSear
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] justify-center bg-black/60">
-      <div className="flex h-full w-full max-w-md animate-[scale-in_150ms_ease-out] flex-col bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl">
+    <Overlay ref={overlay} onClose={onClose} variant="sheet">
         <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
           <h1 className="text-sm font-semibold">Saved Searches</h1>
-          <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+          <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
             <X size={18} />
           </IconButton>
         </div>
@@ -106,7 +99,6 @@ export function SavedSearchesPanel({ currentQuery, onClose, onApply }: SavedSear
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Overlay>
   );
 }

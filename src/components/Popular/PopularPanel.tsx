@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, TrendingUp, X } from "lucide-react";
 import type { Site } from "../../models/site";
 import { usePopularPostsQuery } from "../../queries/usePopularQuery";
@@ -16,6 +16,7 @@ import { PostGrid } from "../PostGrid/PostGrid";
 import { PostViewer } from "../PostViewer/PostViewer";
 import { PoolPanel } from "../Pool/PoolPanel";
 import { IconButton } from "../ui/IconButton";
+import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Spinner } from "../ui/Spinner";
 
 interface PopularPanelProps {
@@ -35,6 +36,19 @@ export function PopularPanel({ site, onClose, onSearch, onOpenProfile, onOpenArt
   const [date, setDate] = useState<string>(today());
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [nestedPoolId, setNestedPoolId] = useState<number | null>(null);
+  const overlay = useRef<OverlayHandle>(null);
+
+  // Esc closes this panel only when nothing is stacked on top - the nested PostViewer / PoolPanel
+  // have their own Esc handlers, and at keydown time their state is still set so this no-ops.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && viewerIndex === null && nestedPoolId === null) {
+        overlay.current?.close();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [viewerIndex, nestedPoolId]);
 
   const { data: posts, isLoading, isError } = usePopularPostsQuery(site, date, scale, true);
 
@@ -72,7 +86,7 @@ export function PopularPanel({ site, onClose, onSearch, onOpenProfile, onOpenArt
   const atCurrent = isCurrentOrFuturePeriod(date, scale);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col animate-[fade-in_150ms_ease-out] bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)]">
+    <Overlay ref={overlay} onClose={onClose} variant="full" closeOnEsc={false}>
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
         <TrendingUp size={16} className="text-[rgb(var(--accent))]" />
         <h1 className="text-sm font-semibold">Popular</h1>
@@ -122,7 +136,7 @@ export function PopularPanel({ site, onClose, onSearch, onOpenProfile, onOpenArt
           )}
         </div>
 
-        <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+        <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
           <X size={18} />
         </IconButton>
       </div>
@@ -200,6 +214,6 @@ export function PopularPanel({ site, onClose, onSearch, onOpenProfile, onOpenArt
           onOpenWiki={onOpenWiki}
         />
       )}
-    </div>
+    </Overlay>
   );
 }

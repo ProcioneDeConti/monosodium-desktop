@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowRight, BookOpen, ExternalLink, Images, Search, X } from "lucide-react";
 import type { Site } from "../../models/site";
@@ -12,6 +12,7 @@ import { useTagAutocomplete } from "../../queries/useTagAutocomplete";
 import { useTagInfoQuery, useTagRelationsQuery, useWikiPageQuery } from "../../queries/useWiki";
 import { DText } from "../ui/DText";
 import { IconButton } from "../ui/IconButton";
+import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Section } from "../ui/Section";
 import { Spinner } from "../ui/Spinner";
 
@@ -30,6 +31,7 @@ export function WikiPanel({ site, initialTag = "", onClose, onSearch }: WikiPane
   const [tag, setTag] = useState(initialTag.replace(/_/g, " ").trim());
   const [draft, setDraft] = useState("");
   const [suggestOpen, setSuggestOpen] = useState(false);
+  const overlay = useRef<OverlayHandle>(null);
 
   const normalizedTag = tag.trim().toLowerCase().replace(/\s+/g, "_");
   const { data: page, isLoading: pageLoading } = useWikiPageQuery(site, normalizedTag);
@@ -43,14 +45,6 @@ export function WikiPanel({ site, initialTag = "", onClose, onSearch }: WikiPane
     [suggestions, debouncedDraft],
   );
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
   function go(next: string) {
     setTag(next.replace(/_/g, " ").trim());
     setDraft("");
@@ -63,11 +57,11 @@ export function WikiPanel({ site, initialTag = "", onClose, onSearch }: WikiPane
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col animate-[fade-in_150ms_ease-out] bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)]">
+    <Overlay ref={overlay} onClose={onClose} variant="full">
       <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
         <BookOpen size={15} className="text-[rgb(var(--accent))]" />
         <h1 className="text-sm font-semibold">Wiki</h1>
-        <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
+        <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
           <X size={18} />
         </IconButton>
       </div>
@@ -178,7 +172,7 @@ export function WikiPanel({ site, initialTag = "", onClose, onSearch }: WikiPane
           </div>
         )}
       </div>
-    </div>
+    </Overlay>
   );
 }
 
