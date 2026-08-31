@@ -1,7 +1,9 @@
+import type { ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, GitBranch, UserRound } from "lucide-react";
 import type { Post } from "../../models/post";
 import type { Site } from "../../models/site";
+import { formatBytes } from "../../lib/formatBytes";
 import { DText } from "../ui/DText";
 import { CopyableField } from "./CopyableField";
 
@@ -19,6 +21,28 @@ const RATING_LABEL: Record<string, string> = {
   q: "Questionable",
   e: "Explicit",
 };
+
+/** The little accent pill used for the Relationships / Pools rows. */
+function InfoChip({
+  onClick,
+  title,
+  children,
+}: {
+  onClick: () => void;
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-[rgb(var(--accent))] hover:bg-white/20"
+    >
+      {children}
+    </button>
+  );
+}
 
 export function InfoPanel({ site, post, onOpenProfile, onOpenPool, onSearch }: InfoPanelProps) {
   const rel = post.relationships;
@@ -73,26 +97,22 @@ export function InfoPanel({ site, post, onOpenProfile, onOpenPool, onSearch }: I
           </h3>
           <div className="flex flex-wrap gap-1.5">
             {rel.parent_id != null && (
-              <button
-                type="button"
+              <InfoChip
                 onClick={() => onSearch(`~id:${rel.parent_id} ~parent:${rel.parent_id}`)}
                 title="Show the parent post and all its children"
-                className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-[rgb(var(--accent))] hover:bg-white/20"
               >
                 Parent #{rel.parent_id}
-              </button>
+              </InfoChip>
             )}
             {rel.has_children && (
-              <button
-                type="button"
+              <InfoChip
                 onClick={() => onSearch(`parent:${post.id}`)}
                 title="Show this post's children"
-                className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-[rgb(var(--accent))] hover:bg-white/20"
               >
                 {rel.children.length > 0
                   ? `${rel.children.length} ${rel.children.length === 1 ? "child" : "children"}`
                   : "Children"}
-              </button>
+              </InfoChip>
             )}
           </div>
         </div>
@@ -103,14 +123,9 @@ export function InfoPanel({ site, post, onOpenProfile, onOpenPool, onSearch }: I
           <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-60">Pools</h3>
           <div className="flex flex-wrap gap-1.5">
             {post.pools.map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => onOpenPool(id)}
-                className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-[rgb(var(--accent))] hover:bg-white/20"
-              >
+              <InfoChip key={id} onClick={() => onOpenPool(id)}>
                 #{id}
-              </button>
+              </InfoChip>
             ))}
           </div>
         </div>
@@ -141,16 +156,4 @@ export function InfoPanel({ site, post, onOpenProfile, onOpenPool, onSearch }: I
       )}
     </div>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB"];
-  let value = bytes / 1024;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex++;
-  }
-  return `${value.toFixed(1)} ${units[unitIndex]}`;
 }
