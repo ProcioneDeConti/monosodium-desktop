@@ -193,6 +193,7 @@ export function PostGrid({
           onDownload={onDownload}
           selectionActive={selectionActive}
           selected={selectedIds?.has(data.id) ?? false}
+          cellWidthPx={thumbnailSizePx}
         />
       );
     },
@@ -207,6 +208,7 @@ export function PostGrid({
       selectionActive,
       selectedIds,
       onSelectToggle,
+      thumbnailSizePx,
     ],
   );
 

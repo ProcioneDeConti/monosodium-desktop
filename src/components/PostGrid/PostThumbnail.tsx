@@ -1,6 +1,17 @@
-import { memo, useEffect, useState } from "react";
-import { Check, Download, Film, Heart, Star, ThumbsUp } from "lucide-react";
+import { Fragment, memo, useEffect, useState } from "react";
+import {
+  ArrowBigUp,
+  Check,
+  Clapperboard,
+  Download,
+  Heart,
+  Image as ImageIcon,
+  ImagePlay,
+  Star,
+  ThumbsUp,
+} from "lucide-react";
 import { aspectRatio, isAnimated, isVideo, type Post } from "../../models/post";
+import { artistNames, formatArtists } from "../../lib/artistTags";
 import { formatCount } from "../../lib/formatCount";
 import { Spinner } from "../ui/Spinner";
 
@@ -19,6 +30,9 @@ interface PostThumbnailProps {
   /** Multi-select: show a checkbox instead of the hover cluster, and click = toggle select. */
   selectionActive?: boolean;
   selected?: boolean;
+  /** Target column width (the thumbnail-size slider). Drives how many info fields the hover bar
+   *  shows before it would clip. */
+  cellWidthPx?: number;
 }
 
 function formatDuration(seconds: number): string {
@@ -28,14 +42,25 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-/** Matches the reference Android app's ui/theme/Color.kt (RatingSafe/Questionable/Explicit). */
+/** Rating chip colours - safe green / questionable orange / explicit red, roughly the reference
+ *  Android app's ui/theme/Color.kt but with a deeper orange so white text on the "Q" chip has
+ *  usable contrast. */
 const RATING_STYLE: Record<string, { label: string; color: string }> = {
   s: { label: "S", color: "#4CAF50" },
-  q: { label: "Q", color: "#FFA726" },
+  q: { label: "Q", color: "#E06C0A" },
   e: { label: "E", color: "#E53935" },
 };
 
 const FAVORITE_GOLD = "#D4AF37";
+
+/** The media-kind glyph shown in the top-right status cluster: clapperboard for video, an
+ *  image-with-play for animated stills (gif/apng), a plain image frame for static pictures. */
+function mediaKindOf(post: Post) {
+  if (isVideo(post)) return { Icon: Clapperboard, label: "Video" };
+  if (isAnimated(post)) return { Icon: ImagePlay, label: "Animated image" };
+  return { Icon: ImageIcon, label: "Image" };
+}
+
 
 /** URLs that have already faded in once this session - outside component state because
  *  `masonic` unmounts thumbnails that scroll past its overscan window and remounts them when
@@ -55,9 +80,17 @@ function PostThumbnailImpl({
   onDownload,
   selectionActive = false,
   selected = false,
+  cellWidthPx = 220,
 }: PostThumbnailProps) {
   const thumbUrl = post.preview.url ?? post.sample.url ?? post.file.url;
   const rating = RATING_STYLE[post.rating] ?? RATING_STYLE.e;
+  const mediaKind = mediaKindOf(post);
+  const artistText = formatArtists(post);
+  const artistLabel = artistNames(post).length > 1 ? "Artists" : "Artist";
+  // Narrow cells can't fit the whole info row - drop the least-important fields first
+  // (favourites, then id), keeping score + filetype.
+  const showFavCount = cellWidthPx >= 200;
+  const showId = cellWidthPx >= 160;
   const [loaded, setLoaded] = useState(() => !!thumbUrl && loadedThumbUrls.has(thumbUrl));
   const [errored, setErrored] = useState(false);
   // The hover action cluster is only mounted while the pointer is actually over this cell -
@@ -200,45 +233,87 @@ function PostThumbnailImpl({
         </div>
       ) : null}
 
-      {/* Bottom scrim. At rest it shows only what's useful at a glance across a whole page -
-       *  the rating chip (colour-coded) and, if favourited, the gold star. Score + filetype
-       *  fade in on hover, so the resting grid reads as art rather than a wall of metadata. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-1
-                      bg-gradient-to-t from-black/70 via-black/25 to-transparent px-1.5 pb-1 pt-6">
-        <div className="flex min-w-0 items-center gap-1.5 leading-none text-white">
-          <span
-            className="shrink-0 rounded-sm px-1 py-0.5 text-[10px] font-bold"
-            style={{ backgroundColor: `${rating.color}E6` }}
-          >
-            {rating.label}
-          </span>
-          <span
-            className={`flex items-center gap-1.5 transition-opacity duration-150 ${
-              hovered ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            <span className="text-[11px] font-bold">{formatCount(post.score.total)}</span>
-            <span className="text-[10px] font-medium text-white/80">{post.file.ext.toUpperCase()}</span>
-          </span>
-        </div>
+      {/* Top-right status cluster. The div is anchored by its right edge, so the media chip and
+       *  rating chip never move - the favourite star (shown only when favourited) grows the
+       *  cluster leftward. Matching 15px-tall chips. */}
+      <div className="pointer-events-none absolute right-1.5 top-1.5 flex items-center gap-1">
         {post.is_favorited && (
-          <Star size={12} className="shrink-0 fill-current" style={{ color: FAVORITE_GOLD }} />
+          <span className="flex h-[15px] w-[15px] items-center justify-center rounded-[2px] bg-black/60">
+            <Star size={10} strokeWidth={2.25} className="fill-current" style={{ color: FAVORITE_GOLD }} />
+          </span>
         )}
-      </div>
-
-      {isAnimated(post) && (
         <span
-          className={`pointer-events-none absolute right-1.5 top-1.5 flex items-center gap-1 rounded-[7px]
-                      bg-black/55 text-white ${isVideo(post) && post.duration ? "px-1.5 py-1" : "h-5 w-5 justify-center"}`}
+          className="flex h-[15px] w-[15px] items-center justify-center rounded-[2px] text-[10px] font-bold leading-none text-white"
+          style={{ backgroundColor: rating.color }}
         >
-          <Film size={13} />
+          {rating.label}
+        </span>
+        <span
+          className={`flex h-[15px] items-center justify-center rounded-[2px] bg-black/60 text-white ${
+            isVideo(post) && post.duration ? "gap-0.5 px-1" : "w-[15px]"
+          }`}
+          title={mediaKind.label}
+        >
+          <mediaKind.Icon size={10} strokeWidth={2.25} />
           {isVideo(post) && post.duration && (
-            <span className="text-[10px] font-semibold tabular-nums leading-none">
+            <span className="text-[9px] font-semibold tabular-nums leading-none">
               {formatDuration(post.duration)}
             </span>
           )}
         </span>
-      )}
+      </div>
+
+      {/* Bottom overlay - hidden until hover. An "Artist: …" line (real artist tags only, e621's
+       *  warning/DNP tags in the artist category stripped) sits above the stats bar:
+       *  id · score · favourites · filetype, spread full-width with a hairline rule centred in
+       *  each gap. Stats fields drop from the right on narrow cells (see showId / showFavCount). */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-1 overflow-hidden
+                   bg-gradient-to-t from-black/90 via-black/60 to-transparent
+                   px-1.5 pb-1.5 pt-8 text-[10px] font-semibold leading-none text-white
+                   opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+      >
+        {artistText && (
+          // Flip `text-center` <-> `text-left` here to change the artist line's justification.
+          <div className="truncate text-center">
+            <span className="font-medium opacity-55">{artistLabel}: </span>
+            <span className="opacity-95">{artistText}</span>
+          </div>
+        )}
+        <div className="flex items-end gap-0.5 whitespace-nowrap">
+          {[
+            showId && (
+              <span key="id" className="opacity-75">
+                #{post.id}
+              </span>
+            ),
+            <span key="score" className="flex items-center gap-0.5">
+              <ArrowBigUp size={12} className="-ml-0.5 fill-current opacity-90" />
+              {formatCount(post.score.total)}
+            </span>,
+            showFavCount && (
+              <span key="fav" className="flex items-center gap-0.5">
+                <Heart size={9} className="fill-current opacity-90" />
+                {formatCount(post.fav_count)}
+              </span>
+            ),
+            <span key="ext" className="opacity-85">
+              {post.file.ext.toUpperCase()}
+            </span>,
+          ]
+            .filter(Boolean)
+            .map((field, i) => (
+              <Fragment key={i}>
+                {i > 0 && (
+                  <span className="flex flex-1 items-center justify-center">
+                    <span className="h-2.5 w-px bg-white/30" />
+                  </span>
+                )}
+                {field}
+              </Fragment>
+            ))}
+        </div>
+      </div>
     </button>
   );
 }

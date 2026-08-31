@@ -1688,6 +1688,23 @@ live call before implementing (per user instruction - no more guessing).
         `lib/formatBytes.ts`; folded three identical accent-pill buttons into one local `InfoChip`.
       - Not live-tested - the user profiles/tests the app.
 
+- [x] **Thumbnail overlay rework** (1.14.87) Iterated live with the user (`PostThumbnail.tsx`).
+      The grid at rest is now near-pure imagery.
+      - **Top-right, always visible**, right-anchored so the fixed chips never shift: a crisp 15px
+        square rating chip (was a rounded blob; "Q" uses a deeper orange, `#E06C0A`, for white-text
+        contrast); a media-kind chip - `Clapperboard` for video (runtime shown inline in the chip),
+        `ImagePlay` for gif/apng, `Image` for static; and a gold star chip only when favourited.
+      - **Bottom scrim, hover-only** (`opacity-0 group-hover:opacity-100`), two rows: an
+        `Artist: <names>` line (centred) then a full-width stats bar - `#id · score (ArrowBigUp) ·
+        favourites (Heart) · filetype`, spread with a hairline rule centred in each gap. Stats
+        fields drop right-to-left on narrow cells (favourites <200px, id <160px); `PostGrid` now
+        passes the target column width down as `cellWidthPx`.
+      - **`lib/artistTags.ts`** (new) - `isRealArtistTag` / `artistNames` / `formatArtists` strip
+        the non-artist tags e621 files under category 1 (`sound_warning`, `conditional_dnp`,
+        `epilepsy_warning`, `avoid_posting`, `unknown_artist`, `unknown_artist_signature`,
+        `anonymous_artist`, `third-party_edit`, `sound_edit`). `favoritesAnalysis.ts` still has
+        its own smaller `EXCLUDED_TAGS` - could switch to this later.
+
 ## Running it
 
 **The user runs/tests the app themselves — don't launch it or drive the GUI to verify changes**
