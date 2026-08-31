@@ -87,8 +87,8 @@ function PostThumbnailImpl({
       onMouseLeave={() => setHovered(false)}
       style={{ aspectRatio: aspectRatio(post) }}
       className={`group relative block w-full overflow-hidden rounded-[var(--radius-md)] border
-                  bg-black/5 dark:bg-white/5 transition-shadow duration-150
-                  hover:shadow-lg hover:shadow-black/20 focus-visible:outline-none
+                  bg-black/5 dark:bg-white/5 transition-[box-shadow,transform] duration-200 ease-out
+                  hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/25 focus-visible:outline-none
                   focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent))]
                   ${selected ? "ring-2 ring-[rgb(var(--accent))] ring-offset-1 ring-offset-transparent" : ""}
                   ${blacklisted ? "caution-stripe" : "border-black/5 dark:border-white/10"}`}
@@ -106,8 +106,8 @@ function PostThumbnailImpl({
               if (thumbUrl) loadedThumbUrls.add(thumbUrl);
             }}
             onError={() => setErrored(true)}
-            className={`h-full w-full object-cover transition-[opacity,transform] duration-300
-                        group-hover:scale-[1.03] ${loaded ? "opacity-100" : "opacity-0"}
+            className={`h-full w-full object-cover transition-[opacity,transform] duration-[250ms] ease-out
+                        group-hover:scale-[1.02] ${loaded ? "opacity-100" : "opacity-0"}
                         ${selected ? "brightness-90" : ""}`}
           />
         </>
@@ -200,24 +200,30 @@ function PostThumbnailImpl({
         </div>
       ) : null}
 
-      {/* Always-visible info dock, mirroring the reference app's PostThumbnail InfoDock: rating
-       *  anchors the left edge and filetype the right, with score and the favorite star between -
-       *  replaces a separate rating badge and play/gif corner overlay, which read as inconsistent
-       *  and easy to miss. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/55 px-1.5 py-1">
-        <span
-          className="rounded-sm px-1 py-0.5 text-[10px] font-bold leading-none text-white"
-          style={{ backgroundColor: `${rating.color}D9` }}
-        >
-          {rating.label}
-        </span>
-        <span className="text-[11px] font-bold leading-none text-white">
-          Score: {formatCount(post.score.total)}
-        </span>
-        {post.is_favorited && <Star size={12} className="shrink-0 fill-current" style={{ color: FAVORITE_GOLD }} />}
-        <span className="text-[10px] font-medium leading-none text-white/85">
-          {post.file.ext.toUpperCase()}
-        </span>
+      {/* Bottom scrim. At rest it shows only what's useful at a glance across a whole page -
+       *  the rating chip (colour-coded) and, if favourited, the gold star. Score + filetype
+       *  fade in on hover, so the resting grid reads as art rather than a wall of metadata. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-1
+                      bg-gradient-to-t from-black/70 via-black/25 to-transparent px-1.5 pb-1 pt-6">
+        <div className="flex min-w-0 items-center gap-1.5 leading-none text-white">
+          <span
+            className="shrink-0 rounded-sm px-1 py-0.5 text-[10px] font-bold"
+            style={{ backgroundColor: `${rating.color}E6` }}
+          >
+            {rating.label}
+          </span>
+          <span
+            className={`flex items-center gap-1.5 transition-opacity duration-150 ${
+              hovered ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            <span className="text-[11px] font-bold">{formatCount(post.score.total)}</span>
+            <span className="text-[10px] font-medium text-white/80">{post.file.ext.toUpperCase()}</span>
+          </span>
+        </div>
+        {post.is_favorited && (
+          <Star size={12} className="shrink-0 fill-current" style={{ color: FAVORITE_GOLD }} />
+        )}
       </div>
 
       {isAnimated(post) && (
