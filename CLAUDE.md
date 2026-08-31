@@ -1647,6 +1647,47 @@ live call before implementing (per user instruction - no more guessing).
         mouseup so the image doesn't snap back.
       - Not live-tested - the user profiles/tests the app.
 
+- [x] **UI pass** (1.14.80 - 1.14.86) A batch of look-and-feel / usability changes the user
+      picked from a brainstorm. Static-check only (`tsc` + `vite build`); not live-tested.
+      - **(1.14.80) Friendlier empty / error states.** New `components/ui/EmptyState.tsx` (dim
+        icon + title + hint + optional action) replaces the bare one-liners. The main grid now
+        distinguishes "no posts matched" from "every result is hidden by your blacklist" (each
+        with its own fix hint). Also applied to the App error state, Downloads, Forum
+        (topics + search), Messages inbox, Collections (list + detail), Saved searches, and
+        Reverse image search (no-key / no-match). Small inline notes (comment threads, dropdown
+        "no sets yet") left alone.
+      - **(1.14.81) Lighter thumbnail info dock + hover polish.** The solid black metadata bar on
+        every grid cell is now a soft bottom gradient showing only the colour-coded rating chip
+        (and gold star if favourited) at rest; score + filetype fade in on hover. Hover: image
+        zoom 1.03->1.02, a small lift, deeper shadow, combined `box-shadow`+`transform` ease-out.
+      - **(1.14.82) Capped search-bar chip area.** A long query no longer grows the header
+        unboundedly - the chip area maxes at ~2 rows and scrolls, pinned to the bottom (newest
+        chips + the input) as tags are added and on focus.
+      - **(1.14.83) Resizable post-viewer sidebar.** Drag the divider between the media pane and
+        the info/tags sidebar (clamped 260-620px), double-click to reset. New
+        `settingsStore.viewerSidebarWidthPx`, persisted and in the backup snapshot; the drag uses
+        window listeners with a local width, committing to the store on release.
+      - **(1.14.84) Grid keyboard navigation.** The grid container is focusable; arrows / h-j-k-l
+        move a focus ring (up/down step by `positioner.columnCount`), Home/End jump to the ends,
+        Enter/Space open the focused post (or toggle-select it in multi-select). The ring is a
+        single positioned overlay driven by masonic's positioner (no per-cell re-render), with a
+        scroll-into-view effect that falls back to a row-height estimate for unmeasured cells.
+        Cheatsheet updated.
+      - **(1.14.85) Overlay open/close animations.** New `components/ui/Overlay.tsx` - shared
+        chrome with enter **and** exit animation (exit plays while still mounted, then fires
+        `onClose` after 130ms), Esc handling, and a scrim. Three variants: `full` (Popular, Pool,
+        Wiki, Sets, Collections), `sheet` (Settings, Profile, Artist, Saved searches, Forum,
+        Messages), `dialog` (Keyboard shortcuts, Downloads). Close buttons / custom Esc drive it
+        via a ref (`OverlayHandle.close`); panels with a nested view keep their own Esc (back out
+        one level first) + `closeOnEsc={false}`. Scrim-click-to-close stays **off** by default
+        (the panels' scrims were inert before); only the two dialogs opt in. The small pop-over
+        pickers (`SetPickerDialog`, `CollectionPicker(Dialog)`, `IdListImportDialog`,
+        `EasterEggDialog`, `RelatedTagsPanel`, `SearchBuilder`) were **not** converted - a
+        follow-up if the inconsistency grates.
+      - **(1.14.86) InfoPanel dedupes.** Dropped its private `formatBytes` for
+        `lib/formatBytes.ts`; folded three identical accent-pill buttons into one local `InfoChip`.
+      - Not live-tested - the user profiles/tests the app.
+
 ## Running it
 
 **The user runs/tests the app themselves — don't launch it or drive the GUI to verify changes**
