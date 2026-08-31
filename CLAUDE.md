@@ -1624,9 +1624,27 @@ live call before implementing (per user instruction - no more guessing).
         `.concat(id).slice(-CAP)` = two full copies of a 20k-element array per new post viewed;
         now one copy, trimmed only when actually over cap.
       - **Still not done** (from pass 2's list): the steady-state 30-60s polls re-rendering App
-        while idle (`AppShell` isn't memoised); `skeleton-shimmer` animating `background-position`
-        (per-frame repaint per loading cell); `ZoomableImage` re-measuring via
-        `getBoundingClientRect()` every frame during a pan; `tokio` on the `full` feature set.
+        while idle (`AppShell` isn't memoised - judged marginal, a ~50-node header reconcile
+        every 30-60s, and memoising it properly means stabilising ~25 inline callbacks in
+        App.tsx). The rest of pass 2's leftovers were done in pass 4 below.
+      - Not live-tested - the user profiles/tests the app.
+
+- [x] **Performance pass 4** (1.14.77 - 1.14.79) Static-check only (`cargo check` + `vite
+      build`), no behaviour change.
+      - **(1.14.77) `tokio` off `full`.** Nothing in the crate calls `tokio::` directly (the
+        runtime is Tauri's; the async is all `.await` on reqwest/governor futures), so `full` was
+        pulling `process`/`signal`/`io-std`/etc. into the binary for nothing. Narrowed to
+        `rt-multi-thread, sync, time, fs, net, io-util`; feature unification still gives
+        tauri/reqwest whatever they enable themselves (`macros` etc. stay, pulled by tauri).
+      - **(1.14.78) Compositor-only skeleton shimmer.** `.skeleton-shimmer` animated
+        `background-position` on a gradient - a full-box repaint every frame, and a dozen loading
+        cells can be onscreen during a fling. Now a `transform: translateX` pseudo-element.
+      - **(1.14.79) Lighter `ZoomableImage` pan/zoom.** The box-measuring `useLayoutEffect` (two
+        `getBoundingClientRect()`s, keyed on scale + offset) ran every zoom/pan frame for every
+        image, but its only consumer is the note overlay, which most posts don't have - now
+        skipped unless `notes` is non-empty. Drag-pan did a `setOffset` (full re-render) per
+        mousemove event; coalesced to one per `requestAnimationFrame`, final position flushed on
+        mouseup so the image doesn't snap back.
       - Not live-tested - the user profiles/tests the app.
 
 ## Running it
