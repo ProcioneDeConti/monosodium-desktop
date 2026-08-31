@@ -47,6 +47,14 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const chipBoxRef = useRef<HTMLDivElement>(null);
+
+  // The chip area is capped at ~2 rows and scrolls; keep the newest chips + the input (both at
+  // the end) in view as tags are added, rather than letting a long query push the grid down.
+  useEffect(() => {
+    const box = chipBoxRef.current;
+    if (box) box.scrollTop = box.scrollHeight;
+  }, [tags]);
 
   // Stay in sync when the active search changes from elsewhere (e.g. clicking a tag in the
   // viewer navigates here with a new query).
@@ -209,8 +217,9 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
   return (
     <div ref={containerRef} className="relative flex-1 min-w-0">
       <div
+        ref={chipBoxRef}
         className="flex flex-wrap items-center gap-1.5 rounded-[var(--radius-md)] border border-black/10 dark:border-white/10
-                   bg-white/70 dark:bg-black/30 px-2 py-1.5 min-h-9 transition-shadow
+                   bg-white/70 dark:bg-black/30 px-2 py-1.5 min-h-9 max-h-[4.75rem] overflow-y-auto transition-shadow
                    focus-within:ring-2 focus-within:ring-[rgb(var(--accent))]"
         onClick={() => inputRef.current?.focus()}
       >
@@ -250,7 +259,11 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
             setDraft(e.target.value);
             setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true);
+            const box = chipBoxRef.current;
+            if (box) box.scrollTop = box.scrollHeight;
+          }}
           onKeyDown={onKeyDown}
           placeholder={tags.length === 0 ? "Search tags..." : ""}
           className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-0.5"
