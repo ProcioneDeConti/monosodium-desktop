@@ -1704,6 +1704,13 @@ live call before implementing (per user instruction - no more guessing).
         `epilepsy_warning`, `avoid_posting`, `unknown_artist`, `unknown_artist_signature`,
         `anonymous_artist`, `third-party_edit`, `sound_edit`). `favoritesAnalysis.ts` still has
         its own smaller `EXCLUDED_TAGS` - could switch to this later.
+- [x] **New app icon** (1.14.88) A raccoon (papercraft style, e621 bowtie). Source is
+      `raccute2.png` (2048² RGBA, already transparent) downscaled to `src-tauri/app-icon.png`
+      (1024², kept in-repo for re-runs) and fed to `npm run tauri icon`, which regenerates
+      `src-tauri/icons/*` - the window/taskbar/installer icons and the tray (same set). The
+      `icons/android` + `icons/ios` sets `tauri icon` also emits were deleted (Windows-only app);
+      `icons/64x64.png` added to the bundle manifest. No ImageMagick / sharp / PIL on this box -
+      if the art changes, hand over an alpha PNG.
 
 ## Running it
 
