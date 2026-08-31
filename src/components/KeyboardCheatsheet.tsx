@@ -42,6 +42,9 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
   {
     title: "Grid",
     rows: [
+      ["↑ ↓ ← → / h j k l", "Move the focus ring (click the grid first)"],
+      ["Enter / Space", "Open the focused post (or select it, in multi-select)"],
+      ["Home / End", "Jump to the first / last result"],
       ["Ctrl / ⌘ + click", "Select a post (enters multi-select)"],
       ["Shift + click", "Select a range"],
       ["Esc", "Exit multi-select"],

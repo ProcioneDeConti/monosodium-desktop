@@ -1,7 +1,7 @@
 {
   "name": "monosodium-desktop",
   "private": true,
-  "version": "1.14.83",
+  "version": "1.14.84",
   "type": "module",
   "scripts": {
     "dev": "vite",

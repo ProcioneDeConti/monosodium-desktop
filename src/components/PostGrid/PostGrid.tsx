@@ -88,6 +88,10 @@ export function PostGrid({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [scrollTop, setScrollTop] = useState(0);
   const [isScrolling, setIsScrolling] = useState(false);
+  // Keyboard navigation: a focus ring you move with the arrows / h-j-k-l, Enter (or Space) to
+  // open - or, in selection mode, to toggle-select. Only acts while the grid container holds
+  // focus. `null` = no ring yet.
+  const [focusIndex, setFocusIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -223,6 +227,75 @@ export function PostGrid({
     onRender: loadMore,
   });
 
+  // --- keyboard navigation ---
+  const columns = Math.max(1, positioner.columnCount);
+
+  // Keep the ring valid when `visible` shrinks (blacklist toggle) without a remount.
+  useEffect(() => {
+    setFocusIndex((f) => (f == null ? null : visible.length === 0 ? null : Math.min(f, visible.length - 1)));
+  }, [visible.length]);
+
+  // Bring the focused cell into view. Uses the positioner's real measured box when the cell has
+  // been rendered at least once, otherwise a row-height estimate to get close (which mounts the
+  // cell, after which `scrollTop` changing re-runs this with the exact box).
+  useEffect(() => {
+    if (focusIndex == null) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const pos = positioner.get(focusIndex);
+    const top = pos ? pos.top : Math.floor(focusIndex / columns) * (thumbnailSizePx + GUTTER_PX);
+    const bottom = pos ? pos.top + pos.height : top + thumbnailSizePx;
+    const pad = 14;
+    if (top < el.scrollTop + pad) el.scrollTo({ top: Math.max(0, top - pad) });
+    else if (bottom > el.scrollTop + el.clientHeight - pad)
+      el.scrollTo({ top: bottom - el.clientHeight + pad });
+  }, [focusIndex, scrollTop, positioner, columns, thumbnailSizePx]);
+
+  const onGridKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const move = (delta: number) =>
+        setFocusIndex((cur) =>
+          visible.length === 0 ? null : Math.min(visible.length - 1, Math.max(0, (cur ?? 0) + delta)),
+        );
+      switch (e.key) {
+        case "ArrowRight":
+        case "l":
+          move(1);
+          break;
+        case "ArrowLeft":
+        case "h":
+          move(-1);
+          break;
+        case "ArrowDown":
+        case "j":
+          move(columns);
+          break;
+        case "ArrowUp":
+        case "k":
+          move(-columns);
+          break;
+        case "Home":
+          setFocusIndex(visible.length ? 0 : null);
+          break;
+        case "End":
+          setFocusIndex(visible.length ? visible.length - 1 : null);
+          break;
+        case "Enter":
+        case " ": {
+          const post = focusIndex != null ? visible[focusIndex] : undefined;
+          if (!post) break;
+          if (selectionActive && onSelectToggle) onSelectToggle(post, { range: e.shiftKey });
+          else onPostClick(focusIndex!);
+          break;
+        }
+        default:
+          return;
+      }
+      e.preventDefault();
+    },
+    [visible, columns, focusIndex, selectionActive, onSelectToggle, onPostClick],
+  );
+
   // The container below must never conditionally unmount - the ResizeObserver that measures it
   // is attached once, on mount, and a ref pointing at a since-removed/replaced DOM node would
   // silently stop reporting size changes forever (this used to be a separate early `return` for
@@ -234,8 +307,21 @@ export function PostGrid({
   // hid every one of them" - the fix for each is different.
   const allHiddenByBlacklist = empty && posts.length > 0;
 
+  const focusPos = focusIndex != null ? positioner.get(focusIndex) : undefined;
+
   return (
-    <div ref={containerRef} onScroll={onScroll} className="h-full overflow-y-auto px-3 py-3">
+    <div
+      ref={containerRef}
+      onScroll={onScroll}
+      onKeyDown={onGridKeyDown}
+      onFocus={(e) => {
+        if (e.target === e.currentTarget && focusIndex == null && visible.length > 0) setFocusIndex(0);
+      }}
+      tabIndex={0}
+      role="grid"
+      aria-label="Post results"
+      className="h-full overflow-y-auto px-3 py-3 focus:outline-none"
+    >
       {empty ? (
         allHiddenByBlacklist ? (
           <EmptyState
@@ -251,7 +337,21 @@ export function PostGrid({
           />
         )
       ) : (
-        size.width > 0 && grid
+        <div className="relative">
+          {size.width > 0 && grid}
+          {focusPos && (
+            <div
+              className="pointer-events-none absolute z-[5] rounded-[var(--radius-md)] outline outline-2
+                         outline-offset-2 outline-[rgb(var(--accent))]"
+              style={{
+                top: focusPos.top,
+                left: focusPos.left,
+                width: positioner.columnWidth,
+                height: focusPos.height,
+              }}
+            />
+          )}
+        </div>
       )}
     </div>
   );
