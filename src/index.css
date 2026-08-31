@@ -94,24 +94,32 @@ body {
   }
 }
 
-/* Thumbnail skeleton placeholder (PostGrid/PostThumbnail) - shown behind an <img> until it loads. */
+/* Thumbnail skeleton placeholder (PostGrid/PostThumbnail) - shown behind an <img> until it loads.
+   The sweep is a translated pseudo-element (transform => compositor-only) rather than an animated
+   `background-position` (repaints the whole box every frame - costly with a dozen loading cells
+   in view during a fling). */
 @keyframes skeleton-shimmer {
-  0% {
-    background-position: -150% 0;
-  }
   100% {
-    background-position: 150% 0;
+    transform: translateX(100%);
   }
 }
 
 .skeleton-shimmer {
+  overflow: hidden;
+  background-color: rgb(128 128 128 / 0.12);
+}
+
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
   background-image: linear-gradient(
     100deg,
-    rgb(128 128 128 / 0.12) 30%,
-    rgb(128 128 128 / 0.24) 50%,
-    rgb(128 128 128 / 0.12) 70%
+    transparent 30%,
+    rgb(128 128 128 / 0.18) 50%,
+    transparent 70%
   );
-  background-size: 200% 100%;
   animation: skeleton-shimmer 1.6s ease-in-out infinite;
 }
 
