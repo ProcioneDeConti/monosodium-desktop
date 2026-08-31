@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckSquare, ChevronLeft, Pencil, Reply, Send, Trash2, X } from "lucide-react";
+import { CheckSquare, ChevronLeft, Mail, Pencil, Reply, Send, Trash2, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Dmail } from "../../models/dmail";
 import type { Site } from "../../models/site";
@@ -9,6 +9,7 @@ import { useDeleteDmails, useSendDmail } from "../../queries/useDmailMutations";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { DText } from "../ui/DText";
+import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
 import { Spinner } from "../ui/Spinner";
 import { useUserAvatarUrl } from "../../queries/useAvatarUrl";
@@ -223,7 +224,14 @@ function MessagesList({
     );
   }
   if (dmails.length === 0) {
-    return <div className="flex h-32 items-center justify-center text-sm opacity-60">No messages yet.</div>;
+    return (
+      <EmptyState
+        className="!h-64"
+        icon={<Mail />}
+        title="Your inbox is empty"
+        hint="Direct messages from other users show up here."
+      />
+    );
   }
   return (
     <div className="h-full overflow-y-auto px-4" onScroll={onScroll}>

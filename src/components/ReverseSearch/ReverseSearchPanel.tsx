@@ -1,9 +1,10 @@
 import { useEffect } from "react";
-import { ExternalLink, X } from "lucide-react";
+import { ExternalLink, ImageOff, KeyRound, X } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useReverseImageSearch } from "../../queries/useReverseImageSearch";
 import { errorMessage } from "../../lib/errors";
 import { Button } from "../ui/Button";
+import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
 import { Spinner } from "../ui/Spinner";
 
@@ -52,13 +53,12 @@ export function ReverseSearchPanel({ filePath, apiKey, onClose, onOpenSettings }
 
         <div className="flex-1 overflow-y-auto px-4 py-4">
           {!hasKey ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
-              <span className="max-w-xs text-center opacity-70">
-                SauceNAO requires an API key - it rejects anonymous requests outright, not just at
-                a lower rate limit.
-              </span>
-              <Button onClick={onOpenSettings}>Add key in Settings</Button>
-            </div>
+            <EmptyState
+              icon={<KeyRound />}
+              title="A SauceNAO API key is required"
+              hint="SauceNAO rejects anonymous requests outright, not just at a lower rate limit."
+              action={<Button onClick={onOpenSettings}>Add key in Settings</Button>}
+            />
           ) : search.isPending ? (
             <div className="flex h-full items-center justify-center gap-2 text-sm opacity-60">
               <Spinner size={15} />
@@ -72,7 +72,11 @@ export function ReverseSearchPanel({ filePath, apiKey, onClose, onOpenSettings }
               <Button onClick={() => search.mutate({ apiKey, filePath })}>Retry</Button>
             </div>
           ) : results.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm opacity-60">No matches found.</div>
+            <EmptyState
+              icon={<ImageOff />}
+              title="No matches found"
+              hint="SauceNAO didn't recognise this image. It may be original, edited, or too low-resolution."
+            />
           ) : (
             <div className="flex flex-col gap-3">
               {results.map((r, i) => (

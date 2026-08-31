@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteLoader, useMasonry, usePositioner, useResizeObserver } from "masonic";
+import { EyeOff, SearchX } from "lucide-react";
+import { EmptyState } from "../ui/EmptyState";
 import { playableUrl, type Post } from "../../models/post";
 import type { Site } from "../../models/site";
 import { PostThumbnail } from "./PostThumbnail";
@@ -228,13 +230,26 @@ export function PostGrid({
   // a search matches a tag you just blacklisted - the container came and went, size stuck at 0,
   // and the grid never rendered again even after posts became visible).
   const empty = visible.length === 0 && !isFetchingNextPage;
+  // Distinguish "the search genuinely returned nothing" from "results came back but the blacklist
+  // hid every one of them" - the fix for each is different.
+  const allHiddenByBlacklist = empty && posts.length > 0;
 
   return (
     <div ref={containerRef} onScroll={onScroll} className="h-full overflow-y-auto px-3 py-3">
       {empty ? (
-        <div className="flex h-full items-center justify-center text-sm opacity-60">
-          No posts found.
-        </div>
+        allHiddenByBlacklist ? (
+          <EmptyState
+            icon={<EyeOff />}
+            title={`All ${posts.length} result${posts.length === 1 ? "" : "s"} are hidden by your blacklist`}
+            hint="Turn on “Show blacklisted posts” in the View menu to see them, or loosen the blacklist in Settings."
+          />
+        ) : (
+          <EmptyState
+            icon={<SearchX />}
+            title="No posts matched"
+            hint="Try fewer tags, or more general ones. Check your spelling and any excluded (−) tags too."
+          />
+        )
       ) : (
         size.width > 0 && grid
       )}

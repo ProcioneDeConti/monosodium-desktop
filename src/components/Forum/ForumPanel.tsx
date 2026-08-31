@@ -16,6 +16,7 @@ import { useAccountStore } from "../../state/accountStore";
 import { useUserAvatarUrl } from "../../queries/useAvatarUrl";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
+import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
 import { Spinner } from "../ui/Spinner";
 import { ForumPostRow } from "./ForumPostRow";
@@ -147,7 +148,7 @@ function TopicsList({ site, onOpenTopic }: { site: Site; onOpenTopic: (id: numbe
     );
   }
   if (topics.length === 0) {
-    return <div className="flex h-32 items-center justify-center text-sm opacity-60">No topics found.</div>;
+    return <EmptyState className="!h-64" icon={<MessagesSquare />} title="No topics found" />;
   }
   return (
     <div className="h-full overflow-y-auto px-4" onScroll={onScroll}>
@@ -208,7 +209,14 @@ function ForumSearchResults({
     );
   }
   if (posts.length === 0) {
-    return <div className="flex h-32 items-center justify-center text-sm opacity-60">No matching posts.</div>;
+    return (
+      <EmptyState
+        className="!h-64"
+        icon={<Search />}
+        title="No forum posts matched"
+        hint="Try different words."
+      />
+    );
   }
 
   return (

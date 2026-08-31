@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Bookmark, Plus, Trash2, X } from "lucide-react";
 import { useSavedSearchesStore } from "../../state/savedSearchesStore";
+import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
 
 interface SavedSearchesPanelProps {
@@ -76,9 +77,12 @@ export function SavedSearchesPanel({ currentQuery, onClose, onApply }: SavedSear
           )}
 
           {savedSearches.length === 0 ? (
-            <div className="flex h-32 items-center justify-center text-sm opacity-60">
-              No saved searches yet.
-            </div>
+            <EmptyState
+              className="!h-56"
+              icon={<Bookmark />}
+              title="No saved searches yet"
+              hint="Run a search, then use the “save current search” row above to keep it here."
+            />
           ) : (
             <div className="flex flex-col">
               {savedSearches.map((entry) => (

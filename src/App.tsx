@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, TriangleAlert } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { AppShell } from "./components/shell/AppShell";
 import { TabBar, type SearchTab } from "./components/shell/TabBar";
@@ -32,6 +32,7 @@ import { EulaScreen } from "./components/Eula/EulaScreen";
 import { UnlockScreen } from "./components/Vault/UnlockScreen";
 import { Button } from "./components/ui/Button";
 import { Spinner } from "./components/ui/Spinner";
+import { EmptyState } from "./components/ui/EmptyState";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePostsQuery } from "./queries/usePostsQuery";
 import { usePostMutations } from "./queries/usePostMutations";
@@ -753,17 +754,19 @@ function App() {
       {!booted || isLoading ? (
         <div className="flex h-full items-center justify-center gap-2 text-sm opacity-60">
           <Spinner size={15} />
-          Loading…
+          Loading posts…
         </div>
       ) : isError ? (
-        <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
-          <span className="max-w-md text-center text-red-500">
-            {errorMessage(error)}
-          </span>
-          <Button icon={<RefreshCw size={13} />} onClick={() => void refresh()}>
-            Retry
-          </Button>
-        </div>
+        <EmptyState
+          icon={<TriangleAlert />}
+          title="Couldn't load posts"
+          hint={errorMessage(error)}
+          action={
+            <Button icon={<RefreshCw size={13} />} onClick={() => void refresh()}>
+              Retry
+            </Button>
+          }
+        />
       ) : (
         <div className="flex h-full flex-col">
           {/* "Show blacklisted posts" moved into the View menu (AppShell). A caution stripe still

@@ -19,6 +19,7 @@ import { PostGrid } from "../PostGrid/PostGrid";
 import { PostViewer } from "../PostViewer/PostViewer";
 import { PoolPanel } from "../Pool/PoolPanel";
 import { Button } from "../ui/Button";
+import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
 import { Spinner } from "../ui/Spinner";
 
@@ -158,9 +159,12 @@ export function CollectionsPanel({
           )}
 
           {collections.length === 0 ? (
-            <p className="py-6 text-sm opacity-60">
-              No collections yet. Create one, then add posts from the viewer or the multi-select bar.
-            </p>
+            <EmptyState
+              className="!h-auto py-12"
+              icon={<Library />}
+              title="No collections yet"
+              hint="Collections are local groups of posts. Create one, then add posts from the viewer or the multi-select bar."
+            />
           ) : (
             groups.map((g) => (
               <div key={g.cat} className="flex flex-col gap-1.5">
@@ -321,9 +325,11 @@ function CollectionGridView({
             Failed to load collection.
           </div>
         ) : posts.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm opacity-60">
-            This collection has no posts yet.
-          </div>
+          <EmptyState
+            icon={<Library />}
+            title="This collection is empty"
+            hint="Add posts to it from the viewer's collection button or the multi-select bar."
+          />
         ) : (
           <PostGrid
             site={site}

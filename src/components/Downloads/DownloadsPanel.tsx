@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Check, Clock, Download, FolderOpen, RotateCw, Trash2, X } from "lucide-react";
 import { useDownloadsStore, type DownloadJob } from "../../state/downloadsStore";
+import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
 import { Spinner } from "../ui/Spinner";
 
@@ -74,7 +75,12 @@ export function DownloadsPanel({ onClose }: DownloadsPanelProps) {
 
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {jobs.length === 0 ? (
-            <p className="px-2 py-6 text-center text-sm opacity-60">No downloads yet.</p>
+            <EmptyState
+              className="!h-auto py-10"
+              icon={<Download />}
+              title="No downloads yet"
+              hint="Use the download button in the viewer, on a thumbnail hover, or the multi-select bar."
+            />
           ) : (
             <ul className="flex flex-col gap-0.5">
               {[...jobs].reverse().map((job) => (
