@@ -292,6 +292,7 @@ pub fn disable_password_encryption(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn reset_vault() -> Result<(), String> {
     set_key(None);
+    credentials::clear_cache();
     let root = paths::data_root();
     for name in [SETTINGS_FILE, SAVED_SEARCHES_FILE, credentials::FILE_NAME, CHECK_FILE] {
         let path = root.join(name);

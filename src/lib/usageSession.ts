@@ -10,11 +10,13 @@ import { useStatsStore } from "../state/statsStore";
 
 const IDLE_MS = 5 * 60_000;
 const FLUSH_MS = 15_000;
+const INPUT_THROTTLE_MS = 1000;
 
 let started = false;
 let activeSince: number | null = null; // clock running since this ms, or null (paused)
 let sessionStart: number | null = null; // current session began at this ms, or null (no session)
 let lastInput = Date.now();
+let lastInputHandled = 0; // last time onInput did its (non-trivial) work, for throttling
 let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
 function focusedAndVisible(): boolean {
@@ -61,7 +63,13 @@ function onIdle() {
 }
 
 function onInput() {
-  lastInput = Date.now();
+  const now = Date.now();
+  lastInput = now; // cheap; keep it exact so onFocusChange's idle check is accurate
+  // `mousemove` alone fires dozens of times a second - re-arming the idle timer
+  // (clearTimeout + setTimeout) and calling document.hasFocus() on every one is pure churn
+  // when the idle cutoff is five minutes. Doing the real work ~1x/sec is more than enough.
+  if (now - lastInputHandled < INPUT_THROTTLE_MS) return;
+  lastInputHandled = now;
   if (focusedAndVisible()) {
     beginActive();
   }

@@ -4,8 +4,9 @@
 // savedSearchesStore / searchHistoryStore), vault-encrypted and .bak-guarded like the rest.
 //
 // Every recorder is gated on `settingsStore.usageStatsEnabled` (Dashboard > Manage toggle) - when
-// off they're all no-ops, existing data is untouched. Persistence is debounced (3s) since some
-// recorders fire often; `flushStats()` forces an immediate write on session end / unload.
+// off they're all no-ops, existing data is untouched. Persistence is debounced (see
+// PERSIST_DEBOUNCE_MS) since some recorders fire often; `flushStats()` forces an immediate write
+// on session end / unload.
 
 import { create } from "zustand";
 import { load, type Store } from "@tauri-apps/plugin-store";
@@ -244,13 +245,18 @@ function snapshotOf(s: StatsState): StatsSnapshot {
   };
 }
 
+// Coalesce writes. Stats are derived data (a lost tail just under-counts slightly), and the
+// snapshot includes a multi-KB `seenPostIds` array that gets JSON-serialised and AES-encrypted
+// on every write - so a longer debounce meaningfully cuts churn while browsing. usageSession
+// flushes every 15s regardless, and `flushStats()` forces a write on window-hide / unload.
+const PERSIST_DEBOUNCE_MS = 12_000;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 function schedulePersist() {
   if (persistTimer) return;
   persistTimer = setTimeout(() => {
     persistTimer = null;
     void persistNow().catch(() => {});
-  }, 3000);
+  }, PERSIST_DEBOUNCE_MS);
 }
 async function persistNow() {
   const store = await getStore();
@@ -284,9 +290,14 @@ export const useStatsStore = create<StatsState>((set) => ({
       mediaBytes = post.file?.size || 0;
     }
     set((s) => {
-      const seenPostIds = isNew
-        ? s.seenPostIds.concat(id).slice(-SEEN_CAP)
-        : s.seenPostIds;
+      // One allocation, not two (`.concat().slice()` copied the whole array twice). Only trims
+      // once actually over cap, which is the rare case.
+      let seenPostIds = s.seenPostIds;
+      if (isNew) {
+        const start = s.seenPostIds.length >= SEEN_CAP ? s.seenPostIds.length - SEEN_CAP + 1 : 0;
+        seenPostIds = start > 0 ? s.seenPostIds.slice(start) : s.seenPostIds.slice();
+        seenPostIds.push(id);
+      }
       return {
         seenPostIds,
         lifetime: {

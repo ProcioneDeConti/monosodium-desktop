@@ -2,6 +2,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Mutex;
 
 use crate::crypto;
 use crate::paths;
@@ -57,25 +58,50 @@ fn machine_secret() -> String {
     format!("monosodium-desktop:{computer}:{user}")
 }
 
-/// Any read failure - no file yet, corrupted contents, or a secret that no longer matches (e.g.
-/// the file was copied to a different machine/account) - is treated as "nothing saved" rather
-/// than a hard error, matching the old keyring backend's `NoEntry` behavior.
-pub(crate) fn read_all() -> CredentialsFile {
+/// In-memory cache of the last decrypted credentials, keyed by the secret string they were
+/// decrypted under. `read_all()` runs on **every** e621/e6AI API request (`api.rs::request()`
+/// loads the site's credentials to attach Basic Auth), and each miss is a full
+/// PBKDF2-HMAC-SHA256 key derivation (crypto.rs, 210k iterations - deliberately ~100ms) plus an
+/// AES-GCM decrypt. Without this cache that cost is paid per request, adding real latency to
+/// every API call and pinning a worker thread. The file has exactly one writer (this process,
+/// via `write_all`), so the cache only needs invalidating there and whenever the active secret
+/// changes - keying on the secret string handles the latter for free (a vault unlock/enable/
+/// disable changes `machine_secret()`, so the next read misses and re-derives).
+static CACHE: Mutex<Option<(String, CredentialsFile)>> = Mutex::new(None);
+
+fn decrypt_file(secret: &str) -> CredentialsFile {
     (|| -> Option<CredentialsFile> {
         let contents = std::fs::read_to_string(file_path()).ok()?;
         let envelope: Envelope = serde_json::from_str(&contents).ok()?;
         let salt = BASE64.decode(&envelope.salt).ok()?;
         let iv = BASE64.decode(&envelope.iv).ok()?;
         let ciphertext = BASE64.decode(&envelope.payload).ok()?;
-        let plaintext = crypto::decrypt(&ciphertext, &salt, &iv, &machine_secret()).ok()?;
+        let plaintext = crypto::decrypt(&ciphertext, &salt, &iv, secret).ok()?;
         serde_json::from_slice(&plaintext).ok()
     })()
     .unwrap_or_default()
 }
 
+/// Any read failure - no file yet, corrupted contents, or a secret that no longer matches (e.g.
+/// the file was copied to a different machine/account) - is treated as "nothing saved" rather
+/// than a hard error, matching the old keyring backend's `NoEntry` behavior.
+pub(crate) fn read_all() -> CredentialsFile {
+    let secret = machine_secret();
+    let mut cache = CACHE.lock().unwrap();
+    if let Some((cached_secret, data)) = cache.as_ref() {
+        if *cached_secret == secret {
+            return data.clone();
+        }
+    }
+    let data = decrypt_file(&secret);
+    *cache = Some((secret, data.clone()));
+    data
+}
+
 pub(crate) fn write_all(data: &CredentialsFile) -> Result<(), String> {
+    let secret = machine_secret();
     let plaintext = serde_json::to_vec(data).map_err(|e| e.to_string())?;
-    let (salt, iv, ciphertext) = crypto::encrypt(&plaintext, &machine_secret())?;
+    let (salt, iv, ciphertext) = crypto::encrypt(&plaintext, &secret)?;
     let envelope = Envelope {
         salt: BASE64.encode(salt),
         iv: BASE64.encode(iv),
@@ -83,7 +109,19 @@ pub(crate) fn write_all(data: &CredentialsFile) -> Result<(), String> {
     };
     let json = serde_json::to_string(&envelope).map_err(|e| e.to_string())?;
     // Atomic - a truncated credentials.dat decrypts to nothing, i.e. silently signs the user out.
-    paths::write_atomic(&file_path(), json.as_bytes()).map_err(|e| e.to_string())
+    paths::write_atomic(&file_path(), json.as_bytes()).map_err(|e| e.to_string())?;
+    // Keep the in-memory cache in step with what's now on disk (under whatever secret is active),
+    // so the next read_all() - e.g. the very next API request - doesn't re-derive the key.
+    *CACHE.lock().unwrap() = Some((secret, data.clone()));
+    Ok(())
+}
+
+/// Drop the in-memory cache - used by `vault::reset_vault`, which deletes credentials.dat out
+/// from under this module. (Not strictly required: the next `read_all()` misses anyway once the
+/// active secret has changed, and falls back to "nothing saved" for the now-absent file.
+/// Explicit is clearer.)
+pub(crate) fn clear_cache() {
+    *CACHE.lock().unwrap() = None;
 }
 
 fn site_slot(data: &mut CredentialsFile, site: Site) -> &mut Option<SiteCredentials> {
