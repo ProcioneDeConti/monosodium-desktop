@@ -1,6 +1,6 @@
 [package]
 name = "monosodium-desktop"
-version = "1.14.76"
+version = "1.14.77"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -35,7 +35,10 @@ serde_json = "1"
 tauri-plugin-store = "2.4.4"
 reqwest = { version = "0.13.4", features = ["json", "query", "multipart"] }
 governor = "0.10.4"
-tokio = { version = "1.53.1", features = ["full"] }
+# Only the pieces actually reached: the multi-thread runtime + the primitives reqwest/governor
+# need. Nothing in this crate calls `tokio::` directly, so `full` (process, signal, all the I/O
+# drivers) was dead weight in the binary.
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "sync", "time", "fs", "net", "io-util"] }
 base64 = "0.23.1"
 tauri-plugin-dialog = "2.7.2"
 tauri-plugin-process = "2"
