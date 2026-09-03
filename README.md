@@ -4,6 +4,8 @@ An unofficial Windows desktop client for [e621](https://e621.net) and [e6AI](htt
 
 This is a personal project, not affiliated with or endorsed by e621 or e6AI. It talks to them exclusively through their official public API, and it respects that API's rate limits and User-Agent requirements.
 
+**Full documentation is in the [wiki](https://github.com/ProcioneDeConti/monosodium-desktop/wiki)** - features, every settings section, keyboard shortcuts, data/privacy, troubleshooting and build notes. The same guide is in the app under Menu -> Help.
+
 ## Features
 
 - **e621 and e6AI in one app** - switch between e621 and e6AI (e621's AI-generated-content sister site) with a single toggle, each keeping its own separate login. A health-check dot next to the toggle shows whether the active site is reachable (green / checking / red), and both the window title bar and the shell's own site button always reflect which one you're browsing - click that button to jump back to the default search from anywhere.
