@@ -38,7 +38,14 @@ export function UpdateSection() {
         </button>
       )}
 
-      {result && !result.update_available && (
+      {result?.no_releases && (
+        <p className="flex items-center gap-1.5 text-xs opacity-60">
+          <CheckCircle2 size={12} />
+          No releases published yet (v{result.current_version})
+        </p>
+      )}
+
+      {result && !result.no_releases && !result.update_available && (
         <p className="flex items-center gap-1.5 text-xs opacity-60">
           <CheckCircle2 size={12} />
           You&rsquo;re up to date (v{result.current_version})

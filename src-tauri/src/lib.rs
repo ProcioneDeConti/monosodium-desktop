@@ -16,7 +16,7 @@ mod vault;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Manager, WindowEvent};
-use tauri_plugin_global_shortcut::ShortcutState;
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 /// Summons/hides the main window from anywhere, even while another app has focus - the desktop
 /// equivalent of the reference Android app's "just switch apps" (which needs no such thing).
@@ -40,6 +40,13 @@ fn show_main_window(app: &tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // A pending Settings > Reset ("erase all data") request - wipe both candidate data folders
+    // now, before anything reads or recreates them, and while the previous run's WebView2 file
+    // locks are already gone (this is a post-relaunch startup).
+    if paths::full_reset_pending() {
+        paths::apply_full_reset();
+    }
+
     // Must run before the webview is created - see cache.rs's module doc comment.
     cache::bootstrap();
     // Restore settings.json / saved-searches.json from a .bak if a previous run's store write was
@@ -53,9 +60,12 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(
+            // The shortcut is registered later, in `setup()`, rather than eagerly here - a stale
+            // OS registration from a previous instance that didn't exit cleanly (or the brief
+            // old/new overlap during `relaunch()`) makes an eager `.with_shortcuts()` fail, and a
+            // failure there is a hard plugin-init panic that takes the whole app down over an
+            // optional convenience hotkey.
             tauri_plugin_global_shortcut::Builder::new()
-                .with_shortcuts([TOGGLE_SHORTCUT])
-                .expect("TOGGLE_SHORTCUT is a valid shortcut string")
                 .with_handler(|app, _shortcut, event| {
                     if event.state == ShortcutState::Pressed {
                         toggle_main_window(app);
@@ -66,6 +76,12 @@ pub fn run() {
         .manage(api::AppState::new())
         .setup(|app| {
             let window = app.get_webview_window("main").expect("main window");
+
+            // Best-effort - see the global-shortcut plugin comment above. If it's already held
+            // (a lingering previous process), the app still runs fine, just without the hotkey.
+            if let Err(e) = app.global_shortcut().register(TOGGLE_SHORTCUT) {
+                eprintln!("global shortcut '{TOGGLE_SHORTCUT}' not registered: {e}");
+            }
             // The window is intentionally opaque (no `transparent: true`, no Mica). A translucent
             // window is alpha-composited over the desktop every frame, which disables WebView2's
             // GPU compositing fast paths on Windows and makes all scrolling/animation slower.
@@ -173,6 +189,8 @@ pub fn run() {
             credentials::delete_saucenao_key,
             saucenao::reverse_image_search,
             paths::get_data_dir,
+            paths::storage_location,
+            paths::request_full_reset,
             vault::vault_status,
             vault::unlock_vault,
             vault::enable_password_encryption,

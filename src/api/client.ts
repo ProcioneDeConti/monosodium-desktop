@@ -29,6 +29,12 @@ export interface VaultStatus {
   locked: boolean;
 }
 
+export interface StorageLocation {
+  dataDir: string;
+  /** False = the exe directory wasn't writable, so data lives in %LOCALAPPDATA% instead. */
+  portable: boolean;
+}
+
 export const e621Api = {
   getPosts(site: Site, tags: string, limit: number, page?: string): Promise<PostsResponse> {
     return invoke("get_posts", { site, tags: tags || null, limit, page: page ?? null });
@@ -342,6 +348,20 @@ export const e621Api = {
    *  tauri-plugin-store's default AppData location. */
   getDataDir(): Promise<string> {
     return invoke("get_data_dir");
+  },
+
+  /** Where local data lives + whether that's the portable folder or the AppData fallback -
+   *  Settings > Reset shows this and warns on the fallback. See src-tauri/src/paths.rs. */
+  getStorageLocation(): Promise<StorageLocation> {
+    return invoke("storage_location");
+  },
+
+  /** Settings > Reset - marks every local file (settings, saved searches, history, collections,
+   *  stats, both sites' credentials + SauceNAO key, encryption vault, WebView2 cache) for
+   *  deletion at the next launch, in both the portable and AppData locations. Caller restarts
+   *  the app straight after. See src-tauri/src/paths.rs. */
+  requestFullReset(): Promise<void> {
+    return invoke("request_full_reset");
   },
 
   /** Settings > Encryption - see src-tauri/src/vault.rs. `locked` is only ever true right after

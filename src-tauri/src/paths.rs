@@ -1,6 +1,8 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
+
 /// All of this app's local state - settings.json/saved-searches.json (tauri-plugin-store),
 /// credentials.dat (credentials.rs), and the WebView2 cache (cache.rs) - lives in a "data" folder
 /// next to the exe instead of scattered across %APPDATA%/%LOCALAPPDATA%/Windows Credential
@@ -13,6 +15,11 @@ use std::path::{Path, PathBuf};
 /// unconditionally** - a *transient* writability failure (an antivirus scan of a freshly-built
 /// exe, a file lock during an active rebuild) must never be able to silently move the whole
 /// config elsewhere and make the app look factory-reset.
+///
+/// Settings > Reset ("erase all data") writes a `.full_reset_pending` marker and restarts; the
+/// next launch calls `apply_full_reset` before anything else touches the data folder (and while
+/// the old webview's file locks are gone), wiping *every* `candidate_roots()` entry - both the
+/// portable folder and the AppData fallback, regardless of which one is currently active.
 const DATA_MARKERS: [&str; 5] = [
     "settings.json",
     "saved-searches.json",
@@ -21,19 +28,49 @@ const DATA_MARKERS: [&str; 5] = [
     "search-history.json",
 ];
 
-pub fn data_root() -> PathBuf {
-    let portable = exe_dir().map(|d| d.join("data"));
-    let appdata = dirs::data_local_dir()
+/// Left behind by `request_full_reset`, consumed by `apply_full_reset` at the next launch.
+const RESET_MARKER: &str = ".full_reset_pending";
+
+/// Where this app's data folder lives, plus whether that's the portable (next-to-exe) location
+/// or the `%LOCALAPPDATA%` fallback - surfaced to Settings so it can warn when the program
+/// directory wasn't writable.
+pub struct DataLocation {
+    pub path: PathBuf,
+    pub portable: bool,
+}
+
+fn portable_root() -> Option<PathBuf> {
+    exe_dir().map(|d| d.join("data"))
+}
+
+fn appdata_root() -> PathBuf {
+    dirs::data_local_dir()
         .map(|p| p.join("Monosodium Desktop"))
-        .unwrap_or_else(std::env::temp_dir);
+        .unwrap_or_else(std::env::temp_dir)
+}
+
+/// Every location the data folder could ever be, so `apply_full_reset` clears the inactive
+/// fallback too rather than leaving half the config behind on disk.
+fn candidate_roots() -> Vec<PathBuf> {
+    let mut roots = Vec::with_capacity(2);
+    if let Some(p) = portable_root() {
+        roots.push(p);
+    }
+    roots.push(appdata_root());
+    roots
+}
+
+pub fn data_location() -> DataLocation {
+    let portable = portable_root();
+    let appdata = appdata_root();
 
     if let Some(p) = &portable {
         if has_app_data(p) {
-            return p.clone();
+            return DataLocation { path: p.clone(), portable: true };
         }
     }
     if has_app_data(&appdata) {
-        return appdata;
+        return DataLocation { path: appdata, portable: false };
     }
 
     // First run (or everything was wiped): prefer next to the exe, retrying the probe so one
@@ -41,12 +78,16 @@ pub fn data_root() -> PathBuf {
     if let Some(p) = portable {
         for attempt in 0..6u64 {
             if is_writable(&p) {
-                return p;
+                return DataLocation { path: p, portable: true };
             }
             std::thread::sleep(std::time::Duration::from_millis(40 * (attempt + 1)));
         }
     }
-    appdata
+    DataLocation { path: appdata, portable: false }
+}
+
+pub fn data_root() -> PathBuf {
+    data_location().path
 }
 
 fn has_app_data(dir: &Path) -> bool {
@@ -97,6 +138,49 @@ pub fn get_data_dir() -> Result<String, String> {
     let root = data_root();
     std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
     Ok(root.to_string_lossy().to_string())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageLocation {
+    pub data_dir: String,
+    /// False means the exe directory wasn't writable and data lives in `%LOCALAPPDATA%` instead.
+    pub portable: bool,
+}
+
+/// Backs Settings > Reset's "data is stored in …" line and its AppData-fallback warning.
+#[tauri::command]
+pub fn storage_location() -> StorageLocation {
+    let loc = data_location();
+    StorageLocation {
+        data_dir: loc.path.to_string_lossy().to_string(),
+        portable: loc.portable,
+    }
+}
+
+/// Settings > Reset. Marks every local file for deletion at the next launch rather than wiping
+/// now - the WebView2 cache directory is locked by the browser process while the app runs (same
+/// constraint as `cache::request_cache_clear`), so the actual `remove_dir_all` happens in
+/// `apply_full_reset`, called from `lib.rs` before the webview is recreated.
+#[tauri::command]
+pub fn request_full_reset() -> Result<(), String> {
+    let root = data_root();
+    std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
+    write_atomic(&root.join(RESET_MARKER), b"1").map_err(|e| e.to_string())
+}
+
+/// True if `request_full_reset` left its marker in either candidate location.
+pub fn full_reset_pending() -> bool {
+    candidate_roots().iter().any(|r| r.join(RESET_MARKER).is_file())
+}
+
+/// Wipes both candidate data folders (portable + AppData fallback). Best-effort: an in-use file
+/// or a missing folder is not worth blocking startup over. Must run before `cache::bootstrap`
+/// and the store plugin - see this module's doc comment.
+pub fn apply_full_reset() {
+    for root in candidate_roots() {
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }
 
 fn bak_path(path: &Path) -> PathBuf {

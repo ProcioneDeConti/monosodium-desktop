@@ -20,6 +20,7 @@ import { BackupSection } from "./BackupSection";
 import { CacheSection } from "./CacheSection";
 import { UpdateSection } from "./UpdateSection";
 import { EncryptionSection } from "./EncryptionSection";
+import { ResetSection } from "./ResetSection";
 import { EulaReadOnlyDialog } from "../Eula/EulaReadOnlyDialog";
 import { SaucenaoSection } from "./SaucenaoSection";
 import { Button } from "../ui/Button";
@@ -311,6 +312,10 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
 
           <Section title="Updates">
             <UpdateSection />
+          </Section>
+
+          <Section title="Reset">
+            <ResetSection />
           </Section>
 
           <CreditsFooter />

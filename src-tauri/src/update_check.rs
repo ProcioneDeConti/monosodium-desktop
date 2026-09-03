@@ -6,7 +6,7 @@ use crate::api::AppState;
 /// what the Kotlin `UpdateCheckRepository` this was ported from actually checks). A desktop build
 /// needs to compare itself against desktop releases.
 const REPO_OWNER: &str = "ProcioneDeConti";
-const REPO_NAME: &str = "e621-desktop";
+const REPO_NAME: &str = "monosodium-desktop";
 
 /// Wholly separate from api.rs's `request()` helper - a different host (GitHub, not e621/e6AI),
 /// with no auth/site-switching/rate-limit-courtesy machinery to share with it (GitHub's own
@@ -26,6 +26,10 @@ pub struct UpdateCheckResult {
     pub latest_version: String,
     pub update_available: bool,
     pub release_url: String,
+    /// True when the repo exists but has no published release yet (GitHub answers
+    /// `/releases/latest` with a 404 in that case) - a normal state, not an error. The version/
+    /// url fields are empty when this is set.
+    pub no_releases: bool,
     /// Both `None` when GitHub didn't return its `X-RateLimit-*` headers (shouldn't normally
     /// happen, but not guaranteed).
     pub rate_limit_remaining: Option<i64>,
@@ -65,11 +69,27 @@ pub async fn check_for_update(state: tauri::State<'_, AppState>) -> Result<Updat
         .await
         .map_err(|e| e.to_string())?;
 
-    if !response.status().is_success() {
-        return Err(if response.status().as_u16() == 403 {
+    let status = response.status();
+    if !status.is_success() {
+        let rate_limit_remaining = header_i64(response.headers(), "x-ratelimit-remaining");
+        let rate_limit_limit = header_i64(response.headers(), "x-ratelimit-limit");
+        // 404 here means the repo has no published release yet - report it as such rather than
+        // surfacing a raw API error.
+        if status.as_u16() == 404 {
+            return Ok(UpdateCheckResult {
+                current_version,
+                latest_version: String::new(),
+                update_available: false,
+                release_url: String::new(),
+                no_releases: true,
+                rate_limit_remaining,
+                rate_limit_limit,
+            });
+        }
+        return Err(if status.as_u16() == 403 {
             "Rate limited by GitHub - try again later".to_string()
         } else {
-            format!("GitHub API error {}", response.status())
+            format!("GitHub API error {status}")
         });
     }
 
@@ -85,6 +105,7 @@ pub async fn check_for_update(state: tauri::State<'_, AppState>) -> Result<Updat
         latest_version,
         update_available,
         release_url: release.html_url,
+        no_releases: false,
         rate_limit_remaining,
         rate_limit_limit,
     })

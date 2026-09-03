@@ -1575,3 +1575,35 @@ live call before implementing (per user instruction - no more guessing).
       `icons/android` + `icons/ios` sets `tauri icon` also emits were deleted (Windows-only app);
       `icons/64x64.png` added to the bundle manifest. No ImageMagick / sharp / PIL on this box -
       if the art changes, hand over an alpha PNG.
+- [x] **Settings > Reset — full factory wipe** (1.14.89) New `ResetSection.tsx`, last section in
+      `SettingsPanel`. Type-to-confirm (`ERASE`), then `relaunch()`.
+      - **Deferred, not live** — same reason as Cache's clear: WebView2 holds file locks on its
+        cache directory (`WebView2/`, which also holds the webview's `localStorage`, i.e. the
+        pre-paint theme cache) while the app runs. `paths::request_full_reset` just drops a
+        `.full_reset_pending` marker; `lib.rs::run()` calls `paths::apply_full_reset` as its very
+        first step on the next (post-relaunch) launch, before `cache::bootstrap` / the store
+        plugin / the webview exist.
+      - **Both locations, always.** `apply_full_reset` `remove_dir_all`s *every* `candidate_roots()`
+        entry — the portable `…\<exe dir>\data` folder **and** `%LOCALAPPDATA%\Monosodium Desktop`
+        — regardless of which one is currently active, so the inactive fallback can't leave half
+        the config behind. Wipes settings/saved-searches/search-history (+ `.bak`s), collections,
+        stats, favorites-analysis cache, `credentials.dat` (both sites' logins + the SauceNAO
+        key), `.vault_check` (encryption vault), the cache limit/clear markers, and `WebView2/`.
+        Leaves downloaded media files (Pictures/Videos or the custom folder) untouched.
+      - **AppData-fallback notice.** `paths::data_location()` (a refactor of `data_root()`) now also
+        reports whether the resolved path is the portable one; the new `storage_location` command
+        exposes `{ dataDir, portable }`. ResetSection shows the path and, when `!portable`, an
+        amber "Program directory not writable — files are stored in AppData." warning.
+      - Not live-tested — the user tests the app.
+      - **Also in 1.14.89, found during testing:**
+        - **Global-shortcut init no longer fatal.** `Ctrl+Shift+E` was registered eagerly via the
+          plugin builder's `.with_shortcuts(...)`, where a failure is a hard `PluginInitialization`
+          panic. A stale prior instance (an old installed build sitting in the tray) holding the
+          hotkey therefore killed every new launch. Now registered in `setup()` with
+          `app.global_shortcut().register(...)`, error logged and swallowed — the app runs without
+          the summon hotkey rather than not at all.
+        - **Update check: wrong repo + friendlier 404.** `update_check.rs` hardcoded
+          `REPO_NAME = "e621-desktop"` (nonexistent); the actual remote is
+          `ProcioneDeConti/monosodium-desktop`. Fixed, and a 404 from `/releases/latest` (repo has
+          no published release yet, or is still private) now returns `no_releases: true` and a
+          neutral "No releases published yet" line instead of a red "GitHub API error 404".
