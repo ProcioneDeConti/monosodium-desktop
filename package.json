@@ -1,8 +1,12 @@
 {
   "name": "monosodium-desktop",
   "private": true,
-  "version": "1.14.90",
+  "version": "1.14.91",
   "type": "module",
+  "author": "Procione DeConti (https://github.com/ProcioneDeConti)",
+  "contributors": [
+    "Claude (AI assistant, https://claude.com/claude-code)"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

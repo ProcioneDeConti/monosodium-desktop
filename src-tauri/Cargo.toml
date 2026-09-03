@@ -1,8 +1,8 @@
 [package]
 name = "monosodium-desktop"
-version = "1.14.90"
-description = "A Tauri App"
-authors = ["you"]
+version = "1.14.91"
+description = "An unofficial Windows desktop client for e621 and e6AI"
+authors = ["Procione DeConti (https://github.com/ProcioneDeConti)"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
