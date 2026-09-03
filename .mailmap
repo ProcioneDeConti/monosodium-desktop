@@ -1,3 +1,5 @@
 # Canonicalizes commit identities for `git shortlog`, `git log --use-mailmap`,
-# and GitHub's contributor view. Format: <display name> <display email> <email recorded in commits>
-Procione DeConti <computergeek7503@gmail.com> <computergeek7503@gmail.com>
+# and GitHub's contributor view. Format: <display name> <display email> <old email in commits>
+# The early commits were authored as "Alpha <computergeek7503@gmail.com>", an identity
+# not linked to any GitHub account; map them to the ProcioneDeConti account's noreply address.
+ProcioneDeConti <81458012+ProcioneDeConti@users.noreply.github.com> <computergeek7503@gmail.com>
