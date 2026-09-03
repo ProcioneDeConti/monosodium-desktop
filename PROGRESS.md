@@ -1607,3 +1607,17 @@ live call before implementing (per user instruction - no more guessing).
           `ProcioneDeConti/monosodium-desktop`. Fixed, and a 404 from `/releases/latest` (repo has
           no published release yet, or is still private) now returns `no_releases: true` and a
           neutral "No releases published yet" line instead of a red "GitHub API error 404".
+
+- [x] **Offline WebView2 installer + doc cleanup** (1.14.90) `bundle.windows.webviewInstallMode`
+      set to `offlineInstaller` in `tauri.conf.json` — the NSIS/MSI installers now embed a full
+      WebView2 Runtime bootstrapper (~130 MB added to the installer) and install it without any
+      network access, instead of the default `downloadBootstrapper` that fetches it from Microsoft
+      at setup time. The portable exe is unaffected (it never runs the bundler) and still needs the
+      runtime already present.
+      - **Docs corrected re: Windows version.** README/CLAUDE.md claimed "Windows 11" as a hard
+        requirement; the real floor is Windows 10 1809 (Tauri 2's own minimum). README rewritten:
+        accurate Requirements section, a new Install section (installer vs portable), a short
+        "How it works" section (API through Rust, rate limiter, UA, media direct to CDN, encrypted
+        local credential vault), and the feature list brought up to date (saved searches, dmail,
+        comments, forum, slideshow, backup/restore, cache management, update check were all
+        missing). `scripts/build-portable.mjs` comment reworded the same way.

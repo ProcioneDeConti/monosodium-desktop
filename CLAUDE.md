@@ -1,6 +1,6 @@
 # Monosodium Desktop
 
-A standalone Windows 11 desktop e621/e6AI browser (tag search, resizable post grid, full post
+A standalone Windows 10/11 desktop e621/e6AI browser (tag search, resizable post grid, full post
 viewer, voting, favorites, client-side blacklist, account settings). Built as the desktop
 counterpart to an existing Android client — see **Reference app** below.
 
@@ -18,11 +18,14 @@ or a rule, check there before guessing.
 
 ## Stack & why
 
-- **Tauri 2 (Rust backend) + React 19/TypeScript (Vite) frontend**, rendered via Windows 11's
-  built-in WebView2 (Chromium). Chosen over WPF/WinUI3 specifically because WebView2 decodes
+- **Tauri 2 (Rust backend) + React 19/TypeScript (Vite) frontend**, rendered via the
+  WebView2 (Chromium) runtime. Chosen over WPF/WinUI3 specifically because WebView2 decodes
   every format e621 serves (jpg/png/gif/apng/webp/webm/mp4) natively with zero extra
   dependencies — the native-Windows alternatives all need a bundled video engine
-  (LibVLCSharp, ~100MB+) just to play webm.
+  (LibVLCSharp, ~100MB+) just to play webm. Minimum OS is Windows 10 1809 (Tauri 2's own
+  floor). Windows 11 ships the WebView2 runtime; on Windows 10 it's usually present via Edge,
+  and the installer bundles an offline copy as a fallback (`bundle.windows.webviewInstallMode`
+  = `offlineInstaller` in `tauri.conf.json`). The portable exe does not carry that copy.
 - **Scope: core browsing first, Phase 2 complete.** User profiles, saved searches, the slideshow,
   comments, dmail/messages, on-disk cache management, an update checker, encrypted backup/
   restore, and the forum have all landed (see Progress) - every item originally queued for Phase
