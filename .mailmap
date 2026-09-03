@@ -1,0 +1,3 @@
+# Canonicalizes commit identities for `git shortlog`, `git log --use-mailmap`,
+# and GitHub's contributor view. Format: <display name> <display email> <email recorded in commits>
+Procione DeConti <computergeek7503@gmail.com> <computergeek7503@gmail.com>
