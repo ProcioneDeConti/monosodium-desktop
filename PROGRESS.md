@@ -1621,3 +1621,26 @@ live call before implementing (per user instruction - no more guessing).
         local credential vault), and the feature list brought up to date (saved searches, dmail,
         comments, forum, slideshow, backup/restore, cache management, update check were all
         missing). `scripts/build-portable.mjs` comment reworded the same way.
+
+- [x] **Package author metadata** (1.14.91) `package.json` had no `author`; `Cargo.toml` still
+      said `authors = ["you"]` with `description = "A Tauri App"`. Set author to Procione DeConti,
+      listed Claude as a contributor (matches the README AI-assistance disclaimer), gave the crate
+      a real description. Also added a `.mailmap` mapping the existing `Alpha
+      <computergeek7503@gmail.com>` commits to `Procione DeConti` (name only, email unchanged so
+      GitHub account attribution is kept) - affects `git shortlog`, `--use-mailmap`, and GitHub's
+      contributor sidebar.
+
+- [x] **Online installer variant + `npm run release`** (still 1.14.91 - same compiled binary, no
+      app change) Turned out the offline installer is ~250 MB (the embedded Evergreen runtime is
+      bigger than expected), so there's now an "online" flavor too for anyone who'd rather take the
+      ~5 MB download-at-setup installer.
+      - **`src-tauri/tauri.conf.online.json`** - a partial config (just `bundle.windows.
+        webviewInstallMode` = `downloadBootstrapper`) merged on top of the base via `tauri bundle
+        --config`. `tauri.conf.json` keeps `offlineInstaller` as the default.
+      - **`scripts/build-release.mjs`** (`npm run release`) - `tauri build` (offline), copy the
+        nsis+msi out to `dist-release/`, then `tauri bundle --config …online.json` (bundler only,
+        no recompile) and copy those out as the "online" pair, then the portable exe. Five
+        artifacts: `MonosodiumDesktop-<v>-{offline,online}-{setup.exe,.msi}` + `-portable.exe`.
+        `--skip-build` reuses an existing `target/release`. `dist-release/` is gitignored.
+      - Sizes for 1.14.91: offline setup.exe 254 MB / msi 253 MB, online setup.exe 4 MB / msi
+        5.3 MB, portable 12 MB.

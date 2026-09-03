@@ -24,15 +24,18 @@ This is a personal project, not affiliated with or endorsed by e621 or e6AI. It 
 ## Requirements
 
 - **Windows 10 (version 1809 / build 17763 or newer) or Windows 11**, 64-bit. This is what Tauri 2 itself supports; older builds of Windows are not supported.
-- **The WebView2 runtime.** Windows 11 ships it by default, and most up-to-date Windows 10 machines already have it via Microsoft Edge. If it's missing, the installer bundles a full copy and installs it offline - no internet connection needed during setup. The portable build does not carry that copy, so it needs the runtime to already be present.
+- **The WebView2 runtime.** Windows 11 ships it by default, and most up-to-date Windows 10 machines already have it via Microsoft Edge. If it's missing, the *offline* installer carries a full copy and installs it with no internet connection; the *online* installer downloads it from Microsoft during setup. The portable build carries neither, so it needs the runtime to already be present.
 - **An e621 and/or e6AI account** is optional and separate per site. It's required for voting, favoriting, dmail, comments, and blacklist sync; plain browsing works without one.
 
 ## Install
 
-Grab the latest build from the [Releases](https://github.com/ProcioneDeConti/monosodium-desktop/releases) page:
+Grab the latest build from the [Releases](https://github.com/ProcioneDeConti/monosodium-desktop/releases) page. Each release has three flavors, in both an NSIS `.exe` and a WiX `.msi` where an installer applies:
 
-- **Installer** (`.msi` / NSIS `.exe`) - adds Start Menu and uninstaller entries and installs the WebView2 runtime if it's missing.
-- **Portable** (`MonosodiumDesktop-<version>-portable.exe`) - a single self-contained executable with no installer, no registry entries, and no Start Menu shortcut. It keeps its data in a `data` folder next to the exe when that location is writable, and falls back to `%LOCALAPPDATA%\Monosodium Desktop` otherwise.
+- **Offline installer** (`-offline-setup.exe` / `-offline.msi`, ~250 MB) - carries the full WebView2 Runtime and installs it with no network access. Use this on a machine that might not have the runtime, or for unattended/air-gapped installs.
+- **Online installer** (`-online-setup.exe` / `-online.msi`, ~5 MB) - the same app, but it fetches the WebView2 Runtime from Microsoft during setup if it isn't already present. Much smaller; needs a connection the first time only.
+- **Portable** (`-portable.exe`, ~12 MB) - a single self-contained executable with no installer, no registry entries, and no Start Menu shortcut. It keeps its data in a `data` folder next to the exe when that location is writable, and falls back to `%LOCALAPPDATA%\Monosodium Desktop` otherwise. Needs the WebView2 Runtime already installed.
+
+All three are the same compiled build - the only difference is how (or whether) the WebView2 Runtime is handled.
 
 ## How it works
 
@@ -49,8 +52,9 @@ git clone https://github.com/ProcioneDeConti/monosodium-desktop.git
 cd monosodium-desktop
 npm install
 npm run tauri dev     # run in development
-npm run tauri build   # produce an installer
-npm run dist          # installer + portable exe
+npm run tauri build   # produce the offline installer
+npm run dist          # offline installer + portable exe
+npm run release       # every flavor (offline + online installers + portable) into dist-release/
 ```
 
 The first `cargo` build pulls a few hundred crates and takes a minute or two; builds after that are incremental and quick.

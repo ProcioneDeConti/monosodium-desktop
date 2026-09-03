@@ -23,9 +23,12 @@ or a rule, check there before guessing.
   every format e621 serves (jpg/png/gif/apng/webp/webm/mp4) natively with zero extra
   dependencies — the native-Windows alternatives all need a bundled video engine
   (LibVLCSharp, ~100MB+) just to play webm. Minimum OS is Windows 10 1809 (Tauri 2's own
-  floor). Windows 11 ships the WebView2 runtime; on Windows 10 it's usually present via Edge,
-  and the installer bundles an offline copy as a fallback (`bundle.windows.webviewInstallMode`
-  = `offlineInstaller` in `tauri.conf.json`). The portable exe does not carry that copy.
+  floor). Windows 11 ships the WebView2 runtime; on Windows 10 it's usually present via Edge.
+  `bundle.windows.webviewInstallMode` in `tauri.conf.json` is `offlineInstaller` (the installer
+  embeds a full ~250MB runtime copy) - `scripts/build-release.mjs` (`npm run release`) also
+  re-bundles an "online" variant via `tauri bundle --config src-tauri/tauri.conf.online.json`
+  (a one-key override to `downloadBootstrapper`, ~5MB, fetches the runtime at setup). The
+  portable exe carries neither. All release flavors are the same compiled binary.
 - **Scope: core browsing first, Phase 2 complete.** User profiles, saved searches, the slideshow,
   comments, dmail/messages, on-disk cache management, an update checker, encrypted backup/
   restore, and the forum have all landed (see Progress) - every item originally queued for Phase

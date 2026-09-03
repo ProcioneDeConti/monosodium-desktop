@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "build:portable": "node scripts/build-portable.mjs",
-    "dist": "tauri build && npm run build:portable"
+    "dist": "tauri build && npm run build:portable",
+    "release": "node scripts/build-release.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
