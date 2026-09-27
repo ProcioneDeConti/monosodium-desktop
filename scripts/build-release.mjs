@@ -28,12 +28,15 @@ const exePath = join(root, "src-tauri/target/release/monosodium-desktop.exe");
 const outDir = join(root, "dist-release");
 const npx = process.platform === "win32" ? "npx.cmd" : "npx";
 
-const tauri = (args) => execFileSync(npx, ["tauri", ...args], { stdio: "inherit", cwd: root });
+const tauri = (args) => execFileSync(npx, ["tauri", ...args], { stdio: "inherit", cwd: root, shell: process.platform === "win32" });
 
 function collect(variant) {
   for (const sub of ["nsis", "msi"]) {
     const dir = join(bundleDir, sub);
-    const src = readdirSync(dir).find((n) => n.endsWith(sub === "nsis" ? "-setup.exe" : ".msi"));
+    // Match the version too - older builds' bundles linger in the same folder.
+    const src = readdirSync(dir).find(
+      (n) => n.includes(`_${version}_`) && n.endsWith(sub === "nsis" ? "-setup.exe" : ".msi"),
+    );
     if (!src) throw new Error(`no ${sub} bundle in ${dir}`);
     const ext = sub === "nsis" ? "-setup.exe" : ".msi";
     copyFileSync(join(dir, src), join(outDir, `MonosodiumDesktop-${version}-${variant}${ext}`));
