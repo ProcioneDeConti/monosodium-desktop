@@ -169,6 +169,120 @@ pub fn request_full_reset() -> Result<(), String> {
     write_atomic(&root.join(RESET_MARKER), b"1").map_err(|e| e.to_string())
 }
 
+/// Left in the AppData root by `request_migrate_to_portable`, consumed by `apply_pending_migration`.
+const MIGRATE_MARKER: &str = ".migrate_to_portable_pending";
+/// Written to the AppData root if a migration failed, so Settings can say why. Cleared by the
+/// next successful migration request.
+const MIGRATE_ERROR: &str = ".migrate_to_portable_error";
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WritableCheck {
+    /// The next-to-exe `data` folder that was probed.
+    pub path: String,
+    pub writable: bool,
+    /// The OS error if it wasn't writable.
+    pub error: Option<String>,
+}
+
+/// Probe the exe directory's `data` folder right now, returning the actual OS error on failure
+/// (unlike `is_writable`, which only answers yes/no). Retries like the startup probe so a
+/// momentary antivirus lock doesn't give a false negative.
+fn probe_writable(dir: &Path) -> Result<(), String> {
+    let mut last = String::new();
+    for attempt in 0..6u64 {
+        let res = std::fs::create_dir_all(dir).and_then(|_| {
+            let probe = dir.join(".write_test");
+            std::fs::write(&probe, [])?;
+            std::fs::remove_file(&probe)
+        });
+        match res {
+            Ok(()) => return Ok(()),
+            Err(e) => last = e.to_string(),
+        }
+        std::thread::sleep(std::time::Duration::from_millis(40 * (attempt + 1)));
+    }
+    Err(last)
+}
+
+/// Settings > Storage's "Check again" button.
+#[tauri::command]
+pub fn check_portable_writable() -> Result<WritableCheck, String> {
+    let dir = portable_root().ok_or("Couldn't determine the program directory.")?;
+    let result = probe_writable(&dir);
+    Ok(WritableCheck {
+        path: dir.to_string_lossy().to_string(),
+        writable: result.is_ok(),
+        error: result.err(),
+    })
+}
+
+/// Any error left behind by a failed `apply_pending_migration`.
+#[tauri::command]
+pub fn migration_error() -> Option<String> {
+    std::fs::read_to_string(appdata_root().join(MIGRATE_ERROR)).ok()
+}
+
+/// Settings > Storage's "Move data to program folder". Like `request_full_reset`, the actual
+/// move is deferred to the next launch - the WebView2 folder is locked while the app runs.
+#[tauri::command]
+pub fn request_migrate_to_portable() -> Result<(), String> {
+    let loc = data_location();
+    if loc.portable {
+        return Err("Data is already stored in the program folder.".into());
+    }
+    let dir = portable_root().ok_or("Couldn't determine the program directory.")?;
+    probe_writable(&dir).map_err(|e| format!("Program folder isn't writable: {e}"))?;
+    let _ = std::fs::remove_file(loc.path.join(MIGRATE_ERROR));
+    write_atomic(&loc.path.join(MIGRATE_MARKER), b"1").map_err(|e| e.to_string())
+}
+
+fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let name = entry.file_name();
+        if name == MIGRATE_MARKER || name == MIGRATE_ERROR {
+            continue;
+        }
+        let target = dst.join(&name);
+        if entry.file_type()?.is_dir() {
+            copy_dir_all(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
+}
+
+/// Called from `lib.rs` at startup, before `cache::bootstrap` and the store plugin. Copies the
+/// whole AppData data folder next to the exe, then deletes the AppData copy. Copy-then-delete
+/// (not rename) because the two are usually on different drives. On a failed copy the partial
+/// portable folder is removed so `data_location()` keeps using AppData - nothing is lost - and
+/// the error is saved for Settings to show.
+pub fn apply_pending_migration() {
+    let appdata = appdata_root();
+    if !appdata.join(MIGRATE_MARKER).is_file() {
+        return;
+    }
+    let _ = std::fs::remove_file(appdata.join(MIGRATE_MARKER));
+    let Some(portable) = portable_root() else { return };
+    // Never overwrite a portable folder that already has its own data.
+    if has_app_data(&portable) {
+        return;
+    }
+    match copy_dir_all(&appdata, &portable) {
+        Ok(()) => {
+            // Best-effort: `data_location()` prefers the portable folder now anyway.
+            let _ = std::fs::remove_dir_all(&appdata);
+        }
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&portable);
+            let _ = std::fs::write(appdata.join(MIGRATE_ERROR), e.to_string());
+        }
+    }
+}
+
 /// True if `request_full_reset` left its marker in either candidate location.
 pub fn full_reset_pending() -> bool {
     candidate_roots().iter().any(|r| r.join(RESET_MARKER).is_file())

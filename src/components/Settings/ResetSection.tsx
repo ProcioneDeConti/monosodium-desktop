@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { TriangleAlert } from "lucide-react";
-import { e621Api, type StorageLocation } from "../../api/client";
+import { e621Api, type StorageLocation, type WritableCheck } from "../../api/client";
 import { errorMessage } from "../../lib/errors";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
@@ -11,6 +11,79 @@ const CONFIRM_WORD = "ERASE";
 const INPUT_CLASS =
   "rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 " +
   "px-2.5 py-1.5 text-sm outline-none focus:border-[rgb(var(--accent))]";
+
+/** Shown while data lives in the AppData fallback: re-probes the program folder on demand and,
+ *  if it's writable now, moves everything there (deferred to the next launch, like the reset
+ *  below - see src-tauri/src/paths.rs's `apply_pending_migration`). */
+function MigrateToPortable() {
+  const [check, setCheck] = useState<WritableCheck | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void e621Api
+      .getMigrationError()
+      .then((e) => e && setError(`Last migration failed: ${e}`))
+      .catch(() => {});
+  }, []);
+
+  async function runCheck() {
+    setBusy(true);
+    setError(null);
+    try {
+      setCheck(await e621Api.checkPortableWritable());
+    } catch (e) {
+      setError(errorMessage(e, "Check failed."));
+    }
+    setBusy(false);
+  }
+
+  async function migrate() {
+    setBusy(true);
+    setError(null);
+    try {
+      await e621Api.requestMigrateToPortable();
+      await relaunch();
+    } catch (e) {
+      setError(errorMessage(e, "Failed to start migration."));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-1 flex flex-col gap-2 rounded-[var(--radius-sm)] border border-amber-500/30 bg-amber-500/10 p-2 text-amber-600 dark:text-amber-400">
+      <p className="flex items-start gap-1.5">
+        <TriangleAlert size={13} className="mt-px shrink-0" />
+        Stored in AppData, not in the program folder.
+      </p>
+      {check &&
+        (check.writable ? (
+          <p className="text-green-600 dark:text-green-400">
+            <span className="break-all">{check.path}</span> is writable.
+          </p>
+        ) : (
+          <p className="break-all">
+            {check.path} isn't writable: {check.error}
+          </p>
+        ))}
+      {error && <p className="text-red-500">{error}</p>}
+      <div className="flex gap-2">
+        <Button onClick={() => void runCheck()} disabled={busy}>
+          {check ? "Check again" : "Check program folder"}
+        </Button>
+        {check?.writable && (
+          <Button
+            icon={busy ? <Spinner size={13} /> : undefined}
+            onClick={() => void migrate()}
+            disabled={busy}
+          >
+            Move data &amp; restart
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /** Settings > Reset - a full factory wipe. Marks every local file for deletion at the next
  *  launch (src-tauri/src/paths.rs's `request_full_reset` - it can't happen live because WebView2
@@ -54,12 +127,7 @@ export function ResetSection() {
           <code className="break-all rounded-[var(--radius-sm)] bg-black/5 dark:bg-white/5 px-2 py-1 opacity-80">
             {location.dataDir}
           </code>
-          {!location.portable && (
-            <p className="mt-1 flex items-start gap-1.5 rounded-[var(--radius-sm)] border border-amber-500/30 bg-amber-500/10 p-2 text-amber-600 dark:text-amber-400">
-              <TriangleAlert size={13} className="mt-px shrink-0" />
-              Program directory not writable — files are stored in AppData.
-            </p>
-          )}
+          {!location.portable && <MigrateToPortable />}
         </div>
       )}
 

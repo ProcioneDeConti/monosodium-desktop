@@ -29,6 +29,12 @@ export interface VaultStatus {
   locked: boolean;
 }
 
+export interface WritableCheck {
+  path: string;
+  writable: boolean;
+  error: string | null;
+}
+
 export interface StorageLocation {
   dataDir: string;
   /** False = the exe directory wasn't writable, so data lives in %LOCALAPPDATA% instead. */
@@ -362,6 +368,22 @@ export const e621Api = {
    *  the app straight after. See src-tauri/src/paths.rs. */
   requestFullReset(): Promise<void> {
     return invoke("request_full_reset");
+  },
+
+  /** Probes the next-to-exe data folder now, returning the OS error if it isn't writable. */
+  checkPortableWritable(): Promise<WritableCheck> {
+    return invoke("check_portable_writable");
+  },
+
+  /** Error from a failed AppData -> program folder migration, if the last one failed. */
+  getMigrationError(): Promise<string | null> {
+    return invoke("migration_error");
+  },
+
+  /** Marks the AppData data folder to be moved next to the exe at the next launch. Caller
+   *  restarts the app straight after. See src-tauri/src/paths.rs. */
+  requestMigrateToPortable(): Promise<void> {
+    return invoke("request_migrate_to_portable");
   },
 
   /** Settings > Encryption - see src-tauri/src/vault.rs. `locked` is only ever true right after

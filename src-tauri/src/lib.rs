@@ -46,6 +46,8 @@ pub fn run() {
     if paths::full_reset_pending() {
         paths::apply_full_reset();
     }
+    // A pending Settings > Storage "move data to program folder" - same timing constraints.
+    paths::apply_pending_migration();
 
     // Must run before the webview is created - see cache.rs's module doc comment.
     cache::bootstrap();
@@ -191,6 +193,9 @@ pub fn run() {
             paths::get_data_dir,
             paths::storage_location,
             paths::request_full_reset,
+            paths::check_portable_writable,
+            paths::migration_error,
+            paths::request_migrate_to_portable,
             vault::vault_status,
             vault::unlock_vault,
             vault::enable_password_encryption,
