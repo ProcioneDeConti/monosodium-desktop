@@ -237,19 +237,43 @@ pub fn request_migrate_to_portable() -> Result<(), String> {
     write_atomic(&loc.path.join(MIGRATE_MARKER), b"1").map_err(|e| e.to_string())
 }
 
-fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
-    std::fs::create_dir_all(dst)?;
-    for entry in std::fs::read_dir(src)? {
-        let entry = entry?;
+/// Files that vanish mid-copy are skipped: right after a relaunch the previous run's WebView2
+/// processes can still be exiting and deleting their temp files under `WebView2/`, and one
+/// missing cache file shouldn't abort the migration. Other errors name the offending path.
+fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), String> {
+    let ctx = |p: &Path, e: std::io::Error| format!("{}: {e}", p.display());
+    let skip = |e: &std::io::Error| e.kind() == std::io::ErrorKind::NotFound;
+    std::fs::create_dir_all(dst).map_err(|e| ctx(dst, e))?;
+    let entries = match std::fs::read_dir(src) {
+        Ok(it) => it,
+        Err(e) if skip(&e) => return Ok(()),
+        Err(e) => return Err(ctx(src, e)),
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(en) => en,
+            Err(e) if skip(&e) => continue,
+            Err(e) => return Err(ctx(src, e)),
+        };
         let name = entry.file_name();
         if name == MIGRATE_MARKER || name == MIGRATE_ERROR {
             continue;
         }
+        let path = entry.path();
         let target = dst.join(&name);
-        if entry.file_type()?.is_dir() {
-            copy_dir_all(&entry.path(), &target)?;
+        let is_dir = match entry.file_type() {
+            Ok(t) => t.is_dir(),
+            Err(e) if skip(&e) => continue,
+            Err(e) => return Err(ctx(&path, e)),
+        };
+        if is_dir {
+            copy_dir_all(&path, &target)?;
         } else {
-            std::fs::copy(entry.path(), &target)?;
+            match std::fs::copy(&path, &target) {
+                Ok(_) => {}
+                Err(e) if skip(&e) => continue,
+                Err(e) => return Err(ctx(&path, e)),
+            }
         }
     }
     Ok(())
@@ -278,7 +302,7 @@ pub fn apply_pending_migration() {
         }
         Err(e) => {
             let _ = std::fs::remove_dir_all(&portable);
-            let _ = std::fs::write(appdata.join(MIGRATE_ERROR), e.to_string());
+            let _ = std::fs::write(appdata.join(MIGRATE_ERROR), e);
         }
     }
 }
