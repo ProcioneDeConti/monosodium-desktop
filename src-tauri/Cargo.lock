@@ -2000,6 +2000,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "imagesize"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edcd27d72f2f071c64249075f42e205ff93c9a4c5f6c6da53e79ed9f9832c285"
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2392,6 +2398,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "md-5"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf"
+dependencies = [
+ "cfg-if",
+ "digest",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2445,12 +2461,14 @@ dependencies = [
 
 [[package]]
 name = "monosodium-desktop"
-version = "1.14.95"
+version = "1.14.96"
 dependencies = [
  "aes-gcm",
  "base64 0.23.1",
  "dirs",
  "governor",
+ "imagesize",
+ "md-5",
  "pbkdf2",
  "rand 0.8.7",
  "reqwest",

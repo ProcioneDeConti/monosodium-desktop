@@ -1,12 +1,26 @@
 import { useState } from "react";
 import { DownloadCloud } from "lucide-react";
-import { e621Api, type RecoveredImage } from "../../api/client";
+import { e621Api, type RecoverProgress, type RecoveredImage, type RecoveryGrade } from "../../api/client";
 import type { Post } from "../../models/post";
 import type { Site } from "../../models/site";
 import type { PostNote } from "../../models/note";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
 import { ZoomableImage } from "./ZoomableImage";
+
+const GRADE_TITLE: Record<RecoveryGrade, string> = {
+  exact: "Exact match - identical to the original file",
+  same_dimensions: "Same dimensions - re-encoded or edited copy",
+  rescaled: "Different resolution - the same image, not the original file",
+  mismatch: "Doesn't match the original's shape - may be a different image",
+};
+
+const GRADE_STYLE: Record<RecoveryGrade, string> = {
+  exact: "font-medium text-green-300",
+  same_dimensions: "font-medium text-lime-300",
+  rescaled: "font-medium text-amber-300",
+  mismatch: "font-medium text-red-300",
+};
 
 interface DeletedPostRecoveryProps {
   post: Post;
@@ -23,19 +37,29 @@ export function DeletedPostRecovery({ post, site, notes }: DeletedPostRecoveryPr
   const [error, setError] = useState<string | null>(null);
   const [recovered, setRecovered] = useState<RecoveredImage | null>(null);
   const [displayFailed, setDisplayFailed] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [log, setLog] = useState<string[]>([]);
 
   const hasWebSource = post.sources.some((s) => /^https?:\/\//.test(s));
 
   async function recover() {
     setLoading(true);
     setError(null);
+    setStatus("Fetching post from source");
+    setLog([]);
+    const onProgress = (p: RecoverProgress) => {
+      setStatus(p.message);
+      // Only outcomes go in the history; transient "downloading"/"comparing" lines just replace the status.
+      if (p.stage === "scored" || p.stage === "failed") setLog((l) => [...l, p.message]);
+    };
     try {
       setDisplayFailed(false);
-      setRecovered(await e621Api.recoverFromSources(post.sources));
+      setRecovered(await e621Api.recoverFromSources(post.sources, post.file, onProgress));
     } catch (e) {
       setError(String(e));
     } finally {
       setLoading(false);
+      setStatus(null);
     }
   }
 
@@ -66,7 +90,11 @@ export function DeletedPostRecovery({ post, site, notes }: DeletedPostRecoveryPr
           </div>
         )}
         <div className="pointer-events-none absolute left-3 top-3 rounded-[var(--radius-sm)] bg-black/60 px-2 py-1 text-xs text-white/80">
-          Deleted post - recovered from {host}{recovered.via_archive ? " via the Wayback Machine" : ""}. May differ from the original.
+          <div className={GRADE_STYLE[recovered.grade]}>{GRADE_TITLE[recovered.grade]}</div>
+          <div>
+            Deleted post - recovered from {host}{recovered.via_archive ? " via the Wayback Machine" : ""}.
+          </div>
+          {recovered.notes.length > 0 && <div className="text-white/60">{recovered.notes.join("; ")}</div>}
         </div>
       </div>
     );
@@ -81,10 +109,18 @@ export function DeletedPostRecovery({ post, site, notes }: DeletedPostRecoveryPr
           disabled={loading}
           icon={loading ? <Spinner size={14} /> : <DownloadCloud size={14} />}
         >
-          {loading ? "Trying sources…" : "Try to load from source"}
+          {loading ? "Recovering…" : "Try to load from source"}
         </Button>
       ) : (
         <p className="text-xs">It has no web sources to recover from.</p>
+      )}
+      {loading && status && (
+        <div className="flex max-w-xl flex-col items-center gap-1 text-xs text-white/60">
+          <p aria-live="polite">{status}</p>
+          {log.slice(-5).map((line, i) => (
+            <p key={i} className="break-all text-white/40">{line}</p>
+          ))}
+        </div>
       )}
       {error && <pre className="max-w-xl whitespace-pre-wrap break-all text-xs text-red-300/80">{error}</pre>}
     </div>

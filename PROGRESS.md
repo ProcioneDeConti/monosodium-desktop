@@ -1717,3 +1717,21 @@ live call before implementing (per user instruction - no more guessing).
         MSI later creates a second, empty install (the MSI doesn't know about the NSIS one). The
         reverse is safe - the NSIS installer uninstalls an existing MSI first - so MSI users
         migrate by running a setup.exe. No enterprise-deployment use case for this app.
+
+- [x] **Deleted-post recovery: fidelity grading + live status** (1.14.96)
+      e621 keeps a deleted post's md5, byte size, dimensions and ext (only the URLs are null), so
+      `recover_from_sources` now takes those (`post.file`) and grades every downloaded image
+      against them instead of returning the first one that decodes.
+      - **Grades** (`Grade` in `source_fetch.rs`): `exact` (md5 match - stops the search),
+        `same_dimensions`, `rescaled` (aspect within 1.5%, other resolution), `mismatch`. Ranking
+        is grade, then format match, then byte-size closeness; best across all sources wins.
+        Non-images (HTML served as `image/*`, SVG) are dropped via `imagesize` header parsing.
+      - Resolvers now return *every* image of a source (all tweet photos, Pixiv pages, Bluesky
+        images; X also tries `format=<ext>&name=orig`), so the right one of a multi-image source
+        is picked by grade rather than assuming the first.
+      - **Wayback** is tried when no live source reaches `same_dimensions`: raw `<ts>id_/` captures
+        of each source plus e621's CDN path for the md5 (`static1.e621.net/data/xx/yy/<md5>.<ext>`).
+      - **Status line** while recovering ("Fetching post from...", "Downloading...", "Comparing...",
+        "Scored ...") via a Tauri `Channel<RecoverProgress>`; result gets a grade badge + notes.
+      - Unit tests for the grading (`cargo test source_fetch`). **Not done:** SSRF guard on source
+        URLs, Bluesky `getBlob` original, per-post disk cache. Not verified live in the app.

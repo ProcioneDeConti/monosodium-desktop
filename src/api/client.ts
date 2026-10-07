@@ -2,7 +2,7 @@
 // credentials.rs). The frontend never calls the e621 API directly - see that module's doc
 // comment for why (custom User-Agent + rate limiting + not leaking the API key to CDN hosts).
 
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import type { Site } from "../models/site";
 import type { PostsResponse } from "../models/post";
 import type { TagSuggestion, UserProfile, VoteResponse, FavoriteResponse } from "../models/user";
@@ -26,6 +26,25 @@ export interface RecoveredImage {
   mime: string;
   size_bytes: number;
   via_archive: boolean;
+  /** How closely the file matches the deleted post's original (judged against e621's kept md5,
+   *  size, dimensions and format). */
+  grade: RecoveryGrade;
+  md5_match: boolean;
+  width: number;
+  height: number;
+  expected_width: number;
+  expected_height: number;
+  expected_size: number;
+  /** Human-readable differences from the original. */
+  notes: string[];
+}
+
+export type RecoveryGrade = "exact" | "same_dimensions" | "rescaled" | "mismatch";
+
+/** One status line streamed while a recovery runs. `stage` is a stable key. */
+export interface RecoverProgress {
+  stage: "fetching" | "downloading" | "comparing" | "scored" | "failed" | "archive" | "done";
+  message: string;
 }
 
 export interface SiteCredentials {
@@ -332,10 +351,17 @@ export const e621Api = {
     return invoke("source_logout", { siteId });
   },
 
-  /** Deleted posts: tries each source URL (direct image, else the page's og:image) and resolves to
-   *  the first image found, as a `data:` URL. Rejects with a per-source failure list. */
-  recoverFromSources(sources: string[]): Promise<RecoveredImage> {
-    return invoke("recover_from_sources", { sources });
+  /** Deleted posts: tries each source URL, grades every image found against the post's kept file
+   *  metadata (md5/size/dimensions/format) and resolves to the best match, as a `data:` URL.
+   *  `onProgress` receives status lines as it works. Rejects with a per-source failure list. */
+  recoverFromSources(
+    sources: string[],
+    expected: { md5: string | null; size: number; width: number; height: number; ext: string },
+    onProgress: (p: RecoverProgress) => void,
+  ): Promise<RecoveredImage> {
+    const channel = new Channel<RecoverProgress>();
+    channel.onmessage = onProgress;
+    return invoke("recover_from_sources", { sources, expected, onProgress: channel });
   },
 
   /** Small CDN image → `data:` URL, so a canvas can read it without the CDN's CORS blocking it.
