@@ -13,6 +13,8 @@ interface ZoomableImageProps {
    *  are defined in, regardless of what resolution `src` actually is. */
   imageWidth?: number;
   imageHeight?: number;
+  /** Called if the browser fails to load/decode `src`. */
+  onError?: () => void;
 }
 
 const MIN_SCALE = 1;
@@ -20,7 +22,7 @@ const MAX_SCALE = 6;
 
 /** Wheel-to-zoom (anchored under the cursor) + drag-to-pan image viewer, desktop's answer to the
  *  reference app's pinch/spread. Resets whenever `src` changes (navigating to another post). */
-export function ZoomableImage({ src, alt, site, notes, imageWidth, imageHeight }: ZoomableImageProps) {
+export function ZoomableImage({ src, alt, site, notes, imageWidth, imageHeight, onError }: ZoomableImageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [scale, setScale] = useState(1);
@@ -39,7 +41,10 @@ export function ZoomableImage({ src, alt, site, notes, imageWidth, imageHeight }
   useEffect(() => {
     setScale(1);
     setOffset({ x: 0, y: 0 });
-    setLoaded(false);
+    // An already-decoded image (a `data:` URL, or one in the memory cache) can fire `onLoad`
+    // *before* this effect runs - resetting to false unconditionally would then hide it forever.
+    const img = imgRef.current;
+    setLoaded(!!img && img.complete && img.naturalWidth > 0);
     setImgRect(null);
   }, [src]);
 
@@ -164,6 +169,7 @@ export function ZoomableImage({ src, alt, site, notes, imageWidth, imageHeight }
         alt={alt}
         draggable={false}
         onLoad={() => setLoaded(true)}
+        onError={onError}
         className={`max-h-full max-w-full object-contain ${loaded ? "opacity-100" : "opacity-0"}`}
         style={{
           transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,

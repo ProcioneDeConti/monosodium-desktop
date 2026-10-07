@@ -1644,3 +1644,54 @@ live call before implementing (per user instruction - no more guessing).
         `--skip-build` reuses an existing `target/release`. `dist-release/` is gitignored.
       - Sizes for 1.14.91: offline setup.exe 254 MB / msi 253 MB, online setup.exe 4 MB / msi
         5.3 MB, portable 12 MB.
+
+- [x] **Deleted-post recovery from sources** (1.14.94) e621 keeps a deleted post's `sources` and
+      tags but drops its file (`file.url` is null), so the viewer used to show only "This post has
+      been deleted." Now a manual **"Try to load from source"** button (`DeletedPostRecovery.tsx`,
+      rendered in place of that message) asks the backend to fetch the image from the post's own
+      source URLs. Strictly opt-in - nothing touches a third-party site until clicked.
+      - **`src-tauri/src/source_fetch.rs`** (`recover_from_sources`) - tries each `http(s)` source
+        in order and returns the first image, as a `data:` URL (so the webview makes no
+        hotlink/CORS-sensitive request) plus the URL it came from. Per source: a site-specific
+        resolver if the host has one, else the URL itself if it serves `image/*`, else the page's
+        `og:image`/`twitter:image`. If every live source fails, falls back to the closest Wayback
+        Machine snapshot. Own `reqwest` client (these aren't e621 hosts, so not `request()` / the
+        e621 rate limiter) with a descriptive UA and the host's own origin as Referer (Pixiv's CDN
+        wants `pixiv.net`). Caps: 40 MB image, 2 MB page.
+      - **Site resolvers**, each against a public endpoint, no login: X/Twitter (embed
+        "syndication" endpoint, `?name=orig`), Bluesky (public AppView `getPostThread`), Pixiv
+        (`ajax/illust/<id>/pages`, non-R18 only), DeviantArt (oEmbed), HentaiVox (reader pages have
+        no meta image; the page is the `<img class="js-main-img">`), Fur Affinity (full-size
+        `data-fullview-src`, not the 600px `og:image`). These are unofficial endpoints and may
+        break; the generic path still runs if one fails.
+      - **Login gate:** a logged-out FA request for Mature/Adult work gets a "System Message" page
+        whose `og:image` is the FA logo - scraping it would have shown the logo as the "recovered"
+        image. The FA resolver detects the gate and stops (`LOGIN_REQUIRED`) instead of falling
+        through to the generic scrape.
+      - **Settings > Source logins** (`source_login.rs`, `SourceLoginsSection.tsx`) - optional
+        sign-in so recovery can reach login-gated pages (FA only so far). "Sign in" opens a
+        separate window on the site's own login page: no app IPC (its label isn't in
+        `capabilities/default.json`) and its own throwaway WebView2 profile, deleted afterward. The
+        window closes itself once a logged-in session is detected (page-load check, verified by a
+        request that must show the site's logout link); closing it by hand does one last capture.
+        The session cookie is stored encrypted in `credentials.dat` (`source_cookies`, same file
+        as the e621/SauceNAO secrets), never sent to the frontend (it only learns signed in or
+        not), and attached only to `www.furaffinity.net` requests.
+      - **Viewer bug found along the way (`ZoomableImage`):** it reset `loaded` to false in an
+        effect on every `src` change and kept the `<img>` at opacity 0 until `onLoad`. A `data:`
+        URL decodes fast enough for `onLoad` to fire *before* that effect runs, so the effect then
+        hid an already-loaded image forever. The reset now keeps `loaded` true if the image is
+        already `complete`. Also added an `onError` prop so an undecodable file shows its type/size
+        instead of a silent blank.
+      - **Not verified live:** the Wayback fallback (the archive API was offline during testing),
+        and the Pixiv/Bluesky/X/DeviantArt resolvers against real deleted posts (X/Bluesky/Pixiv
+        endpoint shapes were checked with curl). Download of a recovered image, thumbnails for
+        deleted posts, and per-post caching of results are not implemented.
+      - **Unrelated `tauri dev` stall (`api.rs`):** during testing, `get_posts` under `tauri dev`
+        repeatedly got HTTP/2 headers and then zero body bytes until the 30s timeout; the same URL
+        was fine over HTTP/1.1 and in the installed release build. Cause not found. Dev builds
+        (`cfg!(debug_assertions)`) now force `http1_only()`; release keeps normal negotiation.
+        `get_posts` also reads the body itself so a failure reports the full error chain
+        (reqwest's bare "error decoding response body" hid both serde errors and stream errors) and
+        how many bytes arrived, with dev-only `[get_posts]` timing lines. `[recover]` trace lines
+        likewise print only in dev builds.

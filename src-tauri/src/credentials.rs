@@ -1,6 +1,7 @@
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -26,6 +27,11 @@ pub(crate) struct CredentialsFile {
     e621: Option<SiteCredentials>,
     e6ai: Option<SiteCredentials>,
     saucenao: Option<String>,
+    /// Session cookies for third-party sites the deleted-post recovery signs in to (see
+    /// source_login.rs), keyed by registrable host (e.g. `furaffinity.net`) and stored as a ready
+    /// `Cookie:` header value. Never sent to the frontend - only `source_fetch` reads them.
+    #[serde(default)]
+    source_cookies: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -175,5 +181,22 @@ pub fn load_saucenao_key() -> Result<Option<String>, String> {
 pub fn delete_saucenao_key() -> Result<(), String> {
     let mut data = read_all();
     data.saucenao = None;
+    write_all(&data)
+}
+
+/// The saved session cookie header for a third-party host, if the user has signed in to it.
+pub(crate) fn source_cookie(host: &str) -> Option<String> {
+    read_all().source_cookies.get(host).cloned()
+}
+
+pub(crate) fn save_source_cookie(host: &str, cookie: String) -> Result<(), String> {
+    let mut data = read_all();
+    data.source_cookies.insert(host.to_string(), cookie);
+    write_all(&data)
+}
+
+pub(crate) fn delete_source_cookie(host: &str) -> Result<(), String> {
+    let mut data = read_all();
+    data.source_cookies.remove(host);
     write_all(&data)
 }

@@ -10,6 +10,8 @@ mod paths;
 mod rate_limit;
 mod saucenao;
 mod site;
+mod source_fetch;
+mod source_login;
 mod update_check;
 mod vault;
 
@@ -181,6 +183,10 @@ pub fn run() {
             backup::import_backup,
             downloads::download_post_file,
             downloads::fetch_image_data_url,
+            source_fetch::recover_from_sources,
+            source_login::open_source_login,
+            source_login::source_login_status,
+            source_login::source_logout,
             export::save_export_file,
             export::save_pdf_with_jpeg,
             credentials::save_credentials,

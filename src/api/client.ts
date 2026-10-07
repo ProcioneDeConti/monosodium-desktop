@@ -19,6 +19,15 @@ import type { PostVersion } from "../models/postVersion";
 import type { TagInfo, TagRelations, WikiPage } from "../models/wiki";
 import type { SauceResult } from "../models/saucenao";
 
+export interface RecoveredImage {
+  data_url: string;
+  source_url: string;
+  image_url: string;
+  mime: string;
+  size_bytes: number;
+  via_archive: boolean;
+}
+
 export interface SiteCredentials {
   username: string;
   api_key: string;
@@ -303,6 +312,24 @@ export const e621Api = {
     heightPx: number,
   ): Promise<void> {
     return invoke("save_pdf_with_jpeg", { path, jpegBase64, widthPx, heightPx });
+  },
+
+  /** Opens the isolated sign-in window for a third-party site ("furaffinity"); the Rust side
+   *  stores the session when sign-in completes. The session cookie never reaches the frontend. */
+  openSourceLogin(siteId: string): Promise<void> {
+    return invoke("open_source_login", { siteId });
+  },
+  sourceLoginStatus(siteId: string): Promise<boolean> {
+    return invoke("source_login_status", { siteId });
+  },
+  sourceLogout(siteId: string): Promise<void> {
+    return invoke("source_logout", { siteId });
+  },
+
+  /** Deleted posts: tries each source URL (direct image, else the page's og:image) and resolves to
+   *  the first image found, as a `data:` URL. Rejects with a per-source failure list. */
+  recoverFromSources(sources: string[]): Promise<RecoveredImage> {
+    return invoke("recover_from_sources", { sources });
   },
 
   /** Small CDN image → `data:` URL, so a canvas can read it without the CDN's CORS blocking it.

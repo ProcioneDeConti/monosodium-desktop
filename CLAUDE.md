@@ -66,6 +66,11 @@ src-tauri/src/
   downloads.rs    download_post_file - fetches a post's CDN URL and writes it to disk
                   (Pictures/Videos/"Monosodium Desktop" by default, or the Settings-configured
                   folder)
+  source_fetch.rs recover_from_sources - deleted-post recovery: fetches an image from a post's
+                  third-party source URLs (site resolvers, og:image, Wayback fallback). Own HTTP
+                  client - not the e621 request()/rate limiter, these aren't e621 hosts
+  source_login.rs optional isolated sign-in window for login-gated sources (FA); session cookie
+                  kept encrypted in credentials.dat, only ever attached by source_fetch
   lib.rs          plugin/window/command wiring, tray icon, global shortcut (window is opaque -
                   no transparency/Mica, for WebView2 compositing performance on Windows)
 

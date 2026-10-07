@@ -25,6 +25,7 @@ import { isDeleted, isVideo, playableUrl } from "../../models/post";
 import type { Site } from "../../models/site";
 import { ZoomableImage } from "./ZoomableImage";
 import { VideoPlayer } from "./VideoPlayer";
+import { DeletedPostRecovery } from "./DeletedPostRecovery";
 import { TagsPanel } from "./TagsPanel";
 import { InfoPanel } from "./InfoPanel";
 import { ReportPostButton } from "./ReportPostButton";
@@ -431,9 +432,7 @@ export function PostViewer({
             className={`h-full w-full ${slideshowActive ? SLIDESHOW_TRANSITION_ANIMATION[slideshowTransition] : ""}`}
           >
             {deleted || !url ? (
-              <div className="flex h-full items-center justify-center text-sm text-white/60">
-                This post has been deleted.
-              </div>
+              <DeletedPostRecovery post={post} site={site} notes={notes} />
             ) : isVideo(post) ? (
               <VideoPlayer
                 key={post.id}

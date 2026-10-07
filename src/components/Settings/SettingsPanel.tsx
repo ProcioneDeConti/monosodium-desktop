@@ -23,6 +23,7 @@ import { EncryptionSection } from "./EncryptionSection";
 import { ResetSection } from "./ResetSection";
 import { EulaReadOnlyDialog } from "../Eula/EulaReadOnlyDialog";
 import { SaucenaoSection } from "./SaucenaoSection";
+import { SourceLoginsSection } from "./SourceLoginsSection";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
@@ -294,6 +295,10 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
 
           <Section title="Reverse Image Search">
             <SaucenaoSection />
+          </Section>
+
+          <Section title="Source logins">
+            <SourceLoginsSection />
           </Section>
 
           <Section title="Cache">

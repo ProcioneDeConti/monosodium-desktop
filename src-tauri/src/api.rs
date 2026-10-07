@@ -46,18 +46,24 @@ pub fn get_api_metrics() -> ApiMetrics {
 
 impl AppState {
     pub fn new() -> Self {
+        // Bound the connection pool and the handshake: a stalled connect otherwise pins its
+        // buffers (and the caller's rate-limit slot) indefinitely. Two API hosts, a handful of
+        // in-flight calls at the 1 req/sec limit - a couple of idle keep-alive sockets per host
+        // is plenty. No total-request timeout here: `download_post_file` reuses this client for
+        // full media files that can legitimately take minutes; the JSON API calls in
+        // `request()` set their own per-request `.timeout()` instead.
+        let mut builder = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(15))
+            .pool_max_idle_per_host(2);
+        // Dev builds only: under `tauri dev`, HTTP/2 API responses were seen stalling with the
+        // headers received but zero body bytes until the timeout, while the same URL downloaded
+        // fine over HTTP/1.1 (curl) and in the release build (which uses HTTP/2). Cause never
+        // pinned down, so release keeps normal protocol negotiation.
+        if cfg!(debug_assertions) {
+            builder = builder.http1_only();
+        }
         Self {
-            // Bound the connection pool and the handshake: a stalled connect otherwise pins its
-            // buffers (and the caller's rate-limit slot) indefinitely. Two API hosts, a handful of
-            // in-flight calls at the 1 req/sec limit - a couple of idle keep-alive sockets per host
-            // is plenty. No total-request timeout here: `download_post_file` reuses this client for
-            // full media files that can legitimately take minutes; the JSON API calls in
-            // `request()` set their own per-request `.timeout()` instead.
-            http: reqwest::Client::builder()
-                .connect_timeout(std::time::Duration::from_secs(15))
-                .pool_max_idle_per_host(2)
-                .build()
-                .unwrap_or_else(|_| reqwest::Client::new()),
+            http: builder.build().unwrap_or_else(|_| reqwest::Client::new()),
             limiters: SiteRateLimiters::new(),
         }
     }
@@ -147,17 +153,54 @@ pub async fn get_posts(
     if let Some(p) = page {
         query.push(("page", p));
     }
+    let started = std::time::Instant::now();
     let response = request(&state, site, Method::GET, "posts.json")
         .await?
         .query(&query)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
-    ensure_success(response)
-        .await?
-        .json::<PostsResponse>()
-        .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| error_chain(&e))?;
+    if cfg!(debug_assertions) {
+        eprintln!(
+            "[get_posts] headers after {:?}: {} {:?} encoding={:?} content-length={:?}",
+            started.elapsed(),
+            response.status(),
+            response.version(),
+            response.headers().get("content-encoding"),
+            response.content_length(),
+        );
+    }
+    let mut response = ensure_success(response).await?;
+    let mut body = Vec::new();
+    loop {
+        match response.chunk().await {
+            Ok(Some(chunk)) => body.extend_from_slice(&chunk),
+            Ok(None) => break,
+            Err(e) => {
+                if cfg!(debug_assertions) {
+                    eprintln!("[get_posts] body read failed after {:?}, {} bytes received", started.elapsed(), body.len());
+                }
+                return Err(format!("{} (received {} bytes)", error_chain(&e), body.len()));
+            }
+        }
+    }
+    if cfg!(debug_assertions) {
+        eprintln!("[get_posts] body complete after {:?}: {} bytes", started.elapsed(), body.len());
+    }
+    serde_json::from_slice::<PostsResponse>(&body).map_err(|e| format!("bad posts JSON: {e}"))
+}
+
+/// reqwest reports both a failed body read and a serde mismatch as just "error decoding response
+/// body"; the real reason (e.g. `missing field` / `invalid type` with a line and column, or a
+/// connection reset) is only in the `source()` chain, so spell it out.
+fn error_chain(e: &dyn std::error::Error) -> String {
+    let mut out = e.to_string();
+    let mut cause = e.source();
+    while let Some(c) = cause {
+        out.push_str(&format!(": {c}"));
+        cause = c.source();
+    }
+    out
 }
 
 #[tauri::command]
