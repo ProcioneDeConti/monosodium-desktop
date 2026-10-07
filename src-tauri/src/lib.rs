@@ -4,6 +4,7 @@ mod cache;
 mod credentials;
 mod crypto;
 mod downloads;
+mod install_info;
 mod export;
 mod models;
 mod paths;
@@ -198,6 +199,7 @@ pub fn run() {
             saucenao::reverse_image_search,
             paths::get_data_dir,
             paths::storage_location,
+            install_info::get_install_info,
             paths::request_full_reset,
             paths::check_portable_writable,
             paths::migration_error,

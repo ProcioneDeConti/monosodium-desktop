@@ -44,6 +44,12 @@ export interface WritableCheck {
   error: string | null;
 }
 
+export interface InstallInfo {
+  /** "installer" = setup.exe, "msi" = legacy MSI, "portable" = bare exe, "dev" = a debug build. */
+  kind: "installer" | "msi" | "portable" | "dev";
+  detail: string | null;
+}
+
 export interface StorageLocation {
   dataDir: string;
   /** False = the exe directory wasn't writable, so data lives in %LOCALAPPDATA% instead. */
@@ -381,6 +387,11 @@ export const e621Api = {
    *  tauri-plugin-store's default AppData location. */
   getDataDir(): Promise<string> {
     return invoke("get_data_dir");
+  },
+
+  /** How this copy was installed (setup.exe / MSI / portable), from what the installers leave behind. */
+  getInstallInfo(): Promise<InstallInfo> {
+    return invoke("get_install_info");
   },
 
   /** Where local data lives + whether that's the portable folder or the AppData fallback -

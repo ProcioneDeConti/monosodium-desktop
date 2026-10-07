@@ -1695,3 +1695,25 @@ live call before implementing (per user instruction - no more guessing).
         (reqwest's bare "error decoding response body" hid both serde errors and stream errors) and
         how many bytes arrived, with dev-only `[get_posts]` timing lines. `[recover]` trace lines
         likewise print only in dev builds.
+
+- [x] **Install-type detection; MSI dropped** (1.14.95)
+      - **Install-type detection** (`src-tauri/src/install_info.rs`, `get_install_info`) - works
+        out whether this copy is a setup.exe install, a legacy MSI, or the portable exe from what
+        each leaves behind: an `uninstall.exe` beside the exe plus the product's uninstall
+        registry entry (NSIS, `HKCU` per-user or `HKLM` all-users), or an uninstall entry with
+        `WindowsInstaller = 1` whose install location is this exe's folder (MSI), else portable.
+        The registry only counts when it points at *this* exe's folder, so an unrelated copy
+        elsewhere isn't mistaken for installed. Debug builds report `dev`. Uses the `winreg` crate.
+        Settings > Updates shows the install type and, when an update is available, a hint matched
+        to it (setup.exe: run the new installer over the old one, data kept; MSI: the setup.exe
+        replaces it; portable: swap the exe). There is still no auto-updater - scoped (Tauri
+        updater plugin, signing key, `latest.json` on each release) and deliberately shelved.
+      - **MSI installer dropped.** `bundle.targets` is `["nsis"]`; `scripts/build-release.mjs`
+        now collects only the NSIS output, so a release is three files: `offline-setup.exe`,
+        `online-setup.exe`, `portable.exe`. MSIs were published for 1.14.91-1.14.94 and stay on
+        those releases. Why: the app keeps its data next to the exe, which suits per-user and
+        portable installs; a machine-wide MSI in Program Files isn't writable, so it fell back to
+        the AppData data folder and behaved differently; and installing the setup.exe first and an
+        MSI later creates a second, empty install (the MSI doesn't know about the NSIS one). The
+        reverse is safe - the NSIS installer uninstalls an existing MSI first - so MSI users
+        migrate by running a setup.exe. No enterprise-deployment use case for this app.

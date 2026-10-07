@@ -31,10 +31,10 @@ This is a personal project, not affiliated with or endorsed by e621 or e6AI. It 
 
 ## Install
 
-Grab the latest build from the [Releases](https://github.com/ProcioneDeConti/monosodium-desktop/releases) page. Each release has three flavors, in both an NSIS `.exe` and a WiX `.msi` where an installer applies:
+Grab the latest build from the [Releases](https://github.com/ProcioneDeConti/monosodium-desktop/releases) page. Each release has three flavors:
 
-- **Offline installer** (`-offline-setup.exe` / `-offline.msi`, ~250 MB) - carries the full WebView2 Runtime and installs it with no network access. Use this on a machine that might not have the runtime, or for unattended/air-gapped installs.
-- **Online installer** (`-online-setup.exe` / `-online.msi`, ~5 MB) - the same app, but it fetches the WebView2 Runtime from Microsoft during setup if it isn't already present. Much smaller; needs a connection the first time only.
+- **Offline installer** (`-offline-setup.exe`, ~210 MB) - carries the full WebView2 Runtime and installs it with no network access. Use this on a machine that might not have the runtime, or for unattended/air-gapped installs.
+- **Online installer** (`-online-setup.exe`, ~4 MB) - the same app, but it fetches the WebView2 Runtime from Microsoft during setup if it isn't already present. Much smaller; needs a connection the first time only.
 - **Portable** (`-portable.exe`, ~12 MB) - a single self-contained executable with no installer, no registry entries, and no Start Menu shortcut. It keeps its data in a `data` folder next to the exe when that location is writable, and falls back to `%LOCALAPPDATA%\Monosodium Desktop` otherwise. Needs the WebView2 Runtime already installed.
 
 All three are the same compiled build - the only difference is how (or whether) the WebView2 Runtime is handled.

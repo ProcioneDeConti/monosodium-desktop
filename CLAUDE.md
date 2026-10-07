@@ -71,6 +71,8 @@ src-tauri/src/
                   client - not the e621 request()/rate limiter, these aren't e621 hosts
   source_login.rs optional isolated sign-in window for login-gated sources (FA); session cookie
                   kept encrypted in credentials.dat, only ever attached by source_fetch
+  install_info.rs how this copy was installed (setup.exe / legacy MSI / portable) from the
+                  registry + uninstall.exe; shown in Settings > Updates
   lib.rs          plugin/window/command wiring, tray icon, global shortcut (window is opaque -
                   no transparency/Mica, for WebView2 compositing performance on Windows)
 

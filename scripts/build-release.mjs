@@ -1,12 +1,13 @@
 // Builds every release artifact into dist-release/:
 //
-//   MonosodiumDesktop-<v>-offline-setup.exe   NSIS installer, WebView2 runtime embedded (~250 MB)
-//   MonosodiumDesktop-<v>-offline.msi          WiX installer, WebView2 runtime embedded
+//   MonosodiumDesktop-<v>-offline-setup.exe   NSIS installer, WebView2 runtime embedded (~210 MB)
 //   MonosodiumDesktop-<v>-online-setup.exe     NSIS installer, downloads WebView2 at setup (~4 MB)
-//   MonosodiumDesktop-<v>-online.msi           WiX installer, downloads WebView2 at setup
 //   MonosodiumDesktop-<v>-portable.exe         standalone exe, no installer (needs WebView2 present)
 //
-// The base tauri.conf.json bundles the offline runtime. The "online" pair is the same compiled
+// (No MSI: it was published through 1.14.94 and dropped - see PROGRESS.md. `bundle.targets` in
+// tauri.conf.json is NSIS-only, so the bundler doesn't produce one.)
+//
+// The base tauri.conf.json bundles the offline runtime. The "online" installer is the same compiled
 // binary re-bundled with `tauri bundle --config src-tauri/tauri.conf.online.json`, which merges
 // in webviewInstallMode = downloadBootstrapper. Only the bundler re-runs for the second pass -
 // no recompile - so ordering matters: the offline artifacts are copied out before the online
@@ -31,16 +32,11 @@ const npx = process.platform === "win32" ? "npx.cmd" : "npx";
 const tauri = (args) => execFileSync(npx, ["tauri", ...args], { stdio: "inherit", cwd: root, shell: process.platform === "win32" });
 
 function collect(variant) {
-  for (const sub of ["nsis", "msi"]) {
-    const dir = join(bundleDir, sub);
-    // Match the version too - older builds' bundles linger in the same folder.
-    const src = readdirSync(dir).find(
-      (n) => n.includes(`_${version}_`) && n.endsWith(sub === "nsis" ? "-setup.exe" : ".msi"),
-    );
-    if (!src) throw new Error(`no ${sub} bundle in ${dir}`);
-    const ext = sub === "nsis" ? "-setup.exe" : ".msi";
-    copyFileSync(join(dir, src), join(outDir, `MonosodiumDesktop-${version}-${variant}${ext}`));
-  }
+  const dir = join(bundleDir, "nsis");
+  // Match the version too - older builds' bundles linger in the same folder.
+  const src = readdirSync(dir).find((n) => n.includes(`_${version}_`) && n.endsWith("-setup.exe"));
+  if (!src) throw new Error(`no nsis bundle in ${dir}`);
+  copyFileSync(join(dir, src), join(outDir, `MonosodiumDesktop-${version}-${variant}-setup.exe`));
 }
 
 rmSync(outDir, { recursive: true, force: true });
