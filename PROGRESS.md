@@ -1735,3 +1735,16 @@ live call before implementing (per user instruction - no more guessing).
         "Scored ...") via a Tauri `Channel<RecoverProgress>`; result gets a grade badge + notes.
       - Unit tests for the grading (`cargo test source_fetch`). **Not done:** SSRF guard on source
         URLs, Bluesky `getBlob` original, per-post disk cache. Not verified live in the app.
+- [x] **e621 write throttles: 429 handling, batched set adds, write limiter** (1.14.97)
+      A 57-post set add got a 429. That's not the 2 req/s limit (503) - e621ng has per-account
+      write throttles: every non-GET draws from `User#token_bucket` (60/min, 90 privileged, 120
+      former staff, "Throttled: Too many requests"), and `PostSetsController` additionally caps
+      set add/remove/update at 30 requests/min ("You are modifying sets too quickly"). The read
+      limiter alone allowed exactly 60/min.
+      - `rate_limit.rs`: separate per-site write quota (50/min, burst 5), awaited in `request()`
+        for every non-GET/HEAD before the normal limiter.
+      - `ensure_success`: 429 gets its own message carrying e621's `message` field.
+      - `add_posts_to_set` sends batches of 100 (e621 caps a call at `max_per_page` = 320),
+        stops at the first failure and reports "Added X of Y". Batches stay large because the
+        set throttle counts requests, not posts. The 30/min set cap isn't enforced client-side.
+        Not verified live in the app.

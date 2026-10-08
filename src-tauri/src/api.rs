@@ -105,6 +105,9 @@ async fn request(
     method: Method,
     path: &str,
 ) -> Result<reqwest::RequestBuilder, String> {
+    if method != Method::GET && method != Method::HEAD {
+        state.limiters.wait_write(site).await;
+    }
     state.limiters.wait(site).await;
     API_CALLS.fetch_add(1, Ordering::Relaxed);
     let creds = credentials::load(site)?;
@@ -135,6 +138,19 @@ async fn ensure_success(response: reqwest::Response) -> Result<reqwest::Response
         return Err("e621 rate limit exceeded (503) - please wait a moment and try again".into());
     }
     let body = response.text().await.unwrap_or_default();
+    if status.as_u16() == 429 {
+        // Not the request-rate limit (that's 503, and the governor limiter keeps us under it) -
+        // e621ng's per-account write throttles: 60 non-GET requests/min (90 privileged) via
+        // `User#token_bucket`, and 30 set modifications/min via `check_set_modify_rate_limit`.
+        // Surface e621's own `message` so the user can tell which one it was.
+        let reason = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|v| v.get("message").and_then(|m| m.as_str()).map(str::to_owned))
+            .unwrap_or_else(|| "too many edits".into());
+        return Err(format!(
+            "e621 throttled this account (429: {reason}) - this caps how many edits an account              can make per minute, not request speed. Wait a minute and try again."
+        ));
+    }
     Err(format!("e621 API error {status}: {}", body.chars().take(300).collect::<String>()))
 }
 
@@ -1156,6 +1172,12 @@ pub async fn create_post_set(
 /// Requires Basic Auth as the set's owner (or a maintainer). e621ng's `add_posts` action reads a
 /// top-level `post_ids` array (`params.extract!(:post_ids).permit(post_ids: []).require(:post_ids)`)
 /// and rejects an empty one, so an empty list is a no-op here.
+///
+/// Sent in batches of [`SET_ADD_BATCH`], one after another, stopping at the first failure. e621
+/// rejects more than `max_per_page` ids per call, and its set throttle (30 modifications/min)
+/// counts *requests*, not posts - so batches are kept large: a typical multi-select is still one
+/// call. On a mid-way failure the error says how many posts made it in; ids are sent in order, so
+/// the rest of the list is what's missing.
 #[tauri::command]
 pub async fn add_posts_to_set(
     state: tauri::State<'_, AppState>,
@@ -1163,18 +1185,34 @@ pub async fn add_posts_to_set(
     set_id: i64,
     post_ids: Vec<i64>,
 ) -> Result<(), String> {
-    if post_ids.is_empty() {
-        return Ok(());
+    let total = post_ids.len();
+    let mut added = 0;
+    for chunk in post_ids.chunks(SET_ADD_BATCH) {
+        let result = async {
+            let response =
+                request(&state, site, Method::POST, &format!("post_sets/{set_id}/add_posts.json"))
+                    .await?
+                    .json(&SetPostIdsRequest { post_ids: chunk.to_vec() })
+                    .send()
+                    .await
+                    .map_err(|e| e.to_string())?;
+            ensure_success(response).await
+        }
+        .await;
+        if let Err(e) = result {
+            return Err(if added == 0 {
+                e
+            } else {
+                format!("Added {added} of {total} posts, then stopped: {e}")
+            });
+        }
+        added += chunk.len();
     }
-    let response = request(&state, site, Method::POST, &format!("post_sets/{set_id}/add_posts.json"))
-        .await?
-        .json(&SetPostIdsRequest { post_ids })
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    ensure_success(response).await?;
     Ok(())
 }
+
+/// Posts per `add_posts` call - comfortably under e621's `max_per_page` (320) cap per call.
+const SET_ADD_BATCH: usize = 100;
 
 #[tauri::command]
 pub async fn remove_posts_from_set(

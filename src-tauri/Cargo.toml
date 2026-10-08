@@ -1,6 +1,6 @@
 [package]
 name = "monosodium-desktop"
-version = "1.14.96"
+version = "1.14.97"
 description = "An unofficial Windows desktop client for e621 and e6AI"
 authors = ["Procione DeConti (https://github.com/ProcioneDeConti)"]
 edition = "2021"
