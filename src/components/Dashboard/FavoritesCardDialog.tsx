@@ -7,7 +7,14 @@ import { e621Api } from "../../api/client";
 import { useAvatarUrl } from "../../queries/useAvatarUrl";
 import { useSettingsStore } from "../../state/settingsStore";
 import { isBlacklisted, parseBlacklist } from "../../lib/blacklist";
-import { buildFavoritesCardSvg, CARD_H, CARD_W, pickFinalVerdict } from "../../lib/favoritesCard";
+import {
+  buildFavoritesCardSvg,
+  CARD_H,
+  CARD_MAX_ARTISTS,
+  CARD_MAX_TAGS,
+  CARD_W,
+  pickFinalVerdict,
+} from "../../lib/favoritesCard";
 import { exportCard, svgPreviewUrl, type CardFormat } from "../../lib/exportCard";
 import { errorMessage } from "../../lib/errors";
 import { pushModal } from "../../lib/modalStack";
@@ -91,8 +98,8 @@ export function FavoritesCardDialog({
   const [preparing, setPreparing] = useState(true);
   useEffect(() => {
     let cancelled = false;
-    const artists = analysis.topArtists.slice(0, 5);
-    const tags = analysis.topTags.slice(0, 8);
+    const artists = analysis.topArtists.slice(0, CARD_MAX_ARTISTS);
+    const tags = analysis.topTags.slice(0, CARD_MAX_TAGS);
 
     (async () => {
       // Each artist's top post - fetch their 5 highest-scored, take the first that passes the

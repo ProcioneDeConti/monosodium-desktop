@@ -1771,3 +1771,10 @@ live call before implementing (per user instruction - no more guessing).
         scrolls ancestors and was implicated in the grid jumping to top.
       - Viewer preloads sample images for index +1/-1/+2 (CDN only, videos skipped).
       - Live-tested by the user (2026-10-12): all working.
+- [x] **Favorites card: missing tag backgrounds; image fetch status check** (1.16.1)
+      - The card renders up to 12 tag chips but `FavoritesCardDialog` only fetched backgrounds for 8,
+        so chips 9-12 were always plain. Both now use `CARD_MAX_TAGS` / `CARD_MAX_ARTISTS` from
+        `lib/favoritesCard.ts`.
+      - `fetch_image_data_url` (`downloads.rs`) now fails on HTTP errors and non-image content
+        types instead of base64'ing an error page as a JPEG (broken image instead of fallback).
+      - Live-tested by the user (2026-10-12).

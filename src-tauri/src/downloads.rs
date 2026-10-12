@@ -59,14 +59,24 @@ pub async fn fetch_image_data_url(
     state: tauri::State<'_, AppState>,
     url: String,
 ) -> Result<String, String> {
-    let response = state.http.get(&url).send().await.map_err(|e| e.to_string())?;
-    let content_type = response
+    // A 404/403 page must come back as an error (so the caller falls back to a plain card row),
+    // not get base64'd as if it were a JPEG and render as a broken image.
+    let response = state
+        .http
+        .get(&url)
+        .send()
+        .await
+        .and_then(|r| r.error_for_status())
+        .map_err(|e| e.to_string())?;
+    let content_type = match response
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
-        .filter(|ct| ct.starts_with("image/"))
-        .unwrap_or("image/jpeg")
-        .to_string();
+    {
+        Some(ct) if ct.starts_with("image/") => ct.to_string(),
+        Some(ct) => return Err(format!("not an image ({ct})")),
+        None => "image/jpeg".to_string(),
+    };
     let bytes = response.bytes().await.map_err(|e| e.to_string())?;
     if bytes.len() > 4 * 1024 * 1024 {
         return Err("image too large to sample".into());

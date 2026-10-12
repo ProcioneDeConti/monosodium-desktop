@@ -9,6 +9,10 @@ import { SITE_DISPLAY_NAME } from "../models/site";
 
 export const CARD_W = 1080;
 export const CARD_H = 1750;
+/** How many artist rows / tag chips the card can show. FavoritesCardDialog fetches a background
+ *  image for exactly this many - keep them shared so no chip is ever left without one. */
+export const CARD_MAX_ARTISTS = 5;
+export const CARD_MAX_TAGS = 12;
 
 const PAD = 72;
 const INNER_W = CARD_W - PAD * 2;
@@ -455,7 +459,7 @@ export function buildFavoritesCardSvg({
 
   // top artists - full-width rows, each with its top post as a faded background
   p.push(heading(PAD, 574, "TOP ARTISTS"));
-  const artists = analysis.topArtists.slice(0, 5);
+  const artists = analysis.topArtists.slice(0, CARD_MAX_ARTISTS);
   const artistMax = Math.max(1, ...artists.map((a) => a.count));
   const rowH = 78;
   const rowStep = rowH + 12;
@@ -519,7 +523,7 @@ export function buildFavoritesCardSvg({
   let chipX = PAD;
   let chipRowTop = chipsHeadingY + 22;
   let rows = 0;
-  for (const t of analysis.topTags.slice(0, 12)) {
+  for (const t of analysis.topTags.slice(0, CARD_MAX_TAGS)) {
     const label = fit(nice(t.label), INNER_W - chipPadX * 2, 600, 24);
     const w = Math.ceil(measure(label, 600, 24)) + chipPadX * 2;
     if (chipX + w > CARD_W - PAD && chipX > PAD) {
