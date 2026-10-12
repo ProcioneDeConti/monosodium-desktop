@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { listen } from "@tauri-apps/api/event";
 import { AppShell } from "./components/shell/AppShell";
 import { TabBar, type SearchTab } from "./components/shell/TabBar";
 import { PostGrid } from "./components/PostGrid/PostGrid";
@@ -33,7 +34,7 @@ import { UnlockScreen } from "./components/Vault/UnlockScreen";
 import { Button } from "./components/ui/Button";
 import { Spinner } from "./components/ui/Spinner";
 import { EmptyState } from "./components/ui/EmptyState";
-import { useQueryClient } from "@tanstack/react-query";
+import { focusManager, useQueryClient } from "@tanstack/react-query";
 import { usePostsQuery } from "./queries/usePostsQuery";
 import { usePostMutations } from "./queries/usePostMutations";
 import { removePostsFromCache } from "./queries/postCache";
@@ -254,6 +255,18 @@ function App() {
     }
     document.addEventListener("visibilitychange", onHide);
     return () => document.removeEventListener("visibilitychange", onHide);
+  }, []);
+
+  // Hiding to the tray doesn't reliably fire `visibilitychange` in WebView2, so the backend
+  // emits its own event (lib.rs). Telling TanStack's focusManager the app is unfocused pauses
+  // every `refetchInterval` poll (health dot, unread-dmail badge) while hidden; restoring hands
+  // focus tracking back to the browser default, which also triggers a catch-up refetch.
+  useEffect(() => {
+    const unlisten = listen<boolean>("main-window-visibility", ({ payload: visible }) => {
+      focusManager.setFocused(visible ? undefined : false);
+      if (!visible) void flushStats();
+    });
+    return () => void unlisten.then((f) => f());
   }, []);
 
   // Drag-and-drop reverse image search - Tauri's native drag-drop event hands over local file

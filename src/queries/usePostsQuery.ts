@@ -17,14 +17,16 @@ import type { Post } from "../models/post";
 import type { Site } from "../models/site";
 import { isBlacklisted, type BlacklistEntries } from "../lib/blacklist";
 
-const PAGE_LIMIT = 50;
+/** e621 allows up to 320; 100 halves the round trips per scroll (and per blacklist hop) under
+ *  the ~1 req/sec budget while keeping each response small enough to land quickly. */
+const PAGE_LIMIT = 100;
 /** Bounds how many raw pages a single logical page will chase when the blacklist is very broad,
  *  so a pathological blacklist can't turn one loadMore into an unbounded request storm. */
 const MAX_HOPS = 20;
 /** e621 rejects `page=N` past this. */
 const MAX_NUMBERED_PAGE = 750;
 
-type PaginationMode = "keyset" | "numbered";
+export type PaginationMode = "keyset" | "numbered";
 
 export interface PostsPage {
   posts: Post[];
@@ -39,7 +41,7 @@ function orderValue(tags: string): string | null {
 }
 
 /** Keyset only for the default order; everything else must use numbered pages. */
-function paginationMode(tags: string): PaginationMode {
+export function paginationMode(tags: string): PaginationMode {
   const order = orderValue(tags);
   return !order || order === "id" || order === "id_desc" ? "keyset" : "numbered";
 }
@@ -48,7 +50,7 @@ function isRandomOrder(tags: string): boolean {
   return orderValue(tags) === "random";
 }
 
-async function fetchLogicalPage(
+export async function fetchLogicalPage(
   site: Site,
   tags: string,
   pageParam: string | undefined,

@@ -124,6 +124,42 @@ async fn request(
     Ok(builder)
 }
 
+/// Upper bound on how long a 503 retry will honour e621's `Retry-After`.
+const MAX_RETRY_WAIT_SECS: u64 = 5;
+
+/// `.send()` for builders from [`request()`], plus one automatic retry when e621 answers 503
+/// (rate limit exceeded) - usually a momentary blip, e.g. another client on the same IP. Only
+/// GET/HEAD are retried (idempotent; a duplicated vote or comment is worse than an error), and
+/// the retry goes back through the limiter, so it can never push us over the 2 req/sec cap.
+trait SendRetry {
+    async fn send_retry(self, state: &AppState, site: Site) -> reqwest::Result<reqwest::Response>;
+}
+
+impl SendRetry for reqwest::RequestBuilder {
+    async fn send_retry(self, state: &AppState, site: Site) -> reqwest::Result<reqwest::Response> {
+        let retry = self
+            .try_clone()
+            .and_then(|b| b.build().ok())
+            .filter(|r| r.method() == Method::GET || r.method() == Method::HEAD)
+            .and_then(|_| self.try_clone());
+        let response = self.send().await?;
+        let Some(retry) = retry.filter(|_| response.status().as_u16() == 503) else {
+            return Ok(response);
+        };
+        let wait = response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .unwrap_or(1)
+            .clamp(1, MAX_RETRY_WAIT_SECS);
+        tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+        state.limiters.wait(site).await;
+        API_CALLS.fetch_add(1, Ordering::Relaxed);
+        retry.send().await
+    }
+}
+
 /// Turns a non-2xx response into a descriptive error, calling out the documented 503 (rate
 /// limit exceeded) case specifically so the UI can explain what happened.
 async fn ensure_success(response: reqwest::Response) -> Result<reqwest::Response, String> {
@@ -148,7 +184,7 @@ async fn ensure_success(response: reqwest::Response) -> Result<reqwest::Response
             .and_then(|v| v.get("message").and_then(|m| m.as_str()).map(str::to_owned))
             .unwrap_or_else(|| "too many edits".into());
         return Err(format!(
-            "e621 throttled this account (429: {reason}) - this caps how many edits an account              can make per minute, not request speed. Wait a minute and try again."
+            "e621 throttled this account (429: {reason}) - this caps how many edits an account can make per minute, not request speed. Wait a minute and try again."
         ));
     }
     Err(format!("e621 API error {status}: {}", body.chars().take(300).collect::<String>()))
@@ -173,7 +209,7 @@ pub async fn get_posts(
     let response = request(&state, site, Method::GET, "posts.json")
         .await?
         .query(&query)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| error_chain(&e))?;
     if cfg!(debug_assertions) {
@@ -228,7 +264,7 @@ pub async fn autocomplete_tags(
     let response = request(&state, site, Method::GET, "tags/autocomplete.json")
         .await?
         .query(&[("search[name_matches]", name)])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -250,7 +286,7 @@ pub async fn autocomplete_users(
     let response = request(&state, site, Method::GET, "users.json")
         .await?
         .query(&[("search[name_matches]", format!("{prefix}*")), ("limit", "10".to_string())])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -278,7 +314,7 @@ pub async fn get_user_by_name(
             ("search[name_matches]", format!("{name}*")),
             ("limit", "100".to_string()),
         ])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     let users = ensure_success(response)
@@ -294,7 +330,7 @@ pub async fn get_user_by_name(
 
     let full = request(&state, site, Method::GET, &format!("users/{}.json", found.id))
         .await?
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(full)
@@ -317,7 +353,7 @@ pub async fn autocomplete_pools(
     let response = request(&state, site, Method::GET, "pools.json")
         .await?
         .query(&[("search[name_matches]", prefix), ("limit", "10".to_string())])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -334,7 +370,7 @@ pub async fn get_current_user(
 ) -> Result<UserProfile, String> {
     let response = request(&state, site, Method::GET, "users/me.json")
         .await?
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -352,7 +388,7 @@ pub async fn get_user(
 ) -> Result<UserProfile, String> {
     let response = request(&state, site, Method::GET, &format!("users/{id}.json"))
         .await?
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -376,7 +412,7 @@ pub async fn update_blacklist(
     let response = request(&state, site, Method::PATCH, &format!("users/{user_id}.json"))
         .await?
         .json(&body)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response).await?;
@@ -395,7 +431,7 @@ pub async fn vote(
     let response = request(&state, site, Method::POST, &format!("posts/{post_id}/votes.json"))
         .await?
         .json(&VoteRequest { score: direction })
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -414,7 +450,7 @@ pub async fn favorite(
     let response = request(&state, site, Method::POST, "favorites.json")
         .await?
         .json(&FavoriteRequest { post_id })
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -432,7 +468,7 @@ pub async fn unfavorite(
 ) -> Result<FavoriteResponse, String> {
     let response = request(&state, site, Method::DELETE, &format!("favorites/{post_id}.json"))
         .await?
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -451,7 +487,7 @@ pub async fn get_comments(
     let response = request(&state, site, Method::GET, "comments.json")
         .await?
         .query(&[("search[post_id]", post_id.to_string())])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -476,7 +512,7 @@ pub async fn create_comment(
     let response = request(&state, site, Method::POST, "comments.json")
         .await?
         .json(&payload)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -502,7 +538,7 @@ pub async fn update_comment(
     let response = request(&state, site, Method::PATCH, &format!("comments/{comment_id}.json"))
         .await?
         .json(&payload)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -520,7 +556,7 @@ pub async fn delete_comment(
 ) -> Result<(), String> {
     let response = request(&state, site, Method::DELETE, &format!("comments/{comment_id}.json"))
         .await?
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response).await?;
@@ -546,7 +582,7 @@ pub async fn report_comment(
     let response = request(&state, site, Method::POST, "tickets.json")
         .await?
         .json(&payload)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response).await?;
@@ -572,7 +608,7 @@ pub async fn report_post(
     let response = request(&state, site, Method::POST, "tickets.json")
         .await?
         .json(&payload)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response).await?;
@@ -591,7 +627,7 @@ pub async fn vote_comment(
     let response = request(&state, site, Method::POST, &format!("comments/{comment_id}/votes.json"))
         .await?
         .json(&VoteRequest { score: direction })
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -615,7 +651,7 @@ pub async fn get_dmails(
     let response = request(&state, site, Method::GET, "dmails.json")
         .await?
         .query(&query)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -630,7 +666,7 @@ pub async fn get_dmails(
 pub async fn get_dmail(state: tauri::State<'_, AppState>, site: Site, id: i64) -> Result<Dmail, String> {
     let response = request(&state, site, Method::GET, &format!("dmails/{id}.json"))
         .await?
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -671,7 +707,7 @@ pub async fn create_dmail(
     let response = request(&state, site, Method::POST, "dmails.json")
         .await?
         .json(&payload)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -710,7 +746,7 @@ pub async fn delete_dmail(
 ) -> Result<(), String> {
     let response = request(&state, site, Method::DELETE, &format!("dmails/{id}.json"))
         .await?
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     let status = response.status();
@@ -750,7 +786,7 @@ pub async fn get_forum_topics(
     let response = request(&state, site, Method::GET, "forum_topics.json")
         .await?
         .query(&query)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -769,7 +805,7 @@ pub async fn get_forum_topic(
 ) -> Result<ForumTopic, String> {
     let response = request(&state, site, Method::GET, &format!("forum_topics/{id}.json"))
         .await?
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -801,7 +837,7 @@ pub async fn get_forum_posts(
     let response = request(&state, site, Method::GET, "forum_posts.json")
         .await?
         .query(&query)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -831,7 +867,7 @@ pub async fn search_forum_posts(
     let response = request(&state, site, Method::GET, "forum_posts.json")
         .await?
         .query(&params)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -856,7 +892,7 @@ pub async fn create_forum_post(
     let response = request(&state, site, Method::POST, "forum_posts.json")
         .await?
         .json(&payload)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -871,7 +907,7 @@ pub async fn create_forum_post(
 pub async fn get_pool(state: tauri::State<'_, AppState>, site: Site, id: i64) -> Result<Pool, String> {
     let response = request(&state, site, Method::GET, &format!("pools/{id}.json"))
         .await?
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -892,7 +928,7 @@ pub async fn get_tag(
     let response = request(&state, site, Method::GET, "tags.json")
         .await?
         .query(&[("search[name]", name.as_str()), ("limit", "1")])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     let mut tags = ensure_success(response)
@@ -927,7 +963,7 @@ pub async fn get_tag_relations(
             ("search[status]", "active"),
             ("limit", "100"),
         ])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     let implies: Vec<Implication> = ensure_success(implies_resp)
@@ -943,7 +979,7 @@ pub async fn get_tag_relations(
             ("search[status]", "active"),
             ("limit", "100"),
         ])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     let implied_by: Vec<Implication> = ensure_success(implied_by_resp)
@@ -959,7 +995,7 @@ pub async fn get_tag_relations(
             ("search[status]", "active"),
             ("limit", "100"),
         ])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     let aliases: Vec<Alias> = ensure_success(alias_resp)
@@ -986,7 +1022,7 @@ pub async fn get_artist(
     let response = request(&state, site, Method::GET, "artists.json")
         .await?
         .query(&[("search[name]", name.as_str()), ("limit", "1")])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     let mut artists = ensure_success(response)
@@ -1007,7 +1043,7 @@ pub async fn get_artist_dnp(
     let response = request(&state, site, Method::GET, "avoid_postings.json")
         .await?
         .query(&[("search[artist_id]", artist_id.to_string())])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     let entries = ensure_success(response)
@@ -1032,7 +1068,7 @@ pub async fn get_related_tags(
         .await?
         // e621ng's RelatedTagsController#show reads `params[:search][:query]`, not a bare `query`.
         .query(&[("search[query]", query.as_str())])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     let value: serde_json::Value = ensure_success(response)
@@ -1114,7 +1150,7 @@ pub async fn get_post_sets(
     let response = request(&state, site, Method::GET, "post_sets.json")
         .await?
         .query(&query)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -1132,7 +1168,7 @@ pub async fn get_post_set(
 ) -> Result<PostSet, String> {
     let response = request(&state, site, Method::GET, &format!("post_sets/{id}.json"))
         .await?
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -1159,7 +1195,7 @@ pub async fn create_post_set(
     let response = request(&state, site, Method::POST, "post_sets.json")
         .await?
         .json(&payload)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -1193,7 +1229,7 @@ pub async fn add_posts_to_set(
                 request(&state, site, Method::POST, &format!("post_sets/{set_id}/add_posts.json"))
                     .await?
                     .json(&SetPostIdsRequest { post_ids: chunk.to_vec() })
-                    .send()
+                    .send_retry(&state, site)
                     .await
                     .map_err(|e| e.to_string())?;
             ensure_success(response).await
@@ -1232,7 +1268,7 @@ pub async fn remove_posts_from_set(
     )
     .await?
     .json(&SetPostIdsRequest { post_ids })
-    .send()
+    .send_retry(&state, site)
     .await
     .map_err(|e| e.to_string())?;
     ensure_success(response).await?;
@@ -1256,7 +1292,7 @@ pub async fn get_post_versions(
     let response = request(&state, site, Method::GET, "post_versions.json")
         .await?
         .query(&query)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -1276,7 +1312,7 @@ pub async fn get_post_notes(
     let response = request(&state, site, Method::GET, "notes.json")
         .await?
         .query(&[("search[post_id]", post_id.to_string())])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -1297,7 +1333,7 @@ pub async fn get_wiki_page(
     let response = request(&state, site, Method::GET, "wiki_pages.json")
         .await?
         .query(&[("search[title]", title), ("limit", "1".to_string())])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     let mut pages = ensure_success(response)
@@ -1329,7 +1365,7 @@ pub async fn get_popular_posts(
     let response = request(&state, site, Method::GET, "popular.json")
         .await?
         .query(&query)
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response)
@@ -1346,7 +1382,7 @@ pub async fn health_check(state: tauri::State<'_, AppState>, site: Site) -> Resu
     let response = request(&state, site, Method::GET, "posts.json")
         .await?
         .query(&[("limit", "1")])
-        .send()
+        .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
     ensure_success(response).await?;

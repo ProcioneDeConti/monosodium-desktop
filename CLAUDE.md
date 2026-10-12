@@ -166,6 +166,7 @@ bug has been seen before. Not loaded automatically; `cat PROGRESS.md` or grep it
 ```
 cd "D:\Documents\Applications\e621 Desktop"
 npx tsc --noEmit             # frontend type-check
+npm test                     # Vitest unit tests
 cd src-tauri && cargo check  # Rust compile-check (fast after first build)
 ```
 
@@ -186,6 +187,8 @@ seconds.
 
 ## Known follow-ups / things to watch
 
-- No automated tests exist yet; verification has been `tsc --noEmit` + `cargo check`, plus
-  extensive live manual testing throughout the project (grid/autocomplete, and - confirmed with
+- Unit tests (Vitest, `npm test`) cover only the pure logic so far: `lib/blacklist.ts`,
+  `lib/dtext.ts`, and `usePostsQuery`'s pagination/blacklist-hop logic (`e621Api` mocked;
+  fixture in `src/test/makePost.ts`). Everything else is verified by `tsc --noEmit` +
+  `cargo check`, plus extensive live manual testing throughout the project (grid/autocomplete, and - confirmed with
   a real signed-in account - voting and favoriting via `usePostMutations.ts`).

@@ -18,27 +18,37 @@ mod vault;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{Manager, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 /// Summons/hides the main window from anywhere, even while another app has focus - the desktop
 /// equivalent of the reference Android app's "just switch apps" (which needs no such thing).
 const TOGGLE_SHORTCUT: &str = "ctrl+shift+e";
 
-fn toggle_main_window(app: &tauri::AppHandle) {
-    let Some(window) = app.get_webview_window("main") else { return };
-    if window.is_visible().unwrap_or(false) {
-        let _ = window.hide();
-    } else {
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
+/// Emitted to the frontend whenever the main window is hidden to / restored from the tray.
+/// WebView2 doesn't reliably flip `document.visibilityState` for a hidden (not minimized)
+/// window, so this is what pauses the frontend's network polls while nobody can see them.
+const VISIBILITY_EVENT: &str = "main-window-visibility";
+
+fn hide_main_window(window: &tauri::WebviewWindow) {
+    let _ = window.hide();
+    let _ = window.emit(VISIBILITY_EVENT, false);
 }
 
 fn show_main_window(app: &tauri::AppHandle) {
     let Some(window) = app.get_webview_window("main") else { return };
     let _ = window.show();
     let _ = window.set_focus();
+    let _ = window.emit(VISIBILITY_EVENT, true);
+}
+
+fn toggle_main_window(app: &tauri::AppHandle) {
+    let Some(window) = app.get_webview_window("main") else { return };
+    if window.is_visible().unwrap_or(false) {
+        hide_main_window(&window);
+    } else {
+        show_main_window(app);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -98,7 +108,7 @@ pub fn run() {
             window.on_window_event(move |event| {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
-                    let _ = window_for_close.hide();
+                    hide_main_window(&window_for_close);
                 }
             });
 

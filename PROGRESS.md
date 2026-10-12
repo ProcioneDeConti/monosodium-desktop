@@ -1748,3 +1748,13 @@ live call before implementing (per user instruction - no more guessing).
         stops at the first failure and reports "Added X of Y". Batches stay large because the
         set throttle counts requests, not posts. The 30/min set cap isn't enforced client-side.
         Not verified live in the app.
+- [x] **Review pass: 503 retry, tray-hidden polling pause, unit tests** (1.14.98)
+      - `api.rs`: 429 message had a run of spaces from a broken string continuation - fixed.
+      - `usePostsQuery`: `PAGE_LIMIT` 50 -> 100, halving round trips per scroll / blacklist hop.
+      - `api.rs`: every `request()` call sends via `SendRetry::send_retry` - one automatic retry
+        on 503 for GET/HEAD only, after `Retry-After` (clamped 1-5s) and back through the limiter.
+      - `lib.rs` emits `main-window-visibility` on tray hide/show (WebView2 doesn't reliably fire
+        `visibilitychange` for a hidden window); `App.tsx` maps it onto TanStack's `focusManager`,
+        pausing the health/unread-dmail `refetchInterval` polls while hidden, and flushes stats.
+      - Vitest (`npm test`): blacklist, DText, and posts pagination/blacklist-hop logic.
+        Not verified live in the app.
