@@ -1785,4 +1785,4 @@ live call before implementing (per user instruction - no more guessing).
       - View menu > Layout. Uniform renders every cell at aspect-ratio 1 (object-cover crop), so
         masonic's shortest-column packing degenerates into plain rows. Persisted as `gridMode`.
       - `gridMode` is in `usePositioner`'s deps so a switch re-packs from scratch instead of
-        resize-observing every cell into its old column. Not yet live-tested.
+        resize-observing every cell into its old column. Live-tested by the user (2026-10-12).
