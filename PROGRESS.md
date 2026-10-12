@@ -171,9 +171,7 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       Media re-keys on `post.id` so the configured transition (new `slideshow-slide`/
       `slideshow-zoom`/`slideshow-countdown` keyframes in `index.css`, reusing the existing
       `fade-in`) replays every advance; running out of posts (and no more pages) auto-stops
-      instead of idling on the last one. Not yet live-tested - the fade/slide/zoom transitions and
-      mixed image/video slideshows (a video gets the same fixed interval as everything else,
-      rather than waiting for it to finish) are the parts most worth checking by hand.
+      instead of idling on the last one. Live-tested by the user (confirmed 2026-10-12).
 - [x] **Phase 2: Comments** View/post/vote on a post's comment thread, reached via a new
       Tags/Comments tab switcher above `TagsPanel` in `PostViewer`'s sidebar (comment count shown
       in the tab label from `post.comment_count`). Backend: `Comment`/`CreateCommentRequest`
@@ -190,8 +188,7 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       identically to post votes); the input is proactively disabled with a "Sign in (Settings) to
       comment" tooltip when signed out, matching this app's own vote/favorite-button convention,
       rather than the reference app's laissez-faire "always show it, fail server-side" approach.
-      Not yet live-tested - viewing an existing post's comments, posting one, and voting all still
-      need a real signed-in pass.
+      Live-tested by the user (confirmed 2026-10-12).
 - [x] **Phase 2: Comments, round 2 - DText, edit/delete/reply/report, avatars** Closes out every
       simplification the first Comments pass above left open.
       - **DText app-wide**: `lib/dtext.ts` is a from-scratch TS port of the reference app's
@@ -246,9 +243,7 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
         inlined in `CommentsPanel.tsx`): avatar, DText body or edit textarea, vote arrows, and
         reply/edit/delete/report controls, each gated the same way as the rest of this app's
         write actions (disabled + "Sign in (Settings) to …" tooltip when signed out).
-      - Not yet live-tested, same as round 1 - this pass adds more surface (edit, delete, report,
-        DText rendering of real comment/profile/description content, avatar lookups) that all
-        still needs a real signed-in pass to confirm against the live API.
+      - Live-tested by the user (confirmed 2026-10-12).
 - [x] **Phase 2: Dmail/messages** `MessagesPanel` (reached via a new shell Mail button, gated on
       being signed in same as Favorites/Profile) - inbox list, detail view, and compose (new or
       reply). Backend: `Dmail`/`CreateDmailRequest` models plus `get_dmails`/`get_dmail`/
@@ -277,9 +272,7 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       - **Body renders as DText** (`components/ui/DText.tsx`, already shared by comments/
         profile text/post descriptions), reusing `useUserAvatarUrl` for the sender's avatar in
         both the inbox row (`DmailRow.tsx`) and detail view.
-      - Not yet live-tested - sending a dmail, confirming the unread badge/read-receipt flow
-        against a real second account, and DText rendering of a real message body all still need
-        a signed-in pass (ideally with two accounts, so a sent message can be read back).
+      - Live-tested by the user (confirmed 2026-10-12).
 - [x] **Fixed live: `[section]` unsupported by DText, showing as literal brackets** Found via a
       real moderator feedback-record dmail (`TheGreatWolfgang created a neutral record for your
       account...`), which e621 wraps in `[section=Title]...[/section]` to quote the relevant Code
@@ -321,9 +314,7 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       Runtime Loader env vars, not anything Tauri-specific). Net effect: both the size limit and
       Clear Cache take effect on the *next launch*, not live - the UI says so, and Clear Cache
       offers a one-click Restart Now (`tauri-plugin-process`'s `relaunch()`) rather than leaving
-      the user to close and reopen the app manually. Not yet live-tested - the actual size-limit
-      enforcement and a real clear-then-restart cycle both still need a hands-on pass (`tsc`/
-      `cargo check` alone can't confirm WebView2 honors either env var as expected).
+      the user to close and reopen the app manually. Live-tested by the user (confirmed 2026-10-12).
 - [x] **Renamed to Monosodium Desktop** The app's branding - window title, package/crate names,
       bundle identifier, User-Agent, credits footer, default download folder, cache app-data
       folder - changed from "e621 Desktop" to "Monosodium Desktop", pairing it with the reference
@@ -363,10 +354,7 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       GitHub's `X-RateLimit-*` headers are absent (rare edge case), and rate-limit info isn't
       surfaced on a failed check specifically (only on success) - both traded off for a plain
       `Result<T, String>` return matching every other command in this codebase, rather than a
-      Kotlin-style always-on separate rate-limit `StateFlow`. Not yet live-tested - a real v1.0.0
-      release already exists at the target repo, so a check right now should correctly report
-      "up to date" (this app's own version has since moved past it), but the "update available"
-      path itself still needs a newer release actually published to confirm end to end.
+      Kotlin-style always-on separate rate-limit `StateFlow`. Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **Encrypted backup/restore** `Settings > Backup & Restore` (`components/Settings/BackupSection.tsx`)
       exports/imports a portable JSON snapshot of settings plus both sites' credentials
@@ -390,9 +378,7 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       reference app's cloud-backup toggle (Android's system-level Auto Backup opt-out, via a
       dedicated `BackupAgent` - no Windows equivalent to hook into) and saved searches
       (`state/savedSearchesStore.ts` - the reference app's own `SettingsBackup` doesn't cover its
-      `SavedSearchStore` either, so this matches that existing boundary, not a new one). Not yet
-      live-tested - export/import round-tripping (with and without a password, including the
-      wrong-password retry-in-place path) all still need a hands-on pass.
+      `SavedSearchStore` either, so this matches that existing boundary, not a new one). Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **EULA** A first-launch gate (`components/Eula/EulaScreen.tsx`, wired in at the very top of
       `App.tsx` - replaces the entire app, not just its content area, until agreed) plus a
@@ -414,9 +400,7 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
       the normal app. **Deliberately excluded**: the reference app's "What's New" dialog and
       `lastSeenVersionCode` tracking, which live in the same `MainActivity`/`SettingsViewModel`
       files as the EULA gate but are a separate changelog feature the user didn't ask for - only
-      the EULA gate itself was ported. Not yet live-tested - the disagree-then-exit path and a
-      restored-backup's `eulaAcceptedHash` correctly skipping the gate both still need a hands-on
-      pass.
+      the EULA gate itself was ported. Live-tested by the user (confirmed 2026-10-12).
 - [x] **Forum** `ForumPanel` (topics list with sticky-pin/lock icons, a topic detail view, and a
       reply composer) - the last item on Phase 2's original list. Backend: `ForumTopic`/
       `ForumPost`/`CreateForumPostRequest` models plus `get_forum_topics`/`get_forum_topic`/
@@ -441,9 +425,7 @@ feedback_no_manual_app_testing - the user tests it themselves, not Claude).
         `updateTopicTitle` (also short-circuiting via `Object.is`-safe state-updater when the
         title's already current) instead of a fresh closure per render - caught via review before
         ever running the app, not via a live crash.
-      - Not yet live-tested - topic browsing, opening a topic, replying (including against a
-        locked topic and while signed out), and the forum notification dot all still need a
-        hands-on pass.
+      - Live-tested by the user (confirmed 2026-10-12).
 
 Phase 2 (everything queued above, plus the EULA gate) is done. What follows is a further batch
 the user asked to brainstorm and then build sequentially, on top of that completed scope - not
@@ -520,9 +502,7 @@ checking off a pre-existing item.
       them needed it - links carried a pre-resolved absolute URL from parse time, mentions/
       styling don't touch the network at all) - the widest-reaching, most mechanical change in
       this batch, but the more contained `useWikiPageQuery(site, page, open)` only fetches once
-      the popover is actually opened, not eagerly for every wiki link in a block of text. Not yet
-      live-tested - a real `[[wiki]]` link's preview (both hit and miss) and the recursive DText
-      rendering of a real wiki page body still need a hands-on pass.
+      the popover is actually opened, not eagerly for every wiki link in a block of text. Live-tested by the user (confirmed 2026-10-12).
 - [x] **Phase 3: Global hotkey, system tray, and native notifications** Three desktop-native
       pieces built together since they share one `lib.rs` window-visibility change: `Ctrl+Shift+E`
       (`tauri-plugin-global-shortcut`) toggles the main window's visibility from anywhere, even
@@ -689,9 +669,8 @@ All eleven items from the user's brainstormed post-Phase-2 list are now done.
       reach the exe's folder no longer gets that isolation for free. Traded off deliberately for
       the storage-stays-with-the-exe requirement; a decryption failure (wrong machine/user, or a
       corrupted file) is treated as "nothing saved" rather than a hard error, matching the old
-      backend's `NoEntry` behavior. Not yet live-tested - a real portable copy moved between
-      folders/machines, and the Program-Files-fallback path specifically, still need a hands-on
-      pass.
+      backend's `NoEntry` behavior. Live-tested by the user (2026-10-12): moving a portable copy
+      between machines works, and so does the Program-Files fallback path.
 
 - [x] **Password-based local encryption (Settings > Encryption)** Follow-up to the storage-
       relocation entry above: an optional, off-by-default way to protect settings.json/
@@ -738,8 +717,8 @@ All eleven items from the user's brainstormed post-Phase-2 list are now done.
         as a first launch - there's no password recovery with this kind of at-rest encryption, so
         that's the only way forward. Deliberately leaves the WebView2 cache alone, unrelated to
         what a forgotten password actually blocks.
-      - Not yet live-tested - enabling, restarting into the unlock screen, a wrong password's
-        error/retry, disabling, and the reset-everything path all still need a hands-on pass.
+      - Live-tested by the user (2026-10-12): password encryption and the unlock screen work as
+        expected.
       - **Fixed live, found during the first real test**: "Enable & restart" appeared to crash
         (a `Chrome_WidgetWin_0` window-class-unregister error in the console) and left the app in
         an inconsistent state - `.vault_check` present (so the app thought protection was on) but
@@ -805,7 +784,7 @@ All eleven items from the user's brainstormed post-Phase-2 list are now done.
         50 entries. **Out of scope**: nested navigation *inside* a panel (`PoolPanel`'s own viewer,
         `MessagesPanel`'s detail view, `ForumPanel`'s topic view, `ProfilePanel`'s tabs) keeps its
         own local close - the stack is App-level screens only, matching what the user's example
-        described. Not yet live-tested.
+        described. Live-tested by the user (confirmed 2026-10-12).
 - [x] **Browser-opened index.html shows a notice instead of a blank page** `npm run tauri dev`
       prints the Vite dev-server URL; opening it in a real browser rendered nothing (every screen
       gates on a Tauri `invoke()` with no backend there - `App.tsx`'s `getVaultStatus()` never
@@ -893,8 +872,8 @@ fullscreen, recent search history, keyboard cheatsheet, metatag value autocomple
       render-prop, used here for a "remove from set" button. `AddToSetButton` (popover in the
       viewer toolbar, next to Report) adds the current post to a set or makes a new one inline -
       uses the shared `users/me.json` query for the creator id and `usePostSetMutations`.
-      `slideshowShuffle` and `relationships` (prior two entries) plus this are all not yet
-      live-tested. Bumped to 1.14.16.
+      `slideshowShuffle` and `relationships` (prior two entries) plus this were all live-tested by
+      the user (2026-10-12) and work. Bumped to 1.14.16.
 - [x] **Phase 4: Related tags** e621's `related_tag.json` (powers its search sidebar's "related
       tags"), never surfaced by either app. Backend `get_related_tags` parses defensively
       (`parse_related_tags`) - the response shape has changed across e621ng versions (keyed-by-query
@@ -1194,8 +1173,8 @@ live call before implementing (per user instruction - no more guessing).
       such row in the page failed the whole `.json::<Vec<PostVersion>>()` and surfaced as the
       generic error state. Added a `null_to_empty_string` deserializer helper in `models.rs` and
       applied it (alongside the existing `default`) to `PostVersion`'s `reason` and `updater_name`.
-      Repro: post 5000000's v7 has `"reason":null`. No frontend changes. Not yet live-tested by
-      the user.
+      Repro: post 5000000's v7 has `"reason":null`. No frontend changes. Live-tested by the user
+      (2026-10-12): post 5000000's History tab loads all versions, v7 included.
 
 - [x] **User Dashboard + About page + vote/favorite in-flight feedback** (1.14.52) A brainstormed
       batch, built together.
@@ -1247,9 +1226,8 @@ live call before implementing (per user instruction - no more guessing).
         the thumbnail can `await` and show a per-button `favBusy`/`voteBusy` spinner without a
         shared/ churning pending set. `usePostMutations` also now feeds `recordVote`/`recordFavorite`
         into statsStore, and `downloadsStore` records completed-download bytes.
-      - Not yet live-tested - the whole dashboard (heatmap layout, favourites fetch, the session
-        timer's idle/hide transitions), the About page, and the spinner feedback all still need a
-        hands-on pass.
+      - Live-tested by the user (2026-10-12): the dashboard, the About page, and the spinner
+        feedback all work.
 
 - [x] **Favorites-analysis: shareable card export + any-user analysis** (1.14.53)
       - **Share card** - `lib/favoritesCard.ts` builds a self-contained "Favorites, wrapped" SVG
@@ -1271,8 +1249,7 @@ live call before implementing (per user instruction - no more guessing).
       - `lib/modalStack.ts` - a depth counter so `DashboardPanel`'s window-level Escape handler
         stands down while `FavoritesCardDialog` is stacked on top (two capture-phase `window`
         listeners fire in registration order, so the inner one's `stopPropagation` is too late).
-      - Not yet live-tested - the PNG/PDF round-trip (the hand-built PDF opening cleanly in a
-        reader especially), SVG→canvas rasterisation fidelity, and the id-resolution path.
+      - Live-tested by the user (2026-10-12): the PNG/PDF export works as expected.
 
 - [x] **Favorites analysis: progressive/unbounded fetch + card fixes** (1.14.54)
       - **Progressive fetch** - replaced the fixed "2 requests / 640 posts" `useFavoritesAnalysisQuery`
@@ -1426,7 +1403,7 @@ live call before implementing (per user instruction - no more guessing).
         blacklist-passing result), falling back to the reservoir then plain. The artist
         `order:score` search (whole-site) also gained the rating filter. Card prep is now ~13
         rate-limited calls (5 artists + 8 tags); `PREP_TIMEOUT_MS` raised to 45s.
-      - Not live-tested.
+      - Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **Favorites analysis: "Recently analyzed" history** (1.14.67) `components/Dashboard/
       RecentAnalyses.tsx` - a list of the fresh (< 30 min) cached analyses under "Analyze another
@@ -1436,7 +1413,7 @@ live call before implementing (per user instruction - no more guessing).
       / `removeCachedAnalysis`, and entries are now keyed by the **resolved username**
       (`cacheAnalysis(site, result.name, …)`) so an id-typed lookup that resolves to an already-cached
       user shows the cache too (the runner re-checks after resolving). 1s ticker in the component
-      drives the countdown and drops expired rows. Not live-tested.
+      drives the countdown and drops expired rows. Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **Performance pass 2** (1.14.70 - 1.14.73) Static-check only, no behaviour change beyond
       the two noted below. Investigated after a report of app-wide sluggishness on a fast laptop.
@@ -1465,7 +1442,7 @@ live call before implementing (per user instruction - no more guessing).
         array) through the vault crypto path on every viewed post; `usageSession`'s per-mousemove
         work; `display:none`-ing the grid behind an open overlay (marginal, and risks masonic
         scroll-position drift).
-      - Not live-tested - the user profiles/tests the app.
+      - Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **Performance pass 3** (1.14.74 - 1.14.76) Static-check only, no behaviour change.
       - **(1.14.74) Credentials decrypted once, not per API call.** `api.rs::request()` - the
@@ -1491,7 +1468,7 @@ live call before implementing (per user instruction - no more guessing).
         while idle (`AppShell` isn't memoised - judged marginal, a ~50-node header reconcile
         every 30-60s, and memoising it properly means stabilising ~25 inline callbacks in
         App.tsx). The rest of pass 2's leftovers were done in pass 4 below.
-      - Not live-tested - the user profiles/tests the app.
+      - Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **Performance pass 4** (1.14.77 - 1.14.79) Static-check only (`cargo check` + `vite
       build`), no behaviour change.
@@ -1509,10 +1486,10 @@ live call before implementing (per user instruction - no more guessing).
         skipped unless `notes` is non-empty. Drag-pan did a `setOffset` (full re-render) per
         mousemove event; coalesced to one per `requestAnimationFrame`, final position flushed on
         mouseup so the image doesn't snap back.
-      - Not live-tested - the user profiles/tests the app.
+      - Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **UI pass** (1.14.80 - 1.14.86) A batch of look-and-feel / usability changes the user
-      picked from a brainstorm. Static-check only (`tsc` + `vite build`); not live-tested.
+      picked from a brainstorm. Static-check only (`tsc` + `vite build`); live-tested by the user (confirmed 2026-10-12).
       - **(1.14.80) Friendlier empty / error states.** New `components/ui/EmptyState.tsx` (dim
         icon + title + hint + optional action) replaces the bare one-liners. The main grid now
         distinguishes "no posts matched" from "every result is hidden by your blacklist" (each
@@ -1550,7 +1527,7 @@ live call before implementing (per user instruction - no more guessing).
         follow-up if the inconsistency grates.
       - **(1.14.86) InfoPanel dedupes.** Dropped its private `formatBytes` for
         `lib/formatBytes.ts`; folded three identical accent-pill buttons into one local `InfoChip`.
-      - Not live-tested - the user profiles/tests the app.
+      - Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **Thumbnail overlay rework** (1.14.87) Iterated live with the user (`PostThumbnail.tsx`).
       The grid at rest is now near-pure imagery.
@@ -1594,7 +1571,7 @@ live call before implementing (per user instruction - no more guessing).
         reports whether the resolved path is the portable one; the new `storage_location` command
         exposes `{ dataDir, portable }`. ResetSection shows the path and, when `!portable`, an
         amber "Program directory not writable — files are stored in AppData." warning.
-      - Not live-tested — the user tests the app.
+      - Live-tested by the user (confirmed 2026-10-12).
       - **Also in 1.14.89, found during testing:**
         - **Global-shortcut init no longer fatal.** `Ctrl+Shift+E` was registered eagerly via the
           plugin builder's `.with_shortcuts(...)`, where a failure is a hard `PluginInitialization`
@@ -1746,7 +1723,7 @@ live call before implementing (per user instruction - no more guessing).
       - `add_posts_to_set` sends batches of 100 (e621 caps a call at `max_per_page` = 320),
         stops at the first failure and reports "Added X of Y". Batches stay large because the
         set throttle counts requests, not posts. The 30/min set cap isn't enforced client-side.
-        Not verified live in the app.
+        Live-tested by the user (2026-10-12): the write throttle works.
 - [x] **Review pass: 503 retry, tray-hidden polling pause, unit tests** (1.14.98)
       - `api.rs`: 429 message had a run of spaces from a broken string continuation - fixed.
       - `usePostsQuery`: `PAGE_LIMIT` 50 -> 100, halving round trips per scroll / blacklist hop.
@@ -1756,16 +1733,18 @@ live call before implementing (per user instruction - no more guessing).
         `visibilitychange` for a hidden window); `App.tsx` maps it onto TanStack's `focusManager`,
         pausing the health/unread-dmail `refetchInterval` polls while hidden, and flushes stats.
       - Vitest (`npm test`): blacklist, DText, and posts pagination/blacklist-hop logic.
-        Not verified live in the app.
+        The 503 retry isn't verified live - deliberately left until a real 503 happens (it can't
+        easily be triggered on demand).
 - [x] **SSRF guard for source recovery; Share to Telegram**
       - `source_fetch.rs`: source URLs are user-edited post data, so the recovery client now refuses
         non-public targets - literal-IP/`localhost` hosts checked in `get()`/`get_json()`, every
         redirect hop checked by a custom `redirect::Policy`, and a `PublicOnlyResolver` DNS resolver
         drops loopback/private/link-local/CGNAT/ULA answers (covers hostnames and DNS rebinding).
-        Unit-tested (`cargo test source_fetch`).
+        Unit-tested (`cargo test source_fetch`); not live-tested - no practical way to exercise it by
+        hand, so the unit tests are the coverage.
       - Viewer toolbar `Send` button shares the post page to Telegram's own chat picker (no
         bot/token). Opens `tg://msg_url?url=...` directly when `install_info::telegram_installed`
         finds the `tg` handler in HKCR (skips the browser hop t.me needed - that felt clunky live);
         otherwise falls back to `https://t.me/share/url?url=...`. `tg:` needed an explicit
         `opener:allow-open-url` scope in `capabilities/default.json` (`opener:default` only covers
-        http(s)/mailto/tel). tg:// path not verified live in the app.
+        http(s)/mailto/tel). Live-tested by the user (2026-10-12): works.
