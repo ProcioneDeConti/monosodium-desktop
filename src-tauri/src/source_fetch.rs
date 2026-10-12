@@ -752,8 +752,9 @@ fn is_exact(expected: &Expected, bytes: &[u8]) -> bool {
     want.trim().eq_ignore_ascii_case(&got)
 }
 
-/// Fetches each of `found`'s images and grades it, keeping `best` up to date. Returns true as soon
-/// as an exact (md5) match turns up, since nothing can beat it.
+/// Fetches each of `found`'s images, grades it and adds it to `all` (skipping byte-identical
+/// repeats of an earlier candidate). Returns true as soon as an exact (md5) match turns up, since
+/// nothing can beat it.
 async fn evaluate(
     client: &Client,
     ch: &Channel<RecoverProgress>,
@@ -761,7 +762,7 @@ async fn evaluate(
     found: Found,
     expected: &Expected,
     via_archive: bool,
-    best: &mut Option<Candidate>,
+    all: &mut Vec<Candidate>,
 ) -> bool {
     let mut fetched: Vec<(String, Vec<u8>, Url)> = Vec::new();
     match found {
@@ -810,8 +811,8 @@ async fn evaluate(
                     ),
                 );
                 let exact = candidate.image.grade == Grade::Exact;
-                if best.as_ref().map_or(true, |b| candidate.score > b.score) {
-                    *best = Some(candidate);
+                if !all.iter().any(|c| c.image.data_url == candidate.image.data_url) {
+                    all.push(candidate);
                 }
                 if exact {
                     return true;
@@ -861,10 +862,10 @@ async fn find_archived(client: &Client, url: &str) -> Result<Found, String> {
     }
 }
 
-/// Tries each of a deleted post's `sources` and returns the candidate that best matches the
-/// post's original file. e621 keeps a deleted post's md5, byte size, dimensions and format, so
+/// Tries each of a deleted post's `sources` and returns every usable image found, best match to
+/// the post's original file first, so the viewer can let the user pick. e621 keeps a deleted post's md5, byte size, dimensions and format, so
 /// every downloaded image is graded against them (see `Grade`); an md5 match ends the search
-/// immediately, otherwise the best-scoring image across all sources wins. Site-specific lookups
+/// immediately; otherwise all candidates come back ordered by score. Site-specific lookups
 /// (X, Bluesky, Pixiv, DeviantArt, FA) return every image of a multi-image source so the right
 /// one can be picked. When no live source reaches `SameDimensions`, the Wayback Machine's raw
 /// captures of the sources - and of e621's own CDN path for the md5 - are tried too. Fetched here
@@ -875,7 +876,7 @@ pub async fn recover_from_sources(
     sources: Vec<String>,
     expected: Expected,
     on_progress: Channel<RecoverProgress>,
-) -> Result<RecoveredImage, String> {
+) -> Result<Vec<RecoveredImage>, String> {
     let client = Client::builder()
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(30))
@@ -891,7 +892,7 @@ pub async fn recover_from_sources(
     let web_sources: Vec<&String> =
         sources.iter().filter(|s| s.starts_with("http://") || s.starts_with("https://")).collect();
     let mut failures = Vec::new();
-    let mut best: Option<Candidate> = None;
+    let mut all: Vec<Candidate> = Vec::new();
     let mut done = false;
 
     let total = web_sources.len();
@@ -900,7 +901,7 @@ pub async fn recover_from_sources(
         progress(&on_progress, "fetching", format!("Fetching post from {host} (source {} of {total})", i + 1));
         match find_images(&client, source, &expected).await {
             Ok(found) => {
-                if evaluate(&client, &on_progress, source, found, &expected, false, &mut best).await {
+                if evaluate(&client, &on_progress, source, found, &expected, false, &mut all).await {
                     done = true;
                     break;
                 }
@@ -913,9 +914,9 @@ pub async fn recover_from_sources(
         }
     }
 
-    let good_enough = |best: &Option<Candidate>| best.as_ref().is_some_and(|b| b.image.grade >= Grade::SameDimensions);
+    let good_enough = |all: &[Candidate]| all.iter().any(|c| c.image.grade >= Grade::SameDimensions);
 
-    if !done && !good_enough(&best) {
+    if !done && !good_enough(&all) {
         // Archived raw copies: each source, then e621's own CDN file for the md5.
         let mut archive_targets: Vec<String> = web_sources.iter().map(|s| s.to_string()).collect();
         if let Some(md5) = expected.md5.as_deref().filter(|m| m.len() >= 4 && m.is_ascii()) {
@@ -927,26 +928,28 @@ pub async fn recover_from_sources(
             progress(&on_progress, "archive", "Checking the Wayback Machine for an archived copy");
             match find_archived(&client, target).await {
                 Ok(found) => {
-                    if evaluate(&client, &on_progress, target, found, &expected, true, &mut best).await {
+                    if evaluate(&client, &on_progress, target, found, &expected, true, &mut all).await {
                         break;
                     }
                 }
                 Err(e) => failures.push(format!("{target} (Wayback): {e}")),
             }
-            if good_enough(&best) {
+            if good_enough(&all) {
                 break;
             }
         }
     }
 
-    match best {
-        Some(candidate) => {
+    // Stable sort, so equal scores keep the order the sources were tried in.
+    all.sort_by(|a, b| b.score.cmp(&a.score));
+    match all.first() {
+        Some(best) => {
             progress(
                 &on_progress,
                 "done",
-                format!("Best match: {} (score {})", grade_label(candidate.image.grade), candidate.score),
+                format!("Best match: {} (score {})", grade_label(best.image.grade), best.score),
             );
-            Ok(candidate.image)
+            Ok(all.into_iter().map(|c| c.image).collect())
         }
         None if failures.is_empty() => Err("This post has no web sources to try.".into()),
         None => Err(format!("No source yielded an image.\n{}", failures.join("\n"))),

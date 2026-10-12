@@ -15,12 +15,27 @@ const GRADE_TITLE: Record<RecoveryGrade, string> = {
   mismatch: "Doesn't match the original's shape - may be a different image",
 };
 
+const GRADE_SHORT: Record<RecoveryGrade, string> = {
+  exact: "Exact",
+  same_dimensions: "Same size",
+  rescaled: "Rescaled",
+  mismatch: "Mismatch",
+};
+
 const GRADE_STYLE: Record<RecoveryGrade, string> = {
   exact: "font-medium text-green-300",
   same_dimensions: "font-medium text-lime-300",
   rescaled: "font-medium text-amber-300",
   mismatch: "font-medium text-red-300",
 };
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
 
 interface DeletedPostRecoveryProps {
   post: Post;
@@ -30,12 +45,15 @@ interface DeletedPostRecoveryProps {
 
 /** Viewer body for a deleted post. e621 keeps a deleted post's `sources` but not its file, so a
  *  manual button asks the backend to try each source (direct image, else the page's og:image).
- *  Strictly opt-in: nothing touches third-party sites until the user clicks. State lives here, so
+ *  Strictly opt-in: nothing touches third-party sites until the user clicks. When more than one
+ *  usable image turns up, a strip along the bottom lists them all (best match first, each with its
+ *  grade) so the user can pick the right one. State lives here, so
  *  it resets when the viewer's `key={post.id}` wrapper remounts on navigation. */
 export function DeletedPostRecovery({ post, site, notes }: DeletedPostRecoveryProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [recovered, setRecovered] = useState<RecoveredImage | null>(null);
+  const [candidates, setCandidates] = useState<RecoveredImage[] | null>(null);
+  const [selected, setSelected] = useState(0);
   const [displayFailed, setDisplayFailed] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
@@ -54,7 +72,9 @@ export function DeletedPostRecovery({ post, site, notes }: DeletedPostRecoveryPr
     };
     try {
       setDisplayFailed(false);
-      setRecovered(await e621Api.recoverFromSources(post.sources, post.file, onProgress));
+      const found = await e621Api.recoverFromSources(post.sources, post.file, onProgress);
+      setSelected(0);
+      setCandidates(found);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -63,16 +83,13 @@ export function DeletedPostRecovery({ post, site, notes }: DeletedPostRecoveryPr
     }
   }
 
-  if (recovered) {
-    let host = recovered.source_url;
-    try {
-      host = new URL(recovered.source_url).hostname;
-    } catch {
-      /* keep the raw string */
-    }
+  const recovered = candidates?.[selected];
+  if (candidates && recovered) {
+    const host = hostOf(recovered.source_url);
     return (
       <div className="relative h-full w-full">
         <ZoomableImage
+          key={selected}
           src={recovered.data_url}
           alt={`Post ${post.id} (recovered)`}
           site={site}
@@ -95,7 +112,38 @@ export function DeletedPostRecovery({ post, site, notes }: DeletedPostRecoveryPr
             Deleted post - recovered from {host}{recovered.via_archive ? " via the Wayback Machine" : ""}.
           </div>
           {recovered.notes.length > 0 && <div className="text-white/60">{recovered.notes.join("; ")}</div>}
+          {candidates.length > 1 && (
+            <div className="text-white/60">
+              Image {selected + 1} of {candidates.length} found - pick another below.
+            </div>
+          )}
         </div>
+        {candidates.length > 1 && (
+          <div className="absolute inset-x-0 bottom-0 flex gap-2 overflow-x-auto bg-black/70 p-2">
+            {candidates.map((c, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => {
+                  setSelected(i);
+                  setDisplayFailed(false);
+                }}
+                title={`${GRADE_TITLE[c.grade]}
+${c.width}x${c.height} ${c.mime.replace("image/", "")} from ${hostOf(c.source_url)}${c.via_archive ? " (Wayback Machine)" : ""}${c.notes.length > 0 ? `
+${c.notes.join("; ")}` : ""}`}
+                className={`flex shrink-0 flex-col items-center gap-1 rounded-[var(--radius-sm)] p-1 text-[11px] ${
+                  i === selected ? "bg-white/15 ring-2 ring-[rgb(var(--accent))]" : "hover:bg-white/10"
+                }`}
+              >
+                <img src={c.data_url} alt="" className="h-16 w-auto max-w-[8rem] object-contain" />
+                <span className={GRADE_STYLE[c.grade]}>{GRADE_SHORT[c.grade]}</span>
+                <span className="text-white/50">
+                  {c.width}x{c.height}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }

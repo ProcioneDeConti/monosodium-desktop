@@ -1747,3 +1747,12 @@ live call before implementing (per user instruction - no more guessing).
         otherwise falls back to `https://t.me/share/url?url=...`. `tg:` needed an explicit
         `opener:allow-open-url` scope in `capabilities/default.json` (`opener:default` only covers
         http(s)/mailto/tel). Live-tested by the user (2026-10-12): works.
+- [x] **Deleted-post recovery: pick from every candidate**
+      - `recover_from_sources` now returns every usable image it graded (`Vec<RecoveredImage>`,
+        best score first, byte-identical repeats dropped) instead of only the best one.
+      - `DeletedPostRecovery.tsx`: shows the best match as before; when there's more than one, a
+        strip along the bottom lists them all with their grade and dimensions (tooltip: full grade,
+        format, host, Wayback, notes) and clicking one swaps the viewer to it.
+      - The search's stopping rules are unchanged: an exact md5 match still ends it early, and
+        the Wayback Machine is only tried when no live source reached "same dimensions", so the
+        list holds what was found up to that point. Live-tested by the user (2026-10-12).

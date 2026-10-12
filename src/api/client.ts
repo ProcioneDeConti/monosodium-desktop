@@ -352,13 +352,14 @@ export const e621Api = {
   },
 
   /** Deleted posts: tries each source URL, grades every image found against the post's kept file
-   *  metadata (md5/size/dimensions/format) and resolves to the best match, as a `data:` URL.
+   *  metadata (md5/size/dimensions/format) and resolves to every usable image, best match
+   *  first, each as a `data:` URL.
    *  `onProgress` receives status lines as it works. Rejects with a per-source failure list. */
   recoverFromSources(
     sources: string[],
     expected: { md5: string | null; size: number; width: number; height: number; ext: string },
     onProgress: (p: RecoverProgress) => void,
-  ): Promise<RecoveredImage> {
+  ): Promise<RecoveredImage[]> {
     const channel = new Channel<RecoverProgress>();
     channel.onmessage = onProgress;
     return invoke("recover_from_sources", { sources, expected, onProgress: channel });
