@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteLoader, useMasonry, usePositioner, useResizeObserver } from "masonic";
-import { EyeOff, SearchX } from "lucide-react";
+import { ArrowUp, EyeOff, SearchX } from "lucide-react";
 import { EmptyState } from "../ui/EmptyState";
 import { playableUrl, type Post } from "../../models/post";
 import type { Site } from "../../models/site";
@@ -26,7 +26,22 @@ interface PostGridProps {
   selectionActive?: boolean;
   selectedIds?: Set<number>;
   onSelectToggle?: (post: Post, opts: { range: boolean }) => void;
+  /** Identifies this result list for scroll-position memory (survives remounts - tab switches,
+   *  Back to an earlier search). */
+  scrollKey?: string;
+  /** The open viewer's index (null = closed). When the viewer closes, the grid moves its focus
+   *  ring to the last-viewed post, scrolls it into view and briefly flashes it. */
+  viewerIndex?: number | null;
+  /** post id -> 1-based fetched page, for the "Page N" markers and floating page indicator. */
+  pageOfPost?: Map<number, number>;
 }
+
+/** Last scroll offset per result list, for the session (module-level so it outlives the grid's
+ *  remount-per-search `key`). */
+const savedScrollTops = new Map<string, number>();
+/** Show the jump-to-top button once scrolled this many viewport heights down. */
+const JUMP_TOP_AFTER_SCREENS = 2;
+const FLASH_MS = 1400;
 
 const GUTTER_PX = 8;
 /** How long after the last scroll event to keep treating the grid as "scrolling" (masonic uses
@@ -52,6 +67,9 @@ export function PostGrid({
   selectionActive = false,
   selectedIds,
   onSelectToggle,
+  scrollKey,
+  viewerIndex = null,
+  pageOfPost,
 }: PostGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -116,8 +134,36 @@ export function PostGrid({
     requestAnimationFrame(() => {
       scrollRafPending.current = false;
       setScrollTop(el.scrollTop);
+      if (scrollKey && !restoringRef.current) savedScrollTops.set(scrollKey, el.scrollTop);
     });
-  }, []);
+  }, [scrollKey]);
+
+  // Restore the remembered offset on mount. Cells are measured lazily as they mount, so the
+  // content height grows while we approach the target - keep re-applying for a few frames until
+  // it sticks (or give up after ~half a second and leave the user wherever it got to).
+  const restoringRef = useRef(false);
+  useEffect(() => {
+    const target = scrollKey ? savedScrollTops.get(scrollKey) : undefined;
+    const el = containerRef.current;
+    if (!el || !target) return;
+    restoringRef.current = true;
+    let frames = 0;
+    let raf = 0;
+    const step = () => {
+      el.scrollTop = target;
+      frames += 1;
+      if ((Math.abs(el.scrollTop - target) < 2 && frames > 4) || frames > 30) {
+        restoringRef.current = false;
+        return;
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(raf);
+      restoringRef.current = false;
+    };
+  }, [scrollKey]);
 
   useEffect(() => () => window.clearTimeout(scrollIdleTimer.current), []);
 
@@ -237,14 +283,32 @@ export function PostGrid({
     setFocusIndex((f) => (f == null ? null : visible.length === 0 ? null : Math.min(f, visible.length - 1)));
   }, [visible.length]);
 
+  // Viewer closed -> land the focus ring on the post you were last looking at.
+  const [flashIndex, setFlashIndex] = useState<number | null>(null);
+  const prevViewerIndex = useRef(viewerIndex);
+  useEffect(() => {
+    const prev = prevViewerIndex.current;
+    prevViewerIndex.current = viewerIndex;
+    if (prev == null || viewerIndex != null || prev >= visible.length) return;
+    setFocusIndex(prev);
+    setFlashIndex(prev);
+    containerRef.current?.focus({ preventScroll: true });
+    const t = window.setTimeout(() => setFlashIndex(null), FLASH_MS);
+    return () => window.clearTimeout(t);
+  }, [viewerIndex, visible.length]);
+
   // Bring the focused cell into view. Uses the positioner's real measured box when the cell has
   // been rendered at least once, otherwise a row-height estimate to get close (which mounts the
-  // cell, after which `scrollTop` changing re-runs this with the exact box).
+  // cell, after which `scrollTop` changing re-runs this with the exact box). Only acts until the
+  // focused cell has been revealed with its exact box once - otherwise every user scroll would
+  // re-run this and yank the viewport back to the ring (the grid "vibrates" and won't scroll).
+  const revealedIndex = useRef<number | null>(null);
   useEffect(() => {
-    if (focusIndex == null) return;
+    if (focusIndex == null || revealedIndex.current === focusIndex) return;
     const el = containerRef.current;
     if (!el) return;
     const pos = positioner.get(focusIndex);
+    if (pos) revealedIndex.current = focusIndex;
     const top = pos ? pos.top : Math.floor(focusIndex / columns) * (thumbnailSizePx + GUTTER_PX);
     const bottom = pos ? pos.top + pos.height : top + thumbnailSizePx;
     const pad = 14;
@@ -310,11 +374,39 @@ export function PostGrid({
   const allHiddenByBlacklist = empty && posts.length > 0;
 
   const focusPos = focusIndex != null ? positioner.get(focusIndex) : undefined;
+  const flashPos = flashIndex != null ? positioner.get(flashIndex) : undefined;
+
+  // --- page markers ---
+  // A masonry layout can't take a full-width divider without breaking column packing, so each
+  // page boundary is marked with a pill on that page's first cell instead, plus a floating
+  // "Page N" indicator for wherever the viewport currently is.
+  const pageStarts = useMemo(() => {
+    const out: { index: number; page: number }[] = [];
+    if (!pageOfPost) return out;
+    let last = 0;
+    visible.forEach((p, i) => {
+      const page = pageOfPost.get(p.id) ?? last;
+      if (page > last) {
+        if (page > 1) out.push({ index: i, page });
+        last = page;
+      }
+    });
+    return out;
+  }, [visible, pageOfPost]);
+  let currentPage = 1;
+  const viewMid = scrollTop + size.height / 2;
+  for (const { index, page } of pageStarts) {
+    const pos = positioner.get(index);
+    if (pos && pos.top <= viewMid) currentPage = page;
+  }
+  const showJumpTop = size.height > 0 && scrollTop > size.height * JUMP_TOP_AFTER_SCREENS;
 
   return (
+    <div className="relative h-full">
     <div
       ref={containerRef}
       onScroll={onScroll}
+      onWheel={() => (revealedIndex.current = focusIndex)}
       onKeyDown={onGridKeyDown}
       onFocus={(e) => {
         if (e.target === e.currentTarget && focusIndex == null && visible.length > 0) setFocusIndex(0);
@@ -353,8 +445,53 @@ export function PostGrid({
               }}
             />
           )}
+          {flashPos && (
+            <div
+              className="pointer-events-none absolute z-[5] animate-pulse rounded-[var(--radius-md)]
+                         bg-[rgb(var(--accent))]/25"
+              style={{
+                top: flashPos.top,
+                left: flashPos.left,
+                width: positioner.columnWidth,
+                height: flashPos.height,
+              }}
+            />
+          )}
+          {pageStarts.map(({ index, page }) => {
+            const pos = positioner.get(index);
+            if (!pos) return null;
+            return (
+              <div
+                key={page}
+                className="pointer-events-none absolute z-[6] -translate-y-1/2 rounded-full bg-[rgb(var(--accent))]
+                           px-2 py-0.5 text-[10px] font-semibold text-white shadow"
+                style={{ top: pos.top, left: pos.left + 6 }}
+              >
+                Page {page}
+              </div>
+            );
+          })}
         </div>
       )}
+    </div>
+    {!empty && !selectionActive && (showJumpTop || currentPage > 1) && (
+      <div className="pointer-events-none absolute bottom-4 right-5 z-10 flex items-center gap-2">
+        <span className="rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-medium text-white shadow-lg">
+          Page {currentPage} · {visible.length} posts
+        </span>
+        {showJumpTop && (
+          <button
+            type="button"
+            onClick={() => containerRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+            title="Back to top"
+            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full
+                       bg-[rgb(var(--accent))] text-white shadow-lg hover:brightness-110"
+          >
+            <ArrowUp size={16} />
+          </button>
+        )}
+      </div>
+    )}
     </div>
   );
 }

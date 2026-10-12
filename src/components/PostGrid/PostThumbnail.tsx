@@ -1,4 +1,4 @@
-import { Fragment, memo, useEffect, useState } from "react";
+import { Fragment, memo, useEffect, useRef, useState } from "react";
 import {
   ArrowBigUp,
   Check,
@@ -53,6 +53,10 @@ const RATING_STYLE: Record<string, { label: string; color: string }> = {
 
 const FAVORITE_GOLD = "#D4AF37";
 
+/** Hover dwell before an animated/video thumbnail starts its live preview - long enough that
+ *  sweeping the pointer across the grid doesn't kick off a dozen CDN video streams. */
+const HOVER_PREVIEW_DELAY_MS = 400;
+
 /** The media-kind glyph shown in the top-right status cluster: clapperboard for video, an
  *  image-with-play for animated stills (gif/apng), a plain image frame for static pictures. */
 function mediaKindOf(post: Post) {
@@ -97,6 +101,20 @@ function PostThumbnailImpl({
   // masonic keeps a couple of viewport-heights of cells mounted, so a permanently-mounted
   // (just visually hidden) cluster meant thousands of extra nodes + SVG icons resident.
   const [hovered, setHovered] = useState(false);
+  // Live preview for video / animated posts: the static `preview` jpg is swapped for the real
+  // media (muted, looping) after a short hover dwell. Straight from the CDN like every other
+  // media load - no API call.
+  const previewable = (isVideo(post) || isAnimated(post)) && !!post.file.url && !blacklisted;
+  const [previewing, setPreviewing] = useState(false);
+  const previewTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!hovered || !previewable || selectionActive) {
+      setPreviewing(false);
+      return;
+    }
+    previewTimer.current = window.setTimeout(() => setPreviewing(true), HOVER_PREVIEW_DELAY_MS);
+    return () => window.clearTimeout(previewTimer.current);
+  }, [hovered, previewable, selectionActive]);
   const [dl, setDl] = useState<"idle" | "saving" | "done" | "err">("idle");
   const [favBusy, setFavBusy] = useState(false);
   const [voteBusy, setVoteBusy] = useState(false);
@@ -149,6 +167,25 @@ function PostThumbnailImpl({
           unavailable
         </div>
       )}
+
+      {previewing &&
+        (isVideo(post) ? (
+          <video
+            src={post.file.url!}
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <img
+            src={post.file.url!}
+            alt=""
+            draggable={false}
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          />
+        ))}
 
       {selectionActive ? (
         <span

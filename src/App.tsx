@@ -379,6 +379,15 @@ function App() {
     return out;
   }, [data]);
 
+  // Which fetched page each post arrived on (1-based) - drives the grid's page markers.
+  const pageOfPost = useMemo(() => {
+    const m = new Map<number, number>();
+    (data?.pages ?? []).forEach((page, i) => {
+      for (const p of page.posts) if (!m.has(p.id)) m.set(p.id, i + 1);
+    });
+    return m;
+  }, [data]);
+
   // Opportunistically learns each loaded post's tag categories so SearchBar's committed-tag
   // chips can be category-colored like TagChip/the autocomplete dropdown already are, without a
   // dedicated lookup - see lib/tagCategoryCache.ts. Only walks posts appended since the last run
@@ -796,6 +805,9 @@ function App() {
               hasNextPage={!!hasNextPage}
               onLoadMore={fetchNextPage}
               onPostClick={openViewerAt}
+              scrollKey={`${site}:${effectiveTags}`}
+              viewerIndex={viewerIndex}
+              pageOfPost={pageOfPost}
               selectionActive={selectionActive}
               selectedIds={selectedIds}
               onSelectToggle={handleSelectToggle}

@@ -28,6 +28,7 @@ import { isDeleted, isVideo, playableUrl } from "../../models/post";
 import { SITE_WEB_BASE_URL, type Site } from "../../models/site";
 import { ZoomableImage } from "./ZoomableImage";
 import { VideoPlayer } from "./VideoPlayer";
+import { Filmstrip } from "./Filmstrip";
 import { DeletedPostRecovery } from "./DeletedPostRecovery";
 import { TagsPanel } from "./TagsPanel";
 import { InfoPanel } from "./InfoPanel";
@@ -217,6 +218,27 @@ export function PostViewer({
       onIndexChange(index + 1);
     }
   }, [index, posts.length, hasNextPage, onIndexChange, onLoadMore]);
+
+  // Warm the browser cache for the neighbours' displayed media so arrow-key paging feels
+  // instant. CDN requests only (not the e621 API, so no rate-limit cost); videos are skipped -
+  // prefetching a whole webm just in case is too much bandwidth.
+  useEffect(() => {
+    const imgs: HTMLImageElement[] = [];
+    for (const i of [index + 1, index - 1, index + 2]) {
+      const p = posts[i];
+      if (!p || isVideo(p) || isDeleted(p)) continue;
+      const src = p.sample.url ?? p.file.url;
+      if (!src) continue;
+      const img = new Image();
+      img.decoding = "async";
+      img.src = src;
+      imgs.push(img);
+    }
+    return () => {
+      // Abandon still-pending fetches when the user moves on quickly.
+      for (const img of imgs) if (!img.complete) img.src = "";
+    };
+  }, [index, posts]);
 
   useEffect(() => {
     if (posts.length - index <= LOAD_MORE_THRESHOLD && hasNextPage) {
@@ -419,7 +441,8 @@ export function PostViewer({
       </div>
 
       <div className="relative flex min-h-0 flex-1">
-        <div className="relative min-w-0 flex-1 overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           <IconButton
             tone="invert"
             onClick={goPrev}
@@ -569,6 +592,10 @@ export function PostViewer({
               </div>
             </div>
           )}
+        </div>
+        {!slideshowActive && !isFullscreen && posts.length > 1 && (
+          <Filmstrip posts={posts} index={index} onSelect={onIndexChange} />
+        )}
         </div>
 
         <div

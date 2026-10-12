@@ -1756,3 +1756,18 @@ live call before implementing (per user instruction - no more guessing).
       - The search's stopping rules are unchanged: an exact md5 match still ends it early, and
         the Wayback Machine is only tried when no live source reached "same dimensions", so the
         list holds what was found up to that point. Live-tested by the user (2026-10-12).
+- [x] **Grid & viewer browsing polish** (1.16.0)
+      - Hover preview (`PostThumbnail.tsx`): after a 400ms dwell, video/animated thumbnails swap in
+        the real file (muted, looping). GIF/APNG use `file.url` - their `sample` is a static jpg.
+      - Scroll memory (`PostGrid.tsx`): per-`site:tags` offset in a module-level map, restored on
+        remount over a few frames (cells measure lazily). Closing the viewer moves the focus ring
+        to the last-viewed post and pulses it. The reveal-into-view effect is one-shot per focus
+        change - it used to re-run on every `scrollTop` change, which yanked the viewport back to
+        the ring on every user scroll ("vibrating", stuck grid).
+      - Page markers: "Page N" pill on each page's first cell (masonry can't take full-width
+        dividers), floating "Page N · X posts" indicator + back-to-top button.
+      - Viewer filmstrip (`Filmstrip.tsx`): ±30 neighbours, collapsible (session-only), hidden in
+        slideshow/fullscreen. Centres via the strip's own `scrollTo` - `scrollIntoView` also
+        scrolls ancestors and was implicated in the grid jumping to top.
+      - Viewer preloads sample images for index +1/-1/+2 (CDN only, videos skipped).
+      - Live-tested by the user (2026-10-12): all working.
