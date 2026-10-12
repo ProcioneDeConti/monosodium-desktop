@@ -153,32 +153,32 @@ const VERDICT_BALANCED_10K: string[] = [
 ];
 const RATING_VERDICT_5K: Record<string, string[]> = {
   Safe: [
-    "5,000 safe favorites on e621? You didn't just dodge the landmines, you built a fully functioning wholesome suburb in the middle of a warzone.",
-    "You've somehow managed to curate a 5,000-image Disney vault on a site famous for feral chaos. It's honestly intimidating.",
-    "The sheer willpower required to hunt down and save 5,000 pictures of purely innocent toe beans is frankly psychotic.",
-    "Hoarding 5,000 SFW images here is like going to an all-you-can-eat steakhouse and slowly consuming 5,000 plain saltine crackers.",
+    "{count} safe favorites on e621? You didn't just dodge the landmines, you built a fully functioning wholesome suburb in the middle of a warzone.",
+    "You've somehow managed to curate a {count}-image Disney vault on a site famous for feral chaos. It's honestly intimidating.",
+    "The sheer willpower required to hunt down and save {count} pictures of purely innocent toe beans is frankly psychotic.",
+    "Hoarding {count} SFW images here is like going to an all-you-can-eat steakhouse and slowly consuming {count} plain saltine crackers.",
     "Your favorites list is so aggressively, obsessively pure that it's looping right back around to being highly suspicious.",
   ],
   Questionable: [
-    "5,000 favorites and not a single one crosses the line. The sheer stamina of edging your search history for this long is terrifying.",
-    "Hoarding over 5,000 pictures of strategically placed fluff requires a level of plausible deniability that belongs in politics.",
+    "{count} favorites and not a single one crosses the line. The sheer stamina of edging your search history for this long is terrifying.",
+    "Hoarding {count} pictures of strategically placed fluff requires a level of plausible deniability that belongs in politics.",
     "You have enough softcore tease saved to insulate a three-bedroom house, yet you still refuse to just click the explicit filter.",
-    "5,000 documented instances of \"I'm just looking at the outfits.\" Who are you lying to, us or yourself?",
+    "{count} documented instances of \"I'm just looking at the outfits.\" Who are you lying to, us or yourself?",
     "A monumental, meticulously curated museum of heavy breathing, thigh-highs, and absolutely zero follow-through.",
   ],
   Explicit: [
-    "Over 5,000 explicit favorites? Your digital footprint is basically a biohazard zone at this point.",
+    "{count} explicit favorites? Your digital footprint is basically a biohazard zone at this point.",
     "Bro is building the Library of Alexandria for sheer, unfiltered degeneracy. Please go outside and touch some actual grass.",
-    "5,000 deep into the abyss. You haven't just lost your mind, you've permanently leased it to the 'score:desc' page.",
+    "{count} deep into the abyss. You haven't just lost your mind, you've permanently leased it to the 'score:desc' page.",
     "You've stared at so much feral smut that your poor scroll wheel legally requires a restraining order.",
     "Proudly hoarding enough highly questionable anatomy to put a college biology textbook completely out of business.",
   ],
 };
 const VERDICT_BALANCED_5K: string[] = [
-  "5,000 favorites perfectly split between Sunday school and absolute damnation. Your algorithm is begging for a psychiatric evaluation.",
-  "Over 5,000 saved posts of pure emotional whiplash. You are a chaotic god of hoarding, oscillating between 'pet the dog' and 'ruin my life' with every click.",
-  "Archiving 5,000 images evenly across the spectrum proves you have absolutely zero consistency, just an impossibly strong scrolling finger.",
-  "A 5,000-image monument to your absolute inability to pick a lane. You are the final boss of cognitive dissonance.",
+  "{count} favorites perfectly split between Sunday school and absolute damnation. Your algorithm is begging for a psychiatric evaluation.",
+  "{count} saved posts of pure emotional whiplash. You are a chaotic god of hoarding, oscillating between 'pet the dog' and 'ruin my life' with every click.",
+  "Archiving {count} images evenly across the spectrum proves you have absolutely zero consistency, just an impossibly strong scrolling finger.",
+  "A {count}-image monument to your absolute inability to pick a lane. You are the final boss of cognitive dissonance.",
   "You've hoarded a massive, perfectly balanced mountain of art, proving you contain multitudes—and at least half of them are completely unhinged.",
 ];
 

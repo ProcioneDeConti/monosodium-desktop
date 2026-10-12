@@ -1778,3 +1778,6 @@ live call before implementing (per user instruction - no more guessing).
       - `fetch_image_data_url` (`downloads.rs`) now fails on HTTP errors and non-image content
         types instead of base64'ing an error page as a JPEG (broken image instead of fallback).
       - Live-tested by the user (2026-10-12).
+- [x] **Favorites card: 5k-tier verdicts show the real count** (1.16.2)
+      - The 5,000+ Final Verdict lines hardcoded "5,000"/"Over 5,000"; they now use `{count}` like
+        the 10k tier. Not yet live-tested.
