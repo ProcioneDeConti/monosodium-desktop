@@ -12,7 +12,7 @@
 use std::path::Path;
 
 use serde::Serialize;
-use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+use winreg::enums::{HKEY_CLASSES_ROOT, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
 use winreg::RegKey;
 
 const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall";
@@ -99,4 +99,12 @@ fn detect() -> InstallInfo {
 #[tauri::command]
 pub fn get_install_info() -> InstallInfo {
     detect()
+}
+
+/// Whether a handler for `tg://` links is registered (Telegram Desktop does this on install), so
+/// the viewer's Share to Telegram can hand off directly instead of via t.me in the browser.
+/// HKCR merges the per-user and machine-wide class registrations.
+#[tauri::command]
+pub fn telegram_installed() -> bool {
+    RegKey::predef(HKEY_CLASSES_ROOT).open_subkey(r"tg\shell\open\command").is_ok()
 }

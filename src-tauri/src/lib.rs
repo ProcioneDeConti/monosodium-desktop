@@ -210,6 +210,7 @@ pub fn run() {
             paths::get_data_dir,
             paths::storage_location,
             install_info::get_install_info,
+            install_info::telegram_installed,
             paths::request_full_reset,
             paths::check_portable_writable,
             paths::migration_error,

@@ -13,6 +13,7 @@ import {
   Pause,
   Play,
   Plus,
+  Send,
   Shuffle,
   Square,
   ThumbsDown,
@@ -20,9 +21,11 @@ import {
   X,
 } from "lucide-react";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { e621Api } from "../../api/client";
 import type { Post } from "../../models/post";
 import { isDeleted, isVideo, playableUrl } from "../../models/post";
-import type { Site } from "../../models/site";
+import { SITE_WEB_BASE_URL, type Site } from "../../models/site";
 import { ZoomableImage } from "./ZoomableImage";
 import { VideoPlayer } from "./VideoPlayer";
 import { DeletedPostRecovery } from "./DeletedPostRecovery";
@@ -402,6 +405,13 @@ export function PostViewer({
           >
             {downloadStatus === "queued" ? <Check size={16} /> : <Download size={16} />}
           </IconButton>
+          <IconButton
+            tone="invert"
+            title="Share to Telegram"
+            onClick={() => void shareToTelegram(`${SITE_WEB_BASE_URL[site]}/posts/${post.id}`)}
+          >
+            <Send size={16} />
+          </IconButton>
           {extraToolbarActions?.(post)}
           <AddToSetButton site={site} postId={post.id} isAuthenticated={isAuthenticated} />
           <ReportPostButton postId={post.id} isAuthenticated={isAuthenticated} report={report} />
@@ -663,4 +673,13 @@ export function PostViewer({
       )}
     </div>
   );
+}
+
+/** Hands a post link to Telegram's own "Share to..." chat picker (no bot/token involved). Goes
+ *  straight to Telegram Desktop via tg:// when it's installed; otherwise falls back to the t.me
+ *  web share page, avoiding Windows' "get an app to open this link" prompt. */
+async function shareToTelegram(postUrl: string): Promise<void> {
+  const url = encodeURIComponent(postUrl);
+  const installed = await e621Api.telegramInstalled().catch(() => false);
+  await openUrl(installed ? `tg://msg_url?url=${url}` : `https://t.me/share/url?url=${url}`);
 }

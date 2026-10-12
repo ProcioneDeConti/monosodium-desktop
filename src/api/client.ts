@@ -420,6 +420,11 @@ export const e621Api = {
     return invoke("get_install_info");
   },
 
+  /** Whether Telegram Desktop has registered the tg:// link handler. */
+  telegramInstalled(): Promise<boolean> {
+    return invoke("telegram_installed");
+  },
+
   /** Where local data lives + whether that's the portable folder or the AppData fallback -
    *  Settings > Reset shows this and warns on the fallback. See src-tauri/src/paths.rs. */
   getStorageLocation(): Promise<StorageLocation> {

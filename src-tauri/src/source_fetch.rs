@@ -1,9 +1,13 @@
+use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 use std::time::Duration;
 
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use md5::{Digest, Md5};
 use reqwest::header::{ACCEPT, CONTENT_TYPE, COOKIE, REFERER};
+use reqwest::dns::{Addrs, Name, Resolve, Resolving};
+use reqwest::redirect::Policy;
 use reqwest::{Client, Response, Url};
 use tauri::ipc::Channel;
 
@@ -241,7 +245,92 @@ fn session_cookie_for(url: &Url) -> Option<String> {
     }
 }
 
+/// SSRF guard: source URLs are user-edited post data, so they must never reach loopback, LAN,
+/// link-local (cloud metadata) or other non-public addresses. Enforced in three places: literal-IP
+/// hosts in `get()`, every redirect hop (`redirect_policy`), and every DNS answer (`PublicOnlyResolver`,
+/// which also covers redirects and rebinding since reqwest resolves through it per connection).
+fn is_public_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            let o = v4.octets();
+            !(v4.is_private()
+                || v4.is_loopback()
+                || v4.is_link_local()
+                || v4.is_unspecified()
+                || v4.is_broadcast()
+                || v4.is_documentation()
+                || v4.is_multicast()
+                || o[0] == 0
+                || o[0] >= 240
+                || (o[0] == 100 && (o[1] & 0xc0) == 64) // 100.64/10 carrier-grade NAT
+                || (o[0] == 198 && (o[1] & 0xfe) == 18)) // 198.18/15 benchmarking
+        }
+        IpAddr::V6(v6) => {
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                return is_public_ip(IpAddr::V4(v4));
+            }
+            let first = v6.segments()[0];
+            !(v6.is_loopback()
+                || v6.is_unspecified()
+                || v6.is_multicast()
+                || (first & 0xfe00) == 0xfc00 // fc00::/7 unique local
+                || (first & 0xffc0) == 0xfe80 // fe80::/10 link-local
+                || (first & 0xffc0) == 0xfec0) // fec0::/10 site-local (deprecated)
+        }
+    }
+}
+
+/// Rejects URLs that aren't http(s), or whose host is a literal non-public IP or `localhost`.
+/// Hostnames are otherwise left to `PublicOnlyResolver`.
+fn check_url(url: &Url) -> Result<(), String> {
+    if !matches!(url.scheme(), "http" | "https") {
+        return Err(format!("blocked non-web URL scheme: {}", url.scheme()));
+    }
+    let host = url.host_str().unwrap_or("");
+    let bare = host.trim_start_matches('[').trim_end_matches(']');
+    let blocked = match bare.parse::<IpAddr>() {
+        Ok(ip) => !is_public_ip(ip),
+        Err(_) => {
+            let d = host.trim_end_matches('.').to_ascii_lowercase();
+            d.is_empty() || d == "localhost" || d.ends_with(".localhost")
+        }
+    };
+    if blocked {
+        return Err(format!("blocked non-public address: {}", url.host_str().unwrap_or("")));
+    }
+    Ok(())
+}
+
+fn redirect_policy() -> Policy {
+    Policy::custom(|attempt| {
+        if attempt.previous().len() >= 10 {
+            attempt.error("too many redirects")
+        } else if let Err(e) = check_url(attempt.url()) {
+            attempt.error(e)
+        } else {
+            attempt.follow()
+        }
+    })
+}
+
+struct PublicOnlyResolver;
+
+impl Resolve for PublicOnlyResolver {
+    fn resolve(&self, name: Name) -> Resolving {
+        Box::pin(async move {
+            let host = name.as_str().to_string();
+            let addrs: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), 0)).await?.collect();
+            let public: Vec<SocketAddr> = addrs.into_iter().filter(|a| is_public_ip(a.ip())).collect();
+            if public.is_empty() {
+                return Err(format!("{host} resolves only to non-public addresses").into());
+            }
+            Ok(Box::new(public.into_iter()) as Addrs)
+        })
+    }
+}
+
 async fn get(client: &Client, url: &Url) -> Result<Response, String> {
+    check_url(url)?;
     let referer = referer_for(url);
     let started = std::time::Instant::now();
     trace(format!("GET {url}"));
@@ -364,6 +453,7 @@ async fn get_json(
     query: &[(&str, &str)],
     referer: Option<&str>,
 ) -> Result<serde_json::Value, String> {
+    check_url(&Url::parse(url).map_err(|e| e.to_string())?)?;
     let mut req = client.get(url).query(query);
     if let Some(r) = referer {
         req = req.header(REFERER, r);
@@ -789,6 +879,8 @@ pub async fn recover_from_sources(
     let client = Client::builder()
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(30))
+        .redirect(redirect_policy())
+        .dns_resolver(Arc::new(PublicOnlyResolver))
         .user_agent(format!(
             "MonosodiumDesktop/{} (source recovery for deleted e621 posts)",
             env!("CARGO_PKG_VERSION")
@@ -882,6 +974,21 @@ mod tests {
     fn expected_for(bytes: &[u8], w: i64, h: i64) -> Expected {
         let md5: String = Md5::digest(bytes).iter().map(|b| format!("{b:02x}")).collect();
         Expected { md5: Some(md5), size: bytes.len() as i64, width: w, height: h, ext: "png".into() }
+    }
+
+    #[test]
+    fn ssrf_guard_blocks_non_public_hosts() {
+        for bad in [
+            "http://127.0.0.1/", "http://localhost:8080/", "http://foo.localhost/", "http://10.1.2.3/",
+            "http://192.168.0.1/", "http://169.254.169.254/latest/meta-data/", "http://[::1]/",
+            "http://[fd00::1]/", "http://[::ffff:127.0.0.1]/", "http://100.64.0.1/", "http://0.0.0.0/",
+            "file:///C:/Windows/win.ini",
+        ] {
+            assert!(check_url(&Url::parse(bad).unwrap()).is_err(), "{bad} should be blocked");
+        }
+        for ok in ["https://www.furaffinity.net/view/1/", "http://93.184.216.34/", "https://[2606:4700::1]/"] {
+            assert!(check_url(&Url::parse(ok).unwrap()).is_ok(), "{ok} should be allowed");
+        }
     }
 
     #[test]

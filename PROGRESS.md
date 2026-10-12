@@ -1733,8 +1733,7 @@ live call before implementing (per user instruction - no more guessing).
         of each source plus e621's CDN path for the md5 (`static1.e621.net/data/xx/yy/<md5>.<ext>`).
       - **Status line** while recovering ("Fetching post from...", "Downloading...", "Comparing...",
         "Scored ...") via a Tauri `Channel<RecoverProgress>`; result gets a grade badge + notes.
-      - Unit tests for the grading (`cargo test source_fetch`). **Not done:** SSRF guard on source
-        URLs, Bluesky `getBlob` original, per-post disk cache. Not verified live in the app.
+      - Unit tests for the grading (`cargo test source_fetch`). **Not done:** Bluesky `getBlob` original, per-post disk cache. Not verified live in the app.
 - [x] **e621 write throttles: 429 handling, batched set adds, write limiter** (1.14.97)
       A 57-post set add got a 429. That's not the 2 req/s limit (503) - e621ng has per-account
       write throttles: every non-GET draws from `User#token_bucket` (60/min, 90 privileged, 120
@@ -1758,3 +1757,15 @@ live call before implementing (per user instruction - no more guessing).
         pausing the health/unread-dmail `refetchInterval` polls while hidden, and flushes stats.
       - Vitest (`npm test`): blacklist, DText, and posts pagination/blacklist-hop logic.
         Not verified live in the app.
+- [x] **SSRF guard for source recovery; Share to Telegram**
+      - `source_fetch.rs`: source URLs are user-edited post data, so the recovery client now refuses
+        non-public targets - literal-IP/`localhost` hosts checked in `get()`/`get_json()`, every
+        redirect hop checked by a custom `redirect::Policy`, and a `PublicOnlyResolver` DNS resolver
+        drops loopback/private/link-local/CGNAT/ULA answers (covers hostnames and DNS rebinding).
+        Unit-tested (`cargo test source_fetch`).
+      - Viewer toolbar `Send` button shares the post page to Telegram's own chat picker (no
+        bot/token). Opens `tg://msg_url?url=...` directly when `install_info::telegram_installed`
+        finds the `tg` handler in HKCR (skips the browser hop t.me needed - that felt clunky live);
+        otherwise falls back to `https://t.me/share/url?url=...`. `tg:` needed an explicit
+        `opener:allow-open-url` scope in `capabilities/default.json` (`opener:default` only covers
+        http(s)/mailto/tel). tg:// path not verified live in the app.
