@@ -1747,7 +1747,7 @@ live call before implementing (per user instruction - no more guessing).
         otherwise falls back to `https://t.me/share/url?url=...`. `tg:` needed an explicit
         `opener:allow-open-url` scope in `capabilities/default.json` (`opener:default` only covers
         http(s)/mailto/tel). Live-tested by the user (2026-10-12): works.
-- [x] **Deleted-post recovery: pick from every candidate**
+- [x] **Deleted-post recovery: pick from every candidate** (1.15.0)
       - `recover_from_sources` now returns every usable image it graded (`Vec<RecoveredImage>`,
         best score first, byte-identical repeats dropped) instead of only the best one.
       - `DeletedPostRecovery.tsx`: shows the best match as before; when there's more than one, a
