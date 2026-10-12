@@ -141,6 +141,8 @@ export function AppShell({
   const setSite = useSettingsStore((s) => s.setSite);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
   const setGridThumbnailSizePx = useSettingsStore((s) => s.setGridThumbnailSizePx);
+  const gridMode = useSettingsStore((s) => s.gridMode);
+  const setGridMode = useSettingsStore((s) => s.setGridMode);
   const slideshowIntervalSec = useSettingsStore((s) => s.slideshowIntervalSec);
   const slideshowTransition = useSettingsStore((s) => s.slideshowTransition);
   const slideshowShuffle = useSettingsStore((s) => s.slideshowShuffle);
@@ -245,6 +247,19 @@ export function AppShell({
               onChange={(e) => setGridThumbnailSizePx(Number(e.target.value))}
               className="w-28 accent-[rgb(var(--accent))]"
             />
+          </MenuRow>
+          <MenuRow>
+            <span className="opacity-80">Layout</span>
+            <select
+              value={gridMode}
+              onChange={(e) => setGridMode(e.target.value as typeof gridMode)}
+              className="rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10
+                         bg-white/60 dark:bg-black/30 px-1.5 py-1 text-xs outline-none
+                         focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            >
+              <option value="masonry">Masonry</option>
+              <option value="uniform">Uniform</option>
+            </select>
           </MenuRow>
           {blacklistActive && (
             <MenuItem

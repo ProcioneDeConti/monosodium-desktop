@@ -287,6 +287,7 @@ function App() {
   const setBlacklistDisabled = useSettingsStore((s) => s.setBlacklistDisabled);
   const setBlacklist = useSettingsStore((s) => s.setBlacklist);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
+  const gridMode = useSettingsStore((s) => s.gridMode);
   const downloadDir = useSettingsStore((s) => s.downloadDir);
   const accentColor = useSettingsStore((s) => s.accentColor);
   const themeMode = useSettingsStore((s) => s.themeMode);
@@ -801,6 +802,7 @@ function App() {
               blacklistEntries={blacklistEntries}
               blacklistDisabled={blacklistDisabled}
               thumbnailSizePx={thumbnailSizePx}
+              uniform={gridMode === "uniform"}
               isFetchingNextPage={isFetchingNextPage}
               hasNextPage={!!hasNextPage}
               onLoadMore={fetchNextPage}

@@ -1781,3 +1781,8 @@ live call before implementing (per user instruction - no more guessing).
 - [x] **Favorites card: 5k-tier verdicts show the real count** (1.16.2)
       - The 5,000+ Final Verdict lines hardcoded "5,000"/"Over 5,000"; they now use `{count}` like
         the 10k tier. Not yet live-tested.
+- [x] **Grid layout toggle: Masonry / Uniform** (1.17.0)
+      - View menu > Layout. Uniform renders every cell at aspect-ratio 1 (object-cover crop), so
+        masonic's shortest-column packing degenerates into plain rows. Persisted as `gridMode`.
+      - `gridMode` is in `usePositioner`'s deps so a switch re-packs from scratch instead of
+        resize-observing every cell into its old column. Not yet live-tested.

@@ -33,6 +33,8 @@ interface PostThumbnailProps {
   /** Target column width (the thumbnail-size slider). Drives how many info fields the hover bar
    *  shows before it would clip. */
   cellWidthPx?: number;
+  /** Square-crop the cell (uniform grid mode) instead of using the post's own aspect ratio. */
+  square?: boolean;
 }
 
 function formatDuration(seconds: number): string {
@@ -85,6 +87,7 @@ function PostThumbnailImpl({
   selectionActive = false,
   selected = false,
   cellWidthPx = 220,
+  square = false,
 }: PostThumbnailProps) {
   const thumbUrl = post.preview.url ?? post.sample.url ?? post.file.url;
   const rating = RATING_STYLE[post.rating] ?? RATING_STYLE.e;
@@ -136,7 +139,7 @@ function PostThumbnailImpl({
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ aspectRatio: aspectRatio(post) }}
+      style={{ aspectRatio: square ? 1 : aspectRatio(post) }}
       className={`group relative block w-full overflow-hidden rounded-[var(--radius-md)] border
                   bg-black/5 dark:bg-white/5 transition-[box-shadow,transform] duration-200 ease-out
                   hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/25 focus-visible:outline-none

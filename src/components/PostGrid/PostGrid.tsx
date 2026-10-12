@@ -17,6 +17,8 @@ interface PostGridProps {
   blacklistEntries: BlacklistEntries;
   blacklistDisabled: boolean;
   thumbnailSizePx: number;
+  /** Uniform mode: every cell is a square crop, so the masonry packs into plain rows. */
+  uniform?: boolean;
   isFetchingNextPage: boolean;
   hasNextPage: boolean;
   onLoadMore: () => void;
@@ -60,6 +62,7 @@ export function PostGrid({
   blacklistEntries,
   blacklistDisabled,
   thumbnailSizePx,
+  uniform = false,
   isFetchingNextPage,
   hasNextPage,
   onLoadMore,
@@ -201,7 +204,9 @@ export function PostGrid({
   // below by the resize observer instead of a reset, since the cell's *content* didn't change.
   const positioner = usePositioner(
     { width: size.width, columnWidth: thumbnailSizePx, columnGutter: GUTTER_PX },
-    [blacklistDisabled, blacklistEntries, resetNonce.current],
+    // gridMode too: every cell height changes at once, so re-pack from scratch rather than
+    // nudging each cell through the resize observer (which would keep the old column choices).
+    [blacklistDisabled, blacklistEntries, resetNonce.current, uniform],
   );
   // Re-measures a cell's actual rendered height (its CSS `aspect-ratio` box resolves to a new
   // pixel height whenever the column width changes) and repositions everything below it -
@@ -240,6 +245,7 @@ export function PostGrid({
           selectionActive={selectionActive}
           selected={selectedIds?.has(data.id) ?? false}
           cellWidthPx={thumbnailSizePx}
+          square={uniform}
         />
       );
     },
@@ -255,6 +261,7 @@ export function PostGrid({
       selectedIds,
       onSelectToggle,
       thumbnailSizePx,
+      uniform,
     ],
   );
 

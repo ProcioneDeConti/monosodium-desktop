@@ -23,6 +23,8 @@ import {
 const STORE_FILE = "settings.json";
 const DEFAULT_RATINGS: Rating[] = ["s", "q", "e"];
 export const DEFAULT_THUMBNAIL_SIZE_PX = 220;
+/** "masonry" = each cell keeps its post's own aspect ratio; "uniform" = square-cropped cells. */
+export type GridMode = "masonry" | "uniform";
 export const MIN_THUMBNAIL_SIZE_PX = 120;
 export const MAX_THUMBNAIL_SIZE_PX = 420;
 export const MIN_VIDEO_SPEED = 0.25;
@@ -48,6 +50,7 @@ interface SettingsState {
   /** "system" follows the OS; "light"/"dark" force it (see lib/theme.ts). */
   themeMode: ThemeMode;
   gridThumbnailSizePx: number;
+  gridMode: GridMode;
   /** Width of the post viewer's info/tags sidebar, in px (drag the divider to resize). */
   viewerSidebarWidthPx: number;
   videoLoopEnabled: boolean;
@@ -80,6 +83,7 @@ interface SettingsState {
   setDownloadDir: (dir: string | null) => void;
   setSlideshowIntervalSec: (seconds: number) => void;
   setSlideshowTransition: (transition: SlideshowTransition) => void;
+  setGridMode: (mode: GridMode) => void;
   setSlideshowShuffle: (shuffle: boolean) => void;
   /** Pass the hash of the EULA text just agreed to, or null to clear (un-accept). */
   setEulaAccepted: (hash: string | null) => void;
@@ -128,6 +132,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   downloadDir: null,
   slideshowIntervalSec: DEFAULT_SLIDESHOW_INTERVAL_SEC,
   slideshowTransition: DEFAULT_SLIDESHOW_TRANSITION,
+  gridMode: "masonry",
   slideshowShuffle: DEFAULT_SLIDESHOW_SHUFFLE,
   eulaAcceptedHash: null,
   usageStatsEnabled: true,
@@ -192,6 +197,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ slideshowTransition });
     void persist("slideshowTransition", slideshowTransition);
   },
+  setGridMode: (gridMode) => {
+    set({ gridMode });
+    void persist("gridMode", gridMode);
+  },
   setSlideshowShuffle: (slideshowShuffle) => {
     set({ slideshowShuffle });
     void persist("slideshowShuffle", slideshowShuffle);
@@ -244,6 +253,7 @@ export async function loadSettings(): Promise<void> {
       slideshowTransition:
         (values.slideshowTransition as SlideshowTransition) ?? state.slideshowTransition,
       slideshowShuffle: (values.slideshowShuffle as boolean) ?? state.slideshowShuffle,
+      gridMode: values.gridMode === "uniform" ? "uniform" : "masonry",
       eulaAcceptedHash: (values.eulaAcceptedHash as string | null) ?? state.eulaAcceptedHash,
       usageStatsEnabled: (values.usageStatsEnabled as boolean) ?? state.usageStatsEnabled,
       isLoaded: true,

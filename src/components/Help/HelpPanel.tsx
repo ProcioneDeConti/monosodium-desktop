@@ -157,7 +157,8 @@ const SECTIONS: HelpSection[] = [
       <>
         <P>
           Posts load into a Pinterest-style masonry grid and page in as you scroll. Set the tile
-          size with the slider in the <B>View menu</B>.
+          size with the slider in the <B>View menu</B>, where <B>Layout</B> also switches between
+          masonry and a uniform grid of square-cropped tiles.
         </P>
         <UL>
           <li>Hover a thumbnail for quick <B>favorite</B>, <B>upvote</B> and <B>download</B> buttons.</li>
