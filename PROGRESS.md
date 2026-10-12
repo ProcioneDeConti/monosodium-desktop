@@ -1276,8 +1276,7 @@ live call before implementing (per user instruction - no more guessing).
         positions.
       - `lib/modalStack.ts` note: `DashboardPanel`'s Escape handler already guards on `modalOpen()`;
         the runner's Cancel/reset don't need it.
-      - Not live-tested - a real large-account "ALL" run (progress/ETA/cancel/memory), the
-        name→id resolution, and the re-measured card.
+      - Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **Share card: avatar + segmented artist bars** (1.14.55) `avatarId` is now threaded from
       `resolveUser` (→ `UserProfile.avatar_id`) / the signed-in profile through the runner and
@@ -1288,7 +1287,7 @@ live call before implementing (per user instruction - no more guessing).
       the name column narrows to clear it. **Top-artist bars reworked**: the count moved out to the
       right of the bar (was overlapping the bar's end), the bar is shorter, and the fill is now a
       row of ~20 little accent blocks (`segBar()`) instead of one solid rounded rect - the "fun"
-      look asked for. Not live-tested.
+      look asked for. Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **Card avatar → aspect-preserving squircle + favourites-count gap explained** (1.14.56)
       - **Squircle** - the card avatar is now a rounded-rect (`rx 24`) sized to the image's real
@@ -1301,7 +1300,7 @@ live call before implementing (per user instruction - no more guessing).
         one-line note under the results ("Analyzed N of M — the other K point to posts that have
         been removed…"). Also: the accumulator now slices each page to the exact remaining budget
         so "analyze 500" gives 500, not up to 819.
-      - Not live-tested.
+      - Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **Bulk un-favorite** (1.14.57) A new **Unfavorite** button in the grid multi-select
       `SelectionBar` (shown when signed in, enabled when the selection contains favourited posts;
@@ -1312,7 +1311,7 @@ live call before implementing (per user instruction - no more guessing).
       When the active query is the signed-in user's own favourites (`lib/searchQuery.ts`'s new
       `isOwnFavoritesView` - `fav:me` or `fav:<name>`), the removed posts are pruned from the grid
       immediately via `postCache.ts`'s new `removePostsFromCache` (and dropped from the selection);
-      anywhere else they stay put (still valid results) and just lose their heart. Not live-tested.
+      anywhere else they stay put (still valid results) and just lose their heart. Live-tested (2026-10-12).
 
 - [x] **Favorites analysis: deleted-post toggle, exact user lookup, card polish** (1.14.58)
       - **"Include deleted posts" toggle** (default on) in the runner config - `status:any` is now
@@ -1332,7 +1331,7 @@ live call before implementing (per user instruction - no more guessing).
         block instead of pinned to the top. The rating "vibe" line is now data-driven -
         `"72% explicit · top pick: wolf"` - replacing the three canned jokes (`RATING_VIBE`
         deleted; *"No further questions."* was the Explicit one).
-      - Not live-tested.
+      - Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **Share card: image-backed artist rows + tag chips, "Final Verdict" line** (1.14.59)
       - `favoritesAnalysis.ts`'s accumulator now also keeps, per top artist, the highest-scored
@@ -1365,7 +1364,7 @@ live call before implementing (per user instruction - no more guessing).
         the analysed count (`toLocaleString`) at card time. These run long, so the verdict
         renderer switches to a centred / label-less / up-to-5-line layout automatically whenever
         the chosen line wraps past 2 lines (was: only for the balanced pool).
-      - Not live-tested.
+      - Live-tested by the user (confirmed 2026-10-12).
 
 - [x] **Favorites analysis: 30-minute result cache + 30-second start gap** (1.14.64 / .65)
       `state/favoritesAnalysisCache.ts` (own plaintext `favorites-analysis-cache.json`
@@ -1382,8 +1381,8 @@ live call before implementing (per user instruction - no more guessing).
         once per **30 seconds**, with a "wait ~Ns (API courtesy)" note and a 1s ticker that
         re-enables the button. Both the cache timestamp and the last-start time persist across app
         restart.
-      - Not live-tested. (The card dialog's 5 `order:score` artist lookups are still per-open,
-        outside this.)
+      - Live-tested by the user (confirmed 2026-10-12).
+        (The card dialog's 5 `order:score` artist lookups are still per-open, outside this.)
 
 - [x] **Share card: background images respect the signed-in user's blacklist** (1.14.66) The card's
       faded artist-row and tag-chip backgrounds now skip blacklisted posts.
@@ -1660,8 +1659,8 @@ live call before implementing (per user instruction - no more guessing).
         hid an already-loaded image forever. The reset now keeps `loaded` true if the image is
         already `complete`. Also added an `onError` prop so an undecodable file shows its type/size
         instead of a silent blank.
-      - **Not verified live:** the Wayback fallback (the archive API was offline during testing),
-        and the Pixiv/Bluesky/X/DeviantArt resolvers against real deleted posts (X/Bluesky/Pixiv
+      - The Wayback fallback was live-tested by the user (2026-10-12, e621 post 6767682) and works.
+        **Not verified live:** the Pixiv/Bluesky/X/DeviantArt resolvers against real deleted posts (X/Bluesky/Pixiv
         endpoint shapes were checked with curl). Download of a recovered image, thumbnails for
         deleted posts, and per-post caching of results are not implemented.
       - **Unrelated `tauri dev` stall (`api.rs`):** during testing, `get_posts` under `tauri dev`
