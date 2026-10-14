@@ -31,6 +31,7 @@ import {
   SquareStack,
   TrendingUp,
   User,
+  Gamepad2,
 } from "lucide-react";
 import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { errorMessage } from "../../lib/errors";
@@ -76,6 +77,7 @@ interface AppShellProps {
   onOpenPopular: () => void;
   onOpenCollections: () => void;
   onOpenSavedSearches: () => void;
+  onOpenTagdle: () => void;
   onStartSlideshow: (() => void) | null;
   onRefresh: () => void;
   onShuffle: () => void;
@@ -120,6 +122,7 @@ export function AppShell({
   onOpenPopular,
   onOpenCollections,
   onOpenSavedSearches,
+  onOpenTagdle,
   onStartSlideshow,
   onRefresh,
   onShuffle,
@@ -355,6 +358,9 @@ export function AppShell({
           </MenuItem>
           <MenuItem icon={<Bookmark size={15} />} onClick={onOpenSavedSearches}>
             Saved searches
+          </MenuItem>
+          <MenuItem icon={<Gamepad2 size={15} />} onClick={onOpenTagdle}>
+            Tagdle
           </MenuItem>
           <MenuItem icon={<Library size={15} />} onClick={onOpenCollections}>
             Collections

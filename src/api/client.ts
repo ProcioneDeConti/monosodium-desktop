@@ -280,6 +280,11 @@ export const e621Api = {
     return invoke("get_tag", { site, name });
   },
 
+  /** One page of a category's most-used tags (tags.json?search[order]=count) - Tagdle's pool. */
+  getTopTags(site: Site, category: number, page: number, limit: number): Promise<TagInfo[]> {
+    return invoke("get_top_tags", { site, category, page, limit });
+  },
+
   getTagRelations(site: Site, name: string): Promise<TagRelations> {
     return invoke("get_tag_relations", { site, name });
   },

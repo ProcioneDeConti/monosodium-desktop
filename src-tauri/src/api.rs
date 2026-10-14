@@ -939,6 +939,38 @@ pub async fn get_tag(
     Ok(if tags.is_empty() { None } else { Some(tags.remove(0)) })
 }
 
+/// One page of the most-used tags in a category (`tags.json?search[order]=count`), for the
+/// Tagdle game's pool. Public. `limit` is capped at e621's 320 max.
+#[tauri::command]
+pub async fn get_top_tags(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    category: i64,
+    page: u32,
+    limit: u32,
+) -> Result<Vec<TagInfo>, String> {
+    let category = category.to_string();
+    let page = page.max(1).to_string();
+    let limit = limit.clamp(1, 320).to_string();
+    let response = request(&state, site, Method::GET, "tags.json")
+        .await?
+        .query(&[
+            ("search[order]", "count"),
+            ("search[category]", category.as_str()),
+            ("search[hide_empty]", "true"),
+            ("page", page.as_str()),
+            ("limit", limit.as_str()),
+        ])
+        .send_retry(&state, site)
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Vec<TagInfo>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// This tag's active implications (both directions) and aliases. Public. Three small requests.
 #[tauri::command]
 pub async fn get_tag_relations(

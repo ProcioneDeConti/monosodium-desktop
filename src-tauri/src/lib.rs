@@ -174,6 +174,7 @@ pub fn run() {
             api::get_artist,
             api::get_artist_dnp,
             api::get_tag,
+            api::get_top_tags,
             api::get_tag_relations,
             api::get_post_sets,
             api::get_post_set,

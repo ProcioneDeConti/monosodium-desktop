@@ -11,6 +11,7 @@ import { PostViewer } from "./components/PostViewer/PostViewer";
 import { SettingsPanel } from "./components/Settings/SettingsPanel";
 import { ProfilePanel } from "./components/Profile/ProfilePanel";
 import { SavedSearchesPanel } from "./components/SavedSearches/SavedSearchesPanel";
+import { TagdlePanel } from "./components/Tagdle/TagdlePanel";
 import { MessagesPanel } from "./components/Messages/MessagesPanel";
 import { ForumPanel } from "./components/Forum/ForumPanel";
 import { PoolPanel } from "./components/Pool/PoolPanel";
@@ -74,6 +75,7 @@ interface NavState {
   settingsOpen: boolean;
   profileTarget: number | "me" | null;
   savedSearchesOpen: boolean;
+  tagdleOpen: boolean;
   messagesOpen: boolean;
   forumOpen: boolean;
   poolTarget: number | null;
@@ -93,6 +95,7 @@ const INITIAL_NAV: NavState = {
   settingsOpen: false,
   profileTarget: null,
   savedSearchesOpen: false,
+  tagdleOpen: false,
   messagesOpen: false,
   forumOpen: false,
   poolTarget: null,
@@ -157,6 +160,7 @@ function App() {
     settingsOpen,
     profileTarget,
     savedSearchesOpen,
+    tagdleOpen,
     messagesOpen,
     forumOpen,
     poolTarget,
@@ -642,6 +646,7 @@ function App() {
     settingsOpen ||
     profileTarget !== null ||
     savedSearchesOpen ||
+    tagdleOpen ||
     messagesOpen ||
     forumOpen ||
     poolTarget !== null ||
@@ -684,6 +689,7 @@ function App() {
       settingsOpen: false,
       profileTarget: null,
       savedSearchesOpen: false,
+      tagdleOpen: false,
       messagesOpen: false,
       forumOpen: false,
       poolTarget: null,
@@ -748,6 +754,7 @@ function App() {
       onOpenPopular={() => navigate({ popularOpen: true })}
       onOpenCollections={() => navigate({ collectionsOpen: true })}
       onOpenSavedSearches={() => navigate({ savedSearchesOpen: true })}
+      onOpenTagdle={() => navigate({ tagdleOpen: true })}
       onStartSlideshow={shownPosts.length > 0 ? startSlideshow : null}
       onRefresh={() => void refresh()}
       onShuffle={() => runNewSearch(withRandomOrder(activeQuery))}
@@ -889,6 +896,8 @@ function App() {
           onApply={runNewSearch}
         />
       )}
+
+      {tagdleOpen && <TagdlePanel site={site} onClose={goBack} />}
 
       {messagesOpen && (
         <MessagesPanel
