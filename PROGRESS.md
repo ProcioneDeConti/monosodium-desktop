@@ -1786,3 +1786,19 @@ live call before implementing (per user instruction - no more guessing).
         masonic's shortest-column packing degenerates into plain rows. Persisted as `gridMode`.
       - `gridMode` is in `usePositioner`'s deps so a switch re-packs from scratch instead of
         resize-observing every cell into its old column. Live-tested by the user (2026-10-12).
+- [x] **Tagdle: "which tag has more posts?" game** (1.18.0)
+      - Menu > Tagdle. Modelled on e621dle (teamstarfall/e621dle, after Rule34dle). Daily: 10
+        rounds seeded from `site:UTC-day` (mulberry32 over an FNV hash), once per day, always all
+        categories so everyone's daily matches; shareable 🟩🟥 result. Endless: selectable
+        categories, until the first wrong pick, best streak per site.
+      - Pool: new `get_top_tags` command (`tags.json?search[order]=count`, 2×320 per category,
+        general/artist/copyright/character/species), cached weekly in `tagdle.json`
+        (`state/tagdleStore.ts`). Pairs are rank-neighbours (±40) with unequal counts; one-tag
+        blacklist lines drop that tag from the pool.
+      - Optional sample image per tag: top-scored post within the chosen ratings (safe-only while
+        adult mode is off), blacklist applied.
+      - Reveal: portrait cards; both counters race up one shared eased curve (1.8s fixed, so bigger
+        pairs count faster). Result colouring/Next/streak wait for the race. Confetti
+        (`Tagdle/Confetti.tsx`, body-level fixed pieces so the scroll container can't clip) on a
+        correct pick, rainbow burst on finishing the daily. Known: a half-played daily restarts on
+        close (only finished runs persist). Live-tested by the user (2026-10-14).
