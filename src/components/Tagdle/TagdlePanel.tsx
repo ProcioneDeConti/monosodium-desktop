@@ -24,6 +24,7 @@ import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { useSettingsStore } from "../../state/settingsStore";
 import { loadPool, loadTagdle, useTagdleStore } from "../../state/tagdleStore";
 import { Button } from "../ui/Button";
+import { ConfettiBurst } from "./Confetti";
 import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Spinner } from "../ui/Spinner";
@@ -205,13 +206,16 @@ function DailyGame({ site }: { site: Site }) {
   const { pool, error, progress } = usePool(site, ALL_TAGDLE_CATEGORIES);
   const pairs = useMemo(() => (pool ? dailyPairs(pool, site, dayKey) : []), [pool, site, dayKey]);
   const [results, setResults] = useState<boolean[]>([]);
+  // Set when this session finishes the daily, so the rainbow fires then - not on every reopen.
+  const [justFinished, setJustFinished] = useState(false);
   const [picked, setPicked] = useState<Side | null>(null);
+  const [raceDone, setRaceDone] = useState(false);
 
   if (error) return <ErrorNote error={error} />;
   if (!pool) return <CenteredSpinner label={`Fetching tag counts… (${progress[0]}/${progress[1]})`} />;
   if (pairs.length === 0) return <p className="text-sm opacity-60">Not enough tags to build a puzzle.</p>;
 
-  if (saved) return <DailySummary site={site} dayKey={dayKey} results={saved} />;
+  if (saved) return <DailySummary site={site} dayKey={dayKey} results={saved} celebrate={justFinished} />;
 
   const round = results.length;
   const pair = pairs[round];
@@ -225,8 +229,12 @@ function DailyGame({ site }: { site: Site }) {
     const ok = picked === correctSide(pair);
     const nextResults = [...results, ok];
     setPicked(null);
+    setRaceDone(false);
     setResults(nextResults);
-    if (nextResults.length >= pairs.length) recordDaily(site, dayKey, nextResults);
+    if (nextResults.length >= pairs.length) {
+      setJustFinished(true);
+      recordDaily(site, dayKey, nextResults);
+    }
   }
 
   return (
@@ -238,8 +246,8 @@ function DailyGame({ site }: { site: Site }) {
         <span className="opacity-60">{dayKey} (UTC)</span>
         <ResultDots results={results} total={pairs.length} />
       </div>
-      <RoundView site={site} pair={pair} picked={picked} onPick={pick} />
-      {picked && (
+      <RoundView site={site} pair={pair} picked={picked} onPick={pick} onRaceEnd={() => setRaceDone(true)} />
+      {picked && raceDone && (
         <div className="mt-4 flex justify-center">
           <Button onClick={next}>{round + 1 >= pairs.length ? "See results" : "Next round"}</Button>
         </div>
@@ -248,7 +256,17 @@ function DailyGame({ site }: { site: Site }) {
   );
 }
 
-function DailySummary({ site, dayKey, results }: { site: Site; dayKey: string; results: boolean[] }) {
+function DailySummary({
+  site,
+  dayKey,
+  results,
+  celebrate,
+}: {
+  site: Site;
+  dayKey: string;
+  results: boolean[];
+  celebrate: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const text = shareText(SITE_DISPLAY_NAME[site], dayKey, results);
   const score = results.filter(Boolean).length;
@@ -261,7 +279,8 @@ function DailySummary({ site, dayKey, results }: { site: Site; dayKey: string; r
 
   return (
     <div className="flex flex-col items-center gap-3 py-8 text-center">
-      <p className="text-3xl font-bold">
+      <p className="relative text-3xl font-bold">
+        {celebrate && <ConfettiBurst variant="rainbow" />}
         {score}/{results.length}
       </p>
       <p className="text-2xl tracking-wide">{results.map((ok) => (ok ? "🟩" : "🟥")).join("")}</p>
@@ -280,6 +299,7 @@ function EndlessGame({ site, categories }: { site: Site; categories: TagdleCateg
   const recent = useRef<string[]>([]);
   const [pair, setPair] = useState<TagdlePair | null>(null);
   const [picked, setPicked] = useState<Side | null>(null);
+  const [raceDone, setRaceDone] = useState(false);
   const [streak, setStreak] = useState(0);
 
   function deal() {
@@ -288,6 +308,7 @@ function EndlessGame({ site, categories }: { site: Site; categories: TagdleCateg
     if (next) recent.current = [...recent.current, next.left.name, next.right.name].slice(-60);
     setPair(next);
     setPicked(null);
+    setRaceDone(false);
   }
 
   useEffect(() => {
@@ -300,13 +321,13 @@ function EndlessGame({ site, categories }: { site: Site; categories: TagdleCateg
   if (!pair) return <p className="text-sm opacity-60">Not enough tags in these categories.</p>;
 
   const wrong = picked !== null && picked !== correctSide(pair);
+  const shownStreak = picked !== null && !raceDone && !wrong ? streak - 1 : streak;
 
   function pick(side: Side) {
     if (picked || !pair) return;
     setPicked(side);
     if (side === correctSide(pair)) {
       setStreak(streak + 1);
-      recordStreak(site, streak + 1);
     }
   }
 
@@ -318,11 +339,16 @@ function EndlessGame({ site, categories }: { site: Site; categories: TagdleCateg
   return (
     <div>
       <div className="mb-3 flex items-center gap-4 text-sm">
-        <span className="font-semibold">Streak: {streak}</span>
-        <span className="opacity-60">Best: {Math.max(best, streak)}</span>
+        {/* Shown as of the last finished race, so a pick's +1 doesn't land before its reveal. */}
+        <span className="font-semibold">Streak: {shownStreak}</span>
+        <span className="opacity-60">Best: {Math.max(best, shownStreak)}</span>
       </div>
-      <RoundView site={site} pair={pair} picked={picked} onPick={pick} />
-      {picked && (
+      <RoundView site={site} pair={pair} picked={picked} onPick={pick} onRaceEnd={() => {
+          setRaceDone(true);
+          recordStreak(site, streak);
+        }}
+      />
+      {picked && raceDone && (
         <div className="mt-4 flex flex-col items-center gap-2">
           {wrong && <p className="text-sm font-semibold">Game over - final streak {streak}</p>}
           <Button onClick={wrong ? restart : deal}>{wrong ? "Play again" : "Next"}</Button>
@@ -332,23 +358,76 @@ function EndlessGame({ site, categories }: { site: Site; categories: TagdleCateg
   );
 }
 
+/** How long the reveal "race" runs. Both counters climb along one shared curve toward the larger
+ *  count, so a bigger pair counts faster and the smaller tag drops out first. */
+const RACE_MS = 1800;
+
+/** Shared race progress, 0..1, starting when `active` flips on (instant under reduced motion). */
+function useRaceProgress(active: boolean): number {
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setProgress(0);
+      return;
+    }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setProgress(1);
+      return;
+    }
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / RACE_MS);
+      setProgress(t);
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [active]);
+  return progress;
+}
+
 function RoundView({
   site,
   pair,
   picked,
   onPick,
+  onRaceEnd,
 }: {
   site: Site;
   pair: TagdlePair;
   picked: Side | null;
   onPick: (side: Side) => void;
+  /** Fires once the reveal race has finished (the round's result is now visible). */
+  onRaceEnd: () => void;
 }) {
   const correct = correctSide(pair);
+  const progress = useRaceProgress(picked !== null);
+  // Ease-in-out so the race starts and ends slowly - the photo finish is the interesting bit.
+  const eased = progress < 0.5 ? 2 * progress * progress : 1 - (-2 * progress + 2) ** 2 / 2;
+  const raceValue = Math.max(pair.left.post_count, pair.right.post_count) * eased;
+  const finished = progress >= 1;
+  useEffect(() => {
+    if (finished) onRaceEnd();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
+  const card = (tag: PoolTag, side: Side) => (
+    <TagCard
+      site={site}
+      tag={tag}
+      side={side}
+      picked={picked}
+      correct={correct}
+      shownCount={picked ? Math.min(tag.post_count, Math.round(raceValue)) : null}
+      finished={finished}
+      onPick={onPick}
+    />
+  );
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-3">
-      <TagCard site={site} tag={pair.left} side="left" picked={picked} correct={correct} onPick={onPick} />
-      <div className="flex items-center text-sm font-bold opacity-50">vs</div>
-      <TagCard site={site} tag={pair.right} side="right" picked={picked} correct={correct} onPick={onPick} />
+    <div className="flex items-center justify-center gap-4">
+      {card(pair.left, "left")}
+      <div className="text-sm font-bold opacity-50">vs</div>
+      {card(pair.right, "right")}
     </div>
   );
 }
@@ -359,6 +438,8 @@ function TagCard({
   side,
   picked,
   correct,
+  shownCount,
+  finished,
   onPick,
 }: {
   site: Site;
@@ -366,27 +447,41 @@ function TagCard({
   side: Side;
   picked: Side | null;
   correct: Side;
+  /** The racing counter's current value, or null before a pick. */
+  shownCount: number | null;
+  finished: boolean;
   onPick: (side: Side) => void;
 }) {
   const showImages = useTagdleStore((s) => s.prefs.showImages);
   const style = TAG_CATEGORY_STYLE[CATEGORY_BY_ID[tag.category] ?? "general"];
   const revealed = picked !== null;
-  const ring = !revealed
-    ? "border-black/10 dark:border-white/10 hover:border-[rgb(var(--accent))]"
+  // Hold the right/wrong colouring until the race ends so it doesn't give the result away.
+  const ring = !finished
+    ? `border-transparent ${revealed ? "" : "hover:border-[rgb(var(--accent))] hover:-translate-y-1"}`
     : side === correct
-      ? "border-green-500 bg-green-500/10"
+      ? "border-green-500"
       : side === picked
-        ? "border-red-500 bg-red-500/10"
-        : "border-black/10 dark:border-white/10 opacity-70";
+        ? "border-red-500"
+        : "border-transparent opacity-70";
+
+  const celebrate = finished && side === correct && picked === correct;
 
   return (
+    <div className="relative w-full max-w-[17rem]">
+    {celebrate && <ConfettiBurst />}
     <button
       type="button"
       disabled={revealed}
       onClick={() => onPick(side)}
-      className={`flex flex-col items-center gap-3 rounded-[var(--radius-sm)] border-2 p-4 text-center transition-colors ${ring}`}
+      className={`relative flex aspect-[5/7] w-full max-w-[17rem] flex-col items-center gap-2 overflow-hidden
+                  rounded-xl border-2 bg-black/[0.04] dark:bg-white/[0.07] p-3 text-center
+                  shadow-lg shadow-black/25 dark:shadow-black/60 transition-all duration-200 ${ring}`}
     >
-      {showImages && <TagImage site={site} tag={tag.name} />}
+      {showImages ? (
+        <TagImage site={site} tag={tag.name} />
+      ) : (
+        <div className="flex-1" />
+      )}
       <span
         className="max-w-full break-words rounded-full px-3 py-1 text-sm font-semibold"
         style={{ background: style.chipBg, color: style.chipFg }}
@@ -394,9 +489,15 @@ function TagCard({
         {displayTagName(tag.name)}
       </span>
       <span className="text-xs opacity-60">{style.label}</span>
-      <span className="text-xl font-bold tabular-nums">{revealed ? formatCount(tag.post_count) : "?"}</span>
-      {revealed && <span className="text-xs opacity-50">{tag.post_count.toLocaleString()} posts</span>}
+      <span className="text-xl font-bold tabular-nums">
+        {shownCount === null ? "?" : finished ? formatCount(tag.post_count) : shownCount.toLocaleString()}
+      </span>
+      <span className={`text-xs opacity-50 ${finished ? "" : "invisible"}`}>
+        {tag.post_count.toLocaleString()} posts
+      </span>
+      {!showImages && <div className="flex-1" />}
     </button>
+    </div>
   );
 }
 
@@ -422,7 +523,7 @@ function TagImage({ site, tag }: { site: Site; tag: string }) {
   const url = post ? (post.sample.url ?? post.preview.url) : null;
 
   return (
-    <div className="flex h-56 w-full items-center justify-center overflow-hidden rounded-[var(--radius-sm)] bg-black/10 dark:bg-white/5">
+    <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-lg bg-black/10 dark:bg-black/25">
       {query.isLoading ? (
         <Spinner />
       ) : url ? (
