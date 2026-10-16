@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, Gamepad2, Settings2, X } from "lucide-react";
+import { Check, Copy, Flame, Gamepad2, ImageOff, Settings2, Trophy, X } from "lucide-react";
 import { e621Api } from "../../api/client";
 import { visiblePosts } from "../../lib/blacklist";
 import { formatCount } from "../../lib/formatCount";
@@ -19,12 +19,14 @@ import {
   type TagdleCategory,
   type TagdlePair,
 } from "../../lib/tagdle";
-import { RATING_TAG, type Rating, type TagCategory } from "../../models/post";
+import { allTags, RATING_TAG, type Post, type Rating, type TagCategory } from "../../models/post";
 import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { useSettingsStore } from "../../state/settingsStore";
 import { loadPool, loadTagdle, useTagdleStore } from "../../state/tagdleStore";
 import { Button } from "../ui/Button";
+import raccoonUrl from "../../assets/tagdle-raccoon.png";
 import { ConfettiBurst } from "./Confetti";
+import { Graffiti } from "./Graffiti";
 import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Spinner } from "../ui/Spinner";
@@ -62,17 +64,20 @@ export function TagdlePanel({ site, onClose }: TagdlePanelProps) {
   return (
     <Overlay ref={overlay} onClose={onClose} variant="sheet" sheetWidth="max-w-3xl">
       <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
-        <Gamepad2 size={17} />
-        <h1 className="text-sm font-semibold">Tagdle</h1>
-        <div className="ml-3 flex gap-1">
+        <Gamepad2 size={17} className="text-[rgb(var(--accent))]" />
+        <h1 className="text-base font-black tracking-tight">Tagdle</h1>
+        <div className="ml-3 flex rounded-full bg-black/[0.06] dark:bg-white/[0.08] p-0.5">
           {(["daily", "endless"] as const).map((m) => (
-            <Button
+            <button
               key={m}
+              type="button"
               onClick={() => setMode(m)}
-              className={mode === m ? "!bg-[rgb(var(--accent))]/25" : ""}
+              className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors ${
+                mode === m ? "bg-[rgb(var(--accent))] text-white shadow" : "opacity-60 hover:opacity-100"
+              }`}
             >
               {m === "daily" ? "Daily" : "Endless"}
-            </Button>
+            </button>
           ))}
         </div>
         <IconButton
@@ -87,15 +92,29 @@ export function TagdlePanel({ site, onClose }: TagdlePanelProps) {
         </IconButton>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {showOptions && <OptionsSection />}
-        {!isLoaded ? (
-          <CenteredSpinner label="Loading…" />
-        ) : mode === "daily" ? (
-          <DailyGame key={`daily:${site}`} site={site} />
-        ) : (
-          <EndlessGame key={`endless:${site}:${prefs.categories.join(",")}`} site={site} categories={prefs.categories} />
-        )}
+      {/* The alley: brick wall behind (always dark, so text is forced light in both themes), and
+          the resident raccoon parked bottom-right outside the scroll area so it stays put. */}
+      <div className="tagdle-alley relative min-h-0 flex-1 text-white">
+        <Graffiti />
+        <div className="relative h-full overflow-y-auto px-4 pb-48 pt-4">
+          {showOptions && <OptionsSection />}
+          {!isLoaded ? (
+            <CenteredSpinner label="Loading…" />
+          ) : mode === "daily" ? (
+            <DailyGame key={`daily:${site}`} site={site} />
+          ) : (
+            <EndlessGame key={`endless:${site}:${prefs.categories.join(",")}`} site={site} categories={prefs.categories} />
+          )}
+        </div>
+        {/* Painted on the wall, not stuck on it: no shadow, and hard-light blending lets the
+            brick texture and mortar lines show through the paint while the dark outlines hold. */}
+        <img
+          src={raccoonUrl}
+          alt=""
+          draggable={false}
+          className="tagdle-eroded pointer-events-none absolute bottom-1 right-1 h-56 select-none"
+          style={{ mixBlendMode: "hard-light", opacity: 0.9 }}
+        />
       </div>
     </Overlay>
   );
@@ -125,11 +144,11 @@ function OptionsSection() {
     `rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
       active
         ? "border-[rgb(var(--accent))] bg-[rgb(var(--accent))]/20"
-        : "border-black/10 dark:border-white/10 opacity-60 hover:opacity-100"
+        : "border-white/15 opacity-60 hover:opacity-100"
     }`;
 
   return (
-    <div className="mb-4 flex flex-col gap-3 rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 p-3 text-sm">
+    <div className="mb-4 flex flex-col gap-3 rounded-[var(--radius-sm)] border border-white/10 bg-neutral-900/85 p-3 text-sm backdrop-blur-sm">
       <div>
         <p className="mb-1.5 text-xs opacity-60">Endless categories (Daily always uses all)</p>
         <div className="flex flex-wrap gap-1.5">
@@ -161,6 +180,12 @@ function OptionsSection() {
           />
           Show a sample image for each tag
         </label>
+        {prefs.showImages && (
+          <p className="mt-1 text-xs opacity-50">
+            Images use each tag's top-scored post. Many tags have no safe-rated posts at all, so safe-only shows
+            fewer images.
+          </p>
+        )}
         {prefs.showImages && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <span className="text-xs opacity-60">Image ratings:</span>
@@ -239,12 +264,21 @@ function DailyGame({ site }: { site: Site }) {
 
   return (
     <div>
-      <div className="mb-3 flex items-center gap-3 text-sm">
-        <span className="font-semibold">
-          Round {round + 1}/{pairs.length}
-        </span>
-        <span className="opacity-60">{dayKey} (UTC)</span>
-        <ResultDots results={results} total={pairs.length} />
+      <div className="mb-4">
+        <div className="mb-2 flex items-center gap-3 text-sm">
+          <span className="font-bold">
+            Round {round + 1}
+            <span className="font-normal opacity-50">/{pairs.length}</span>
+          </span>
+          <span className="text-xs opacity-50">{dayKey} (UTC)</span>
+          <ResultDots results={results} total={pairs.length} />
+        </div>
+        <div className="h-1 overflow-hidden rounded-full bg-white/15">
+          <div
+            className="h-full rounded-full bg-[rgb(var(--accent))] transition-[width] duration-500"
+            style={{ width: `${(results.length / pairs.length) * 100}%` }}
+          />
+        </div>
       </div>
       <RoundView site={site} pair={pair} picked={picked} onPick={pick} onRaceEnd={() => setRaceDone(true)} />
       {picked && raceDone && (
@@ -338,10 +372,17 @@ function EndlessGame({ site, categories }: { site: Site; categories: TagdleCateg
 
   return (
     <div>
-      <div className="mb-3 flex items-center gap-4 text-sm">
+      <div className="mb-4 flex items-center justify-center gap-2 text-sm">
         {/* Shown as of the last finished race, so a pick's +1 doesn't land before its reveal. */}
-        <span className="font-semibold">Streak: {shownStreak}</span>
-        <span className="opacity-60">Best: {Math.max(best, shownStreak)}</span>
+        <span
+          key={shownStreak}
+          className="tagdle-anim flex animate-[tagdle-pop_0.4s_ease-out] items-center gap-1.5 rounded-full bg-orange-500/15 px-3 py-1 font-bold text-orange-500"
+        >
+          <Flame size={15} /> {shownStreak}
+        </span>
+        <span className="flex items-center gap-1.5 rounded-full bg-yellow-500/15 px-3 py-1 font-semibold text-yellow-600 dark:text-yellow-400">
+          <Trophy size={14} /> Best {Math.max(best, shownStreak)}
+        </span>
       </div>
       <RoundView site={site} pair={pair} picked={picked} onPick={pick} onRaceEnd={() => {
           setRaceDone(true);
@@ -415,6 +456,7 @@ function RoundView({
     <TagCard
       site={site}
       tag={tag}
+      opponent={(side === "left" ? pair.right : pair.left).name}
       side={side}
       picked={picked}
       correct={correct}
@@ -424,10 +466,25 @@ function RoundView({
     />
   );
   return (
-    <div className="flex items-center justify-center gap-4">
-      {card(pair.left, "left")}
-      <div className="text-sm font-bold opacity-50">vs</div>
-      {card(pair.right, "right")}
+    <div className="flex flex-col items-center gap-4">
+      <p className="text-sm font-semibold opacity-70">
+        {picked === null ? "Which tag has more posts?" : !finished ? "And the counts are…" : null}
+        {finished && (
+          <span className={picked === correct ? "text-green-500" : "text-red-500"}>
+            {picked === correct ? "Correct!" : "Not quite!"}
+          </span>
+        )}
+      </p>
+      <div className="flex w-full items-center justify-center gap-4">
+        {card(pair.left, "left")}
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--accent))]
+                     text-sm font-black italic text-white shadow-lg shadow-[rgb(var(--accent))]/40"
+        >
+          VS
+        </div>
+        {card(pair.right, "right")}
+      </div>
     </div>
   );
 }
@@ -435,6 +492,7 @@ function RoundView({
 function TagCard({
   site,
   tag,
+  opponent,
   side,
   picked,
   correct,
@@ -444,6 +502,8 @@ function TagCard({
 }: {
   site: Site;
   tag: PoolTag;
+  /** The other card's tag name, so the two sample images never show the same post. */
+  opponent: string;
   side: Side;
   picked: Side | null;
   correct: Side;
@@ -465,45 +525,75 @@ function TagCard({
         : "border-transparent opacity-70";
 
   const celebrate = finished && side === correct && picked === correct;
+  const anim = !finished
+    ? ""
+    : side === picked && side !== correct
+      ? "tagdle-anim animate-[tagdle-shake_0.45s_ease-in-out]"
+      : side === correct
+        ? "tagdle-anim animate-[tagdle-pop_0.4s_ease-out]"
+        : "";
 
   return (
     <div className="relative w-full max-w-[17rem]">
-    {celebrate && <ConfettiBurst />}
-    <button
-      type="button"
-      disabled={revealed}
-      onClick={() => onPick(side)}
-      className={`relative flex aspect-[5/7] w-full max-w-[17rem] flex-col items-center gap-2 overflow-hidden
-                  rounded-xl border-2 bg-black/[0.04] dark:bg-white/[0.07] p-3 text-center
-                  shadow-lg shadow-black/25 dark:shadow-black/60 transition-all duration-200 ${ring}`}
-    >
-      {showImages ? (
-        <TagImage site={site} tag={tag.name} />
-      ) : (
-        <div className="flex-1" />
-      )}
-      <span
-        className="max-w-full break-words rounded-full px-3 py-1 text-sm font-semibold"
-        style={{ background: style.chipBg, color: style.chipFg }}
+      {celebrate && <ConfettiBurst />}
+      <button
+        type="button"
+        disabled={revealed}
+        onClick={() => onPick(side)}
+        style={{ boxShadow: finished ? undefined : `0 10px 30px -12px ${style.chipBg}` }}
+        className={`group relative flex aspect-[5/7] w-full flex-col overflow-hidden rounded-2xl border-2
+                    bg-gradient-to-b from-neutral-800/95 to-neutral-900/95 backdrop-blur-sm
+                    text-center shadow-lg shadow-black/25 dark:shadow-black/60 transition-all duration-200 ${ring} ${anim}`}
       >
-        {displayTagName(tag.name)}
-      </span>
-      <span className="text-xs opacity-60">{style.label}</span>
-      <span className="text-xl font-bold tabular-nums">
-        {shownCount === null ? "?" : finished ? formatCount(tag.post_count) : shownCount.toLocaleString()}
-      </span>
-      <span className={`text-xs opacity-50 ${finished ? "" : "invisible"}`}>
-        {tag.post_count.toLocaleString()} posts
-      </span>
-      {!showImages && <div className="flex-1" />}
-    </button>
+        {/* Category colour stripe */}
+        <div className="h-1.5 w-full shrink-0" style={{ background: style.chipBg }} />
+        {showImages ? (
+          <TagImage site={site} tag={tag.name} opponent={opponent} side={side} />
+        ) : (
+          <div
+            className="flex flex-1 items-center justify-center text-6xl font-black opacity-15 select-none"
+            style={{ color: style.chipBg }}
+          >
+            ?
+          </div>
+        )}
+        <div className="flex shrink-0 flex-col items-center gap-1.5 px-3 pb-3 pt-2.5">
+          <span
+            className="max-w-full break-words rounded-full px-3 py-1 text-sm font-semibold"
+            style={{ background: style.chipBg, color: style.chipFg }}
+          >
+            {displayTagName(tag.name)}
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-widest opacity-50">{style.label}</span>
+          <span
+            className={`text-2xl font-black tabular-nums transition-colors ${
+              finished ? (side === correct ? "text-green-500" : "text-red-500") : ""
+            }`}
+          >
+            {shownCount === null ? "???" : finished ? formatCount(tag.post_count) : shownCount.toLocaleString()}
+          </span>
+          <span className={`text-xs opacity-50 ${finished ? "" : "invisible"}`}>
+            {tag.post_count.toLocaleString()} posts
+          </span>
+        </div>
+        {finished && (side === correct || side === picked) && (
+          <span
+            className={`absolute right-2 top-3.5 flex h-7 w-7 items-center justify-center rounded-full text-white shadow-md ${
+              side === correct ? "bg-green-500" : "bg-red-500"
+            }`}
+          >
+            {side === correct ? <Check size={16} strokeWidth={3} /> : <X size={16} strokeWidth={3} />}
+          </span>
+        )}
+      </button>
     </div>
   );
 }
 
-/** The tag's top-scored post (within the chosen image ratings, blacklist applied) as a thumbnail.
- *  One rate-limited get_posts per tag, cached for the session. */
-function TagImage({ site, tag }: { site: Site; tag: string }) {
+/** A tag's top-scored posts within the chosen image ratings, blacklisted and URL-less ones dropped.
+ *  One rate-limited get_posts per tag, cached for the session (so asking for the opponent's list
+ *  too costs nothing extra - its own card fetches it anyway). */
+function useImageCandidates(site: Site, tag: string) {
   const imageRatings = useTagdleStore((s) => s.prefs.imageRatings);
   const adultModeEnabled = useSettingsStore((s) => s.adultModeEnabled);
   const blacklistEntries = useSettingsStore((s) => s.blacklistEntries);
@@ -513,23 +603,64 @@ function TagImage({ site, tag }: { site: Site; tag: string }) {
 
   const query = useQuery({
     queryKey: ["tagdle-image", site, tag, ratingFilter],
-    queryFn: () => e621Api.getPosts(site, `${tag} ${ratingFilter} order:score`.trim(), 10),
+    // 20 rather than 10 so a few blacklisted / URL-less (deleted, login-gated) top posts don't
+    // leave nothing to show.
+    queryFn: () => e621Api.getPosts(site, `${tag} ${ratingFilter} order:score`.trim(), 20),
     staleTime: Infinity,
   });
-  const post = useMemo(
-    () => (query.data ? visiblePosts(query.data.posts, blacklistEntries, false).find((p) => p.sample.url ?? p.preview.url) : undefined),
+  const candidates = useMemo(
+    () => (query.data ? visiblePosts(query.data.posts, blacklistEntries, false).filter((p) => p.sample.url ?? p.preview.url) : []),
     [query.data, blacklistEntries],
   );
+  return { query, candidates, ratings, adultModeEnabled };
+}
+
+/** Prefers a post that isn't also tagged with the opponent (top posts often carry both tags of a
+ *  close pair, e.g. male/male and brown_body), then anything but `excludeId`. */
+function pickImagePost(candidates: Post[], opponent: string, excludeId?: number): Post | undefined {
+  const usable = candidates.filter((p) => p.id !== excludeId);
+  return usable.find((p) => !allTags(p).includes(opponent)) ?? usable[0];
+}
+
+/** The card's sample image. Both cards pick deterministically, and the right one also excludes
+ *  whatever the left one picked, so a round never shows the same post twice. */
+function TagImage({ site, tag, opponent, side }: { site: Site; tag: string; opponent: string; side: Side }) {
+  const { query, candidates, ratings, adultModeEnabled } = useImageCandidates(site, tag);
+  const opponentImages = useImageCandidates(site, opponent);
+  const post = useMemo(() => {
+    if (side === "left") return pickImagePost(candidates, opponent);
+    // Wait for the left card's list so the exclusion is real, not a race.
+    if (opponentImages.query.isLoading) return undefined;
+    const leftPick = pickImagePost(opponentImages.candidates, tag);
+    return pickImagePost(candidates, opponent, leftPick?.id);
+  }, [side, candidates, opponent, tag, opponentImages.candidates, opponentImages.query.isLoading]);
   const url = post ? (post.sample.url ?? post.preview.url) : null;
+  // Most "no image" rounds are a ratings mismatch, not a fetch failure: a big share of the pool
+  // (anatomy/act tags, many artists) has no safe posts at all, and safe-only is the default.
+  const emptyLabel = query.isError
+    ? "Couldn't load image"
+    : ratings.length === 1 && ratings[0] === "s"
+      ? "No safe-rated posts"
+      : "No posts in chosen ratings";
+  const hint =
+    !query.isError && adultModeEnabled && ratings.length < 3 ? "Allow more ratings in Options" : null;
 
   return (
-    <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-lg bg-black/10 dark:bg-black/25">
-      {query.isLoading ? (
+    <div className="relative mx-2 mt-2 flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-xl bg-black/10 dark:bg-black/30">
+      {query.isLoading || (side === "right" && opponentImages.query.isLoading) ? (
         <Spinner />
       ) : url ? (
-        <img src={url} alt="" className="h-full w-full object-contain" draggable={false} />
+        <>
+          {/* Blurred copy behind fills the letterbox around the contained image. */}
+          <img src={url} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-xl" draggable={false} />
+          <img src={url} alt="" className="relative h-full w-full object-contain" draggable={false} />
+        </>
       ) : (
-        <span className="text-xs opacity-50">No image</span>
+        <div className="flex flex-col items-center gap-1 px-3 text-center">
+          <ImageOff size={22} className="opacity-40" />
+          <span className="text-xs opacity-60">{emptyLabel}</span>
+          {hint && <span className="text-[10px] opacity-40">{hint}</span>}
+        </div>
       )}
     </div>
   );
@@ -542,7 +673,7 @@ function ResultDots({ results, total }: { results: boolean[]; total: number }) {
         <span
           key={i}
           className={`h-2.5 w-2.5 rounded-full ${
-            i >= results.length ? "bg-black/15 dark:bg-white/15" : results[i] ? "bg-green-500" : "bg-red-500"
+            i >= results.length ? "bg-white/20" : results[i] ? "bg-green-500" : "bg-red-500"
           }`}
         />
       ))}

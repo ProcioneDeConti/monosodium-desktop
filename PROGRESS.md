@@ -1802,3 +1802,22 @@ live call before implementing (per user instruction - no more guessing).
         (`Tagdle/Confetti.tsx`, body-level fixed pieces so the scroll container can't clip) on a
         correct pick, rainbow burst on finishing the daily. Known: a half-played daily restarts on
         close (only finished runs persist). Live-tested by the user (2026-10-14).
+- [x] **Tagdle: alley makeover + image fixes** (unreleased, after 1.18.0)
+      - Sample images: most "no image" rounds were a ratings mismatch, not a bug - much of the
+        pool (anatomy/act tags, many artists) has no safe posts and safe-only is the default.
+        Fetch 20 candidates (was 10), explicit empty states, hint to allow more ratings. The two
+        cards never show the same post (prefer posts lacking the opponent tag; right card
+        excludes the left's pick).
+      - UI: pill mode switch, daily progress bar, streak/best badges, category-coloured cards,
+        ✓/✗ badges, shake/pop (`tagdle-shake`/`tagdle-pop`, off under reduced motion), VS badge.
+      - Back-alley wall (`.tagdle-alley`, generated SVG brick tile + pitting + soot blotches +
+        streetlight pool) with the raccoon (`assets/tagdle-raccoon.png`, painted look via
+        hard-light blend + `.tagdle-eroded` noise mask, no shadow).
+      - Graffiti (`Tagdle/Graffiti.tsx`): 5-6 random lines per open from the user's pool (30 +
+        25 adult-mode-only), random font/colour/tilt, trailing punctuation stripped, measured
+        after fonts load then greedily placed to avoid overlap, bottom 55% of the wall only.
+        Fonts: Fontsource OFL/Apache graffiti fonts + 6 user-supplied free fonts in
+        `assets/fonts/graffiti/`. Bored Schoolboy's broken cmap was repaired with fontTools;
+        `MISSING_GLYPHS` keeps fonts off lines they can't render.
+      - Live-tested by the user along the way (2026-10-16); final punctuation/raccoon-blend
+        tweaks not yet live-tested.

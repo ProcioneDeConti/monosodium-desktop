@@ -95,6 +95,93 @@ body {
   }
 }
 
+/* Tagdle (components/Tagdle/TagdlePanel.tsx) - a wrong pick's card shakes, the winner pops. */
+@keyframes tagdle-shake {
+  20%,
+  60% {
+    transform: translateX(-6px) rotate(-1deg);
+  }
+  40%,
+  80% {
+    transform: translateX(6px) rotate(1deg);
+  }
+}
+
+@keyframes tagdle-pop {
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+/* Tagdle wall graffiti fonts (free fonts supplied by the project owner; see
+   src/assets/fonts/graffiti/). Used only by components/Tagdle/Graffiti.tsx. */
+@font-face {
+  font-family: "A Dripping Marker";
+  src: url("./assets/fonts/graffiti/a-dripping-marker.ttf") format("truetype");
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Bored Schoolboy";
+  src: url("./assets/fonts/graffiti/bored-schoolboy.ttf") format("truetype");
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Don Graffiti";
+  src: url("./assets/fonts/graffiti/don-graffiti.otf") format("opentype");
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Mostwasted";
+  src: url("./assets/fonts/graffiti/mostwasted.ttf") format("truetype");
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Soup Leaf";
+  src: url("./assets/fonts/graffiti/soupleaf.ttf") format("truetype");
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Thirsty Caps";
+  src: url("./assets/fonts/graffiti/thirsty-caps.otf") format("opentype");
+  font-display: block;
+}
+
+/* Back-alley brick wall behind the game (generated tile: varied bricks, noise grain, soot blotches)
+   under a grimy vignette + a hard-edged streetlight pool from the top. */
+.tagdle-alley {
+  background-color: #2b211d;
+  background-image:
+    /* streetlight: a tight, fairly hard-edged pool of warm light from above */
+    radial-gradient(ellipse 32% 48% at 50% -6%, rgb(255 214 150 / 0.42), rgb(255 190 120 / 0.2) 55%, transparent 72%),
+    radial-gradient(ellipse at center, transparent 30%, rgb(0 0 0 / 0.72) 100%),
+    /* grime pooling toward the ground */
+    linear-gradient(to bottom, rgb(0 0 0 / 0.2), transparent 30%, rgb(20 14 8 / 0.55)),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='700' height='520'><filter id='d'><feTurbulence type='fractalNoise' baseFrequency='.008 .014' numOctaves='4' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .08  0 0 0 0 .06  0 0 0 0 .04  0 0 0 2.6 -1.05'/></filter><rect width='700' height='520' filter='url(%23d)'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='112'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.32' numOctaves='2' seed='9' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .16  0 0 0 0 .09  0 0 0 0 .06  0 0 0 7 -4.1'/></filter><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='.06' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .9  0 0 0 0 .8  0 0 0 1.4 -.55'/></filter><rect width='240' height='112' fill='%23514640'/><g><rect x='1.5' y='2' width='56' height='24' rx='1.5' fill='%235f2e25'/><rect x='1.5' y='2' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='1.5' y='23' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='61.8' y='2' width='56' height='24' rx='1.5' fill='%237c3c2f'/><rect x='61.8' y='2' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='61.8' y='23' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='122.2' y='2' width='56' height='24' rx='1.5' fill='%23844a3a'/><rect x='122.2' y='2' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='122.2' y='23' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='181.8' y='2' width='56' height='24' rx='1.5' fill='%23763a2d'/><rect x='181.8' y='2' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='181.8' y='23' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='242.3' y='2' width='56' height='24' rx='1.5' fill='%23844a3a'/><rect x='242.3' y='2' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='242.3' y='23' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='-27.8' y='30' width='56' height='24' rx='1.5' fill='%239a5a44'/><rect x='-27.8' y='30' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='-27.8' y='51' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='32.3' y='30' width='56' height='24' rx='1.5' fill='%237c3c2f'/><rect x='32.3' y='30' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='32.3' y='51' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='91.9' y='30' width='56' height='24' rx='1.5' fill='%239a5a44'/><rect x='91.9' y='30' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='91.9' y='51' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='152.2' y='30' width='56' height='24' rx='1.5' fill='%238a4636'/><rect x='152.2' y='30' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='152.2' y='51' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='212.2' y='30' width='56' height='24' rx='1.5' fill='%236f3428'/><rect x='212.2' y='30' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='212.2' y='51' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='2.4' y='58' width='56' height='24' rx='1.5' fill='%23763a2d'/><rect x='2.4' y='58' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='2.4' y='79' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='61.6' y='58' width='56' height='24' rx='1.5' fill='%23844a3a'/><rect x='61.6' y='58' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='61.6' y='79' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='122.4' y='58' width='56' height='24' rx='1.5' fill='%239a5a44'/><rect x='122.4' y='58' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='122.4' y='79' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='182.1' y='58' width='56' height='24' rx='1.5' fill='%23844a3a'/><rect x='182.1' y='58' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='182.1' y='79' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='242.4' y='58' width='56' height='24' rx='1.5' fill='%235f2e25'/><rect x='242.4' y='58' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='242.4' y='79' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='-28.1' y='86' width='56' height='24' rx='1.5' fill='%2393503d'/><rect x='-28.1' y='86' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='-28.1' y='107' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='32.3' y='86' width='56' height='24' rx='1.5' fill='%2393503d'/><rect x='32.3' y='86' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='32.3' y='107' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='91.7' y='86' width='56' height='24' rx='1.5' fill='%2393503d'/><rect x='91.7' y='86' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='91.7' y='107' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='151.9' y='86' width='56' height='24' rx='1.5' fill='%2393503d'/><rect x='151.9' y='86' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='151.9' y='107' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><g><rect x='212.4' y='86' width='56' height='24' rx='1.5' fill='%23844a3a'/><rect x='212.4' y='86' width='56' height='3' fill='%23fff' fill-opacity='.07'/><rect x='212.4' y='107' width='56' height='3' fill='%23000' fill-opacity='.22'/></g><rect width='240' height='112' filter='url(%23m)' opacity='.12'/><rect width='240' height='112' filter='url(%23g)' opacity='.45'/></svg>");
+}
+
+/* Weathered-paint look for things "painted" on the alley wall (raccoon, graffiti): a noise mask
+   punches small chips and worn patches out of the paint, and a touch of desaturation + grime
+   ties it to the dingy bricks. Mask alpha = 1 - (noise thresholded), so most paint survives. */
+.tagdle-eroded {
+  --erosion: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='e'><feTurbulence type='fractalNoise' baseFrequency='.055' numOctaves='5' seed='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -8 6.9'/></filter><rect width='260' height='260' filter='url(%23e)'/></svg>");
+  -webkit-mask-image: var(--erosion);
+  mask-image: var(--erosion);
+  mask-size: 260px 260px;
+  filter: saturate(0.82) contrast(0.95) sepia(0.12) brightness(0.92);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tagdle-anim {
+    animation: none !important;
+  }
+}
+
 /* Indeterminate top progress bar (App.tsx / AppShell) - a bar sweeps left-to-right, growing then
    shrinking, like the browser's/GitHub's own top-of-page loading indicator. */
 @keyframes progress-sweep {
