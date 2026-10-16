@@ -1802,7 +1802,7 @@ live call before implementing (per user instruction - no more guessing).
         (`Tagdle/Confetti.tsx`, body-level fixed pieces so the scroll container can't clip) on a
         correct pick, rainbow burst on finishing the daily. Known: a half-played daily restarts on
         close (only finished runs persist). Live-tested by the user (2026-10-14).
-- [x] **Tagdle: alley makeover + image fixes** (unreleased, after 1.18.0)
+- [x] **Tagdle: alley makeover + image fixes** (1.19.0)
       - Sample images: most "no image" rounds were a ratings mismatch, not a bug - much of the
         pool (anatomy/act tags, many artists) has no safe posts and safe-only is the default.
         Fetch 20 candidates (was 10), explicit empty states, hint to allow more ratings. The two
