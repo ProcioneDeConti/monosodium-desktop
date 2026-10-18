@@ -41,6 +41,8 @@ interface PostGridProps {
 /** Last scroll offset per result list, for the session (module-level so it outlives the grid's
  *  remount-per-search `key`). */
 const savedScrollTops = new Map<string, number>();
+/** Cap on scroll steps when revealing a not-yet-laid-out cell after closing the viewer. */
+const MAX_REVEAL_STEPS = 60;
 /** Show the jump-to-top button once scrolled this many viewport heights down. */
 const JUMP_TOP_AFTER_SCREENS = 2;
 const FLASH_MS = 1400;
@@ -305,19 +307,33 @@ export function PostGrid({
   }, [viewerIndex, visible.length]);
 
   // Bring the focused cell into view. Uses the positioner's real measured box when the cell has
-  // been rendered at least once, otherwise a row-height estimate to get close (which mounts the
-  // cell, after which `scrollTop` changing re-runs this with the exact box). Only acts until the
-  // focused cell has been revealed with its exact box once - otherwise every user scroll would
-  // re-run this and yank the viewport back to the ring (the grid "vibrates" and won't scroll).
+  // been positioned. If it hasn't (e.g. you paged far ahead in the viewer), masonic only places
+  // cells in order as it renders them, so a row-height guess lands somewhere arbitrary in a
+  // masonry layout - instead step to the bottom of the laid-out content so masonic renders the
+  // next batch, and repeat (each `scrollTop` change re-runs this) until the cell has a real box.
+  // Only acts until the focused cell has been revealed once, and gives up after a bounded number
+  // of steps - otherwise every user scroll would yank the viewport back to the ring.
   const revealedIndex = useRef<number | null>(null);
+  const revealSteps = useRef(0);
   useEffect(() => {
     if (focusIndex == null || revealedIndex.current === focusIndex) return;
     const el = containerRef.current;
     if (!el) return;
     const pos = positioner.get(focusIndex);
-    if (pos) revealedIndex.current = focusIndex;
-    const top = pos ? pos.top : Math.floor(focusIndex / columns) * (thumbnailSizePx + GUTTER_PX);
-    const bottom = pos ? pos.top + pos.height : top + thumbnailSizePx;
+    if (!pos) {
+      if (++revealSteps.current > MAX_REVEAL_STEPS) {
+        revealedIndex.current = focusIndex;
+        revealSteps.current = 0;
+        return;
+      }
+      const end = positioner.shortestColumn();
+      if (end > el.scrollTop + el.clientHeight - 1) el.scrollTo({ top: Math.max(0, end - el.clientHeight / 2) });
+      return;
+    }
+    revealedIndex.current = focusIndex;
+    revealSteps.current = 0;
+    const top = pos.top;
+    const bottom = pos.top + pos.height;
     const pad = 14;
     if (top < el.scrollTop + pad) el.scrollTo({ top: Math.max(0, top - pad) });
     else if (bottom > el.scrollTop + el.clientHeight - pad)

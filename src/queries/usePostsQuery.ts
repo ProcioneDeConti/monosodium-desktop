@@ -117,7 +117,12 @@ export function usePostsQuery(
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled,
-    staleTime: isRandom ? 0 : 60_000,
+    // Never auto-revalidate a non-random list: refetching an infinite query re-fetches *every*
+    // loaded page in sequence, and since new uploads (keyset) or shifting scores (numbered) move
+    // posts across page boundaries, the already-rendered grid reshuffles mid-scroll - posts
+    // "jump around" and scroll position drifts. The Refresh button (`refresh()` below) is the
+    // explicit way to get new results.
+    staleTime: isRandom ? 0 : Infinity,
     // Longer than the global 2-min default so switching between search tabs (App.tsx) serves the
     // other tab's already-paged results from cache instead of refetching from scratch.
     gcTime: 10 * 60_000,
