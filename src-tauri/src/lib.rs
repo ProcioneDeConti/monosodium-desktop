@@ -69,6 +69,14 @@ pub fn run() {
     paths::guard_store_files(vault::is_password_protected());
 
     tauri::Builder::default()
+        // Must be registered first. A second launch (Start menu, desktop shortcut, etc.) exits
+        // immediately and instead brings the already-running window back, including from the tray.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            show_main_window(app);
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())

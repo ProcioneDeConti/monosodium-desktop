@@ -1821,3 +1821,7 @@ live call before implementing (per user instruction - no more guessing).
         `MISSING_GLYPHS` keeps fonts off lines they can't render.
       - Live-tested by the user along the way (2026-10-16); final punctuation/raccoon-blend
         tweaks not yet live-tested.
+- [x] **Single instance** (1.20.0)
+      - `tauri-plugin-single-instance` (registered first in `lib.rs`): a second launch exits and
+        re-shows/unminimizes the running window, including from the tray. Not yet live-tested
+        (incl. Settings reset / data-move relaunch).
