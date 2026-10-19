@@ -77,7 +77,7 @@ interface AppShellProps {
   onOpenPopular: () => void;
   onOpenCollections: () => void;
   onOpenSavedSearches: () => void;
-  onOpenTagdle: () => void;
+  onOpenGames: () => void;
   onStartSlideshow: (() => void) | null;
   onRefresh: () => void;
   onShuffle: () => void;
@@ -122,7 +122,7 @@ export function AppShell({
   onOpenPopular,
   onOpenCollections,
   onOpenSavedSearches,
-  onOpenTagdle,
+  onOpenGames,
   onStartSlideshow,
   onRefresh,
   onShuffle,
@@ -359,8 +359,8 @@ export function AppShell({
           <MenuItem icon={<Bookmark size={15} />} onClick={onOpenSavedSearches}>
             Saved searches
           </MenuItem>
-          <MenuItem icon={<Gamepad2 size={15} />} onClick={onOpenTagdle}>
-            Tagdle
+          <MenuItem icon={<Gamepad2 size={15} />} onClick={onOpenGames}>
+            Games
           </MenuItem>
           <MenuItem icon={<Library size={15} />} onClick={onOpenCollections}>
             Collections

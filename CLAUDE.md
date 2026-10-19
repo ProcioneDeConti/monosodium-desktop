@@ -130,6 +130,8 @@ src/
                                image URL), level badge, stats grid, feedback, about/artist-info
                                text, and Posts/Favorites shortcuts into the normal search flow
                                (user:<name> / fav:<name>)
+    Games/GamesPanel.tsx      full-screen sheet: game launcher (Tagdle + post-based games in
+                               Games/*, logic in lib/games.ts, bests in state/gamesStore.ts)
     SavedSearches/SavedSearchesPanel.tsx  full-screen overlay, create/delete only (no rename or
                                reorder, matching the reference app) - a "save current search"
                                row (shown only while there's a non-blank query) plus a list of

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { openPostWindow } from "../../lib/postWindow";
 import {
   AppWindow,
   Check,
@@ -20,7 +21,6 @@ import {
   ThumbsUp,
   X,
 } from "lucide-react";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { e621Api } from "../../api/client";
 import type { Post } from "../../models/post";
@@ -193,14 +193,7 @@ export function PostViewer({
   }
 
   function popOutWindow() {
-    if (!post) return;
-    const label = `post-${post.id}-${Date.now()}`;
-    new WebviewWindow(label, {
-      url: `index.html?post=${post.id}&site=${site}`,
-      title: `Post #${post.id} - Monosodium Desktop`,
-      width: 900,
-      height: 700,
-    });
+    if (post) openPostWindow(post.id, site);
   }
 
   const canGoPrev = index > 0;

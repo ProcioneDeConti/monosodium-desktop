@@ -260,3 +260,12 @@ export async function loadSettings(): Promise<void> {
     };
   });
 }
+
+const NO_BLACKLIST: BlacklistEntries = [];
+
+/** The blacklist as it should apply right now: the user's entries, or none while "Show
+ *  blacklisted posts" is on. For callers (the games) that filter with entries directly instead of
+ *  passing blacklistDisabled to visiblePosts - this keeps tag-name filtering in step too. */
+export function useEffectiveBlacklist(): BlacklistEntries {
+  return useSettingsStore((s) => (s.blacklistDisabled ? NO_BLACKLIST : s.blacklistEntries));
+}

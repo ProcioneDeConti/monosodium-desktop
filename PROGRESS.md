@@ -1825,3 +1825,35 @@ live call before implementing (per user instruction - no more guessing).
       - `tauri-plugin-single-instance` (registered first in `lib.rs`): a second launch exits and
         re-shows/unminimizes the running window, including from the tray. Not yet live-tested
         (incl. Settings reset / data-move relaunch).
+- [x] **Games launcher** (unreleased)
+      - Menu's "Tagdle" item is now "Games" -> `Games/GamesPanel.tsx`: a launcher grid; the
+        chosen game renders in the same sheet (back arrow / Esc returns to the launcher).
+        Tagdle became an embeddable `TagdleGame` (alley wall kept).
+      - New games: Higher or Lower (score/favs, endless streak), Artist Guesser, Species
+        Guesser (blur clears over 10s, speed points), Zoom Reveal (wrong guess = zoom out),
+        Rating Judge (needs adult mode + 2 ratings; one deck per rating for balance), Six Degrees
+        (hop tag->tag via post tags; daily seeded + endless, endpoints from Tagdle's cached pools).
+      - Shared: `lib/games.ts` (pure, tested in `games.test.ts`), `state/gamesStore.ts`
+        (`games.json`: bests + Six Degrees dailies), `Games/common.tsx` (`usePostDeck` -
+        order:random batches of 75 refilled in the background; `useTaggedPost` with next-round
+        prefetch). All requests go through the normal rate-limited `get_posts`.
+      - Not yet live-tested.
+      - Follow-ups (same release): species list now live (top species pool minus anything another
+        species tag implies, via new `get_implications_from`; weekly cache, GAME_SPECIES fallback);
+        species rounds solo-only with silent re-pick (5 tries) + next-round prefetch; Whodunnit
+        excludes signature/watermark-tagged posts and blurs image edges until answered; Tag Hopper
+        got random hop posts, species/copyright-only endpoints, a target info card (wiki summary +
+        thumbnails) and an end-of-game exploration map (`lib/sixDegreesMap.ts`); confetti per
+        right answer + rainbow on completion everywhere; alley wall + graffiti behind the
+        launcher and all games (pinned to dark theme, dark panels for text).
+      - Final names (internal ids unchanged): Tagdle, Score Sniffer (higherLower), Whodunnit
+        (artist), Who's That ~~Pokémon~~ Floof?! (species), Enhance! (zoom), Horny Jail or Sunday
+        School (rating), Tag Hopper (sixDegrees).
+      - Whodunnit difficulties by artist rank band (answers + decoys from the same band):
+        Belly Rubs (top 100), In Heat (~100-640, Tagdle's artist pool), Fully Knotted (~1,280-1,920,
+        tags.json pages 5-6, weekly cache via `loadArtistTier`). Per-round search via the shared
+        `useListRound` (generalized from the species hook).
+      - "Favorites only" header toggle (persisted in games.json, needs sign-in, not shown for
+        Tagdle): games deal from `fav:<user>` decks (`useDeckRound`; `usePostDeck` now reports
+        `exhausted`). Tag Hopper favorites = Endless only, endpoints from tags common in a 320-post
+        favorites sample (`favoriteEndpoints`). Favorites bests stored under separate keys.

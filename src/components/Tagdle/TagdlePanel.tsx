@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, Flame, Gamepad2, ImageOff, Settings2, Trophy, X } from "lucide-react";
+import { Check, Copy, Flame, ImageOff, Settings2, Trophy, X } from "lucide-react";
 import { e621Api } from "../../api/client";
 import { visiblePosts } from "../../lib/blacklist";
 import { formatCount } from "../../lib/formatCount";
@@ -21,14 +21,14 @@ import {
 } from "../../lib/tagdle";
 import { allTags, RATING_TAG, type Post, type Rating, type TagCategory } from "../../models/post";
 import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
-import { useSettingsStore } from "../../state/settingsStore";
+import { useEffectiveBlacklist, useSettingsStore } from "../../state/settingsStore";
 import { loadPool, loadTagdle, useTagdleStore } from "../../state/tagdleStore";
 import { Button } from "../ui/Button";
+import { NextButton, ViewPostButton } from "../Games/common";
 import raccoonUrl from "../../assets/tagdle-raccoon.png";
 import { ConfettiBurst } from "./Confetti";
 import { Graffiti } from "./Graffiti";
 import { IconButton } from "../ui/IconButton";
-import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Spinner } from "../ui/Spinner";
 
 const CATEGORY_BY_ID: Record<number, TagCategory> = {
@@ -43,15 +43,10 @@ const RATING_LABEL: Record<Rating, string> = { s: "Safe", q: "Questionable", e: 
 
 type Mode = "daily" | "endless";
 
-interface TagdlePanelProps {
-  site: Site;
-  onClose: () => void;
-}
-
 /** "Which tag has more posts?" - see lib/tagdle.ts. Daily: fixed seeded rounds, once per UTC day,
- *  always the full category mix. Endless: the selected categories, until the first wrong pick. */
-export function TagdlePanel({ site, onClose }: TagdlePanelProps) {
-  const overlay = useRef<OverlayHandle>(null);
+ *  always the full category mix. Endless: the selected categories, until the first wrong pick.
+ *  Rendered inside the Games launcher, which owns the overlay and header. */
+export function TagdleGame({ site }: { site: Site }) {
   const isLoaded = useTagdleStore((s) => s.isLoaded);
   const prefs = useTagdleStore((s) => s.prefs);
   const [mode, setMode] = useState<Mode>("daily");
@@ -62,11 +57,9 @@ export function TagdlePanel({ site, onClose }: TagdlePanelProps) {
   }, []);
 
   return (
-    <Overlay ref={overlay} onClose={onClose} variant="sheet" sheetWidth="max-w-3xl">
-      <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
-        <Gamepad2 size={17} className="text-[rgb(var(--accent))]" />
-        <h1 className="text-base font-black tracking-tight">Tagdle</h1>
-        <div className="ml-3 flex rounded-full bg-black/[0.06] dark:bg-white/[0.08] p-0.5">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-2">
+        <div className="flex rounded-full bg-black/[0.06] dark:bg-white/[0.08] p-0.5">
           {(["daily", "endless"] as const).map((m) => (
             <button
               key={m}
@@ -86,9 +79,6 @@ export function TagdlePanel({ site, onClose }: TagdlePanelProps) {
           className={`ml-auto ${showOptions ? "bg-[rgb(var(--accent))]/20" : ""}`}
         >
           <Settings2 size={17} />
-        </IconButton>
-        <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)">
-          <X size={18} />
         </IconButton>
       </div>
 
@@ -116,7 +106,7 @@ export function TagdlePanel({ site, onClose }: TagdlePanelProps) {
           style={{ mixBlendMode: "hard-light", opacity: 0.9 }}
         />
       </div>
-    </Overlay>
+    </div>
   );
 }
 
@@ -210,7 +200,7 @@ function OptionsSection() {
 
 /** Loads (and blacklist-filters) the pool for `categories`, reporting fetch progress. */
 function usePool(site: Site, categories: TagdleCategory[]) {
-  const blacklistEntries = useSettingsStore((s) => s.blacklistEntries);
+  const blacklistEntries = useEffectiveBlacklist();
   const [progress, setProgress] = useState<[number, number]>([0, categories.length]);
   const query = useQuery({
     queryKey: ["tagdle-pool", site, [...categories].sort().join(",")],
@@ -283,7 +273,7 @@ function DailyGame({ site }: { site: Site }) {
       <RoundView site={site} pair={pair} picked={picked} onPick={pick} onRaceEnd={() => setRaceDone(true)} />
       {picked && raceDone && (
         <div className="mt-4 flex justify-center">
-          <Button onClick={next}>{round + 1 >= pairs.length ? "See results" : "Next round"}</Button>
+          <NextButton onClick={next}>{round + 1 >= pairs.length ? "See results" : "Next round"}</NextButton>
         </div>
       )}
     </div>
@@ -392,7 +382,7 @@ function EndlessGame({ site, categories }: { site: Site; categories: TagdleCateg
       {picked && raceDone && (
         <div className="mt-4 flex flex-col items-center gap-2">
           {wrong && <p className="text-sm font-semibold">Game over - final streak {streak}</p>}
-          <Button onClick={wrong ? restart : deal}>{wrong ? "Play again" : "Next"}</Button>
+          <NextButton onClick={wrong ? restart : deal}>{wrong ? "Play again" : "Next"}</NextButton>
         </div>
       )}
     </div>
@@ -513,6 +503,8 @@ function TagCard({
   onPick: (side: Side) => void;
 }) {
   const showImages = useTagdleStore((s) => s.prefs.showImages);
+  // The post the sample image shows (TagImage picks it), linked under the card after the round.
+  const [imagePost, setImagePost] = useState<Post | undefined>(undefined);
   const style = TAG_CATEGORY_STYLE[CATEGORY_BY_ID[tag.category] ?? "general"];
   const revealed = picked !== null;
   // Hold the right/wrong colouring until the race ends so it doesn't give the result away.
@@ -548,7 +540,7 @@ function TagCard({
         {/* Category colour stripe */}
         <div className="h-1.5 w-full shrink-0" style={{ background: style.chipBg }} />
         {showImages ? (
-          <TagImage site={site} tag={tag.name} opponent={opponent} side={side} />
+          <TagImage site={site} tag={tag.name} opponent={opponent} side={side} onPost={setImagePost} />
         ) : (
           <div
             className="flex flex-1 items-center justify-center text-6xl font-black opacity-15 select-none"
@@ -586,6 +578,11 @@ function TagCard({
           </span>
         )}
       </button>
+      {finished && showImages && imagePost && (
+        <div className="mt-2 flex justify-center">
+          <ViewPostButton site={site} post={imagePost} />
+        </div>
+      )}
     </div>
   );
 }
@@ -596,7 +593,7 @@ function TagCard({
 function useImageCandidates(site: Site, tag: string) {
   const imageRatings = useTagdleStore((s) => s.prefs.imageRatings);
   const adultModeEnabled = useSettingsStore((s) => s.adultModeEnabled);
-  const blacklistEntries = useSettingsStore((s) => s.blacklistEntries);
+  const blacklistEntries = useEffectiveBlacklist();
   const ratings: Rating[] = adultModeEnabled ? imageRatings : ["s"];
   const ratingFilter =
     ratings.length === 3 ? "" : ratings.length === 1 ? RATING_TAG[ratings[0]] : ratings.map((r) => `~${RATING_TAG[r]}`).join(" ");
@@ -624,7 +621,19 @@ function pickImagePost(candidates: Post[], opponent: string, excludeId?: number)
 
 /** The card's sample image. Both cards pick deterministically, and the right one also excludes
  *  whatever the left one picked, so a round never shows the same post twice. */
-function TagImage({ site, tag, opponent, side }: { site: Site; tag: string; opponent: string; side: Side }) {
+function TagImage({
+  site,
+  tag,
+  opponent,
+  side,
+  onPost,
+}: {
+  site: Site;
+  tag: string;
+  opponent: string;
+  side: Side;
+  onPost: (post: Post | undefined) => void;
+}) {
   const { query, candidates, ratings, adultModeEnabled } = useImageCandidates(site, tag);
   const opponentImages = useImageCandidates(site, opponent);
   const post = useMemo(() => {
@@ -634,6 +643,7 @@ function TagImage({ site, tag, opponent, side }: { site: Site; tag: string; oppo
     const leftPick = pickImagePost(opponentImages.candidates, tag);
     return pickImagePost(candidates, opponent, leftPick?.id);
   }, [side, candidates, opponent, tag, opponentImages.candidates, opponentImages.query.isLoading]);
+  useEffect(() => onPost(post), [post, onPost]);
   const url = post ? (post.sample.url ?? post.preview.url) : null;
   // Most "no image" rounds are a ratings mismatch, not a fetch failure: a big share of the pool
   // (anatomy/act tags, many artists) has no safe posts at all, and safe-only is the default.

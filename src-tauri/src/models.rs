@@ -638,3 +638,10 @@ pub struct TagSuggestion {
     pub category: i64,
     pub antecedent_name: Option<String>,
 }
+
+/// One row of `tag_implications.json` - only the two ends are used.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TagImplication {
+    pub antecedent_name: String,
+    pub consequent_name: String,
+}

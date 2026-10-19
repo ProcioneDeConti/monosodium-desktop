@@ -285,6 +285,15 @@ export const e621Api = {
     return invoke("get_top_tags", { site, category, page, limit });
   },
 
+  /** Active implications from any of `names` (one page of up to 320) - Games' species filter. */
+  getImplicationsFrom(
+    site: Site,
+    names: string[],
+    page: number,
+  ): Promise<{ antecedent_name: string; consequent_name: string }[]> {
+    return invoke("get_implications_from", { site, names, page });
+  },
+
   getTagRelations(site: Site, name: string): Promise<TagRelations> {
     return invoke("get_tag_relations", { site, name });
   },

@@ -8,7 +8,7 @@ use crate::models::{
     CreateDmailRequest, CreateForumPostFields, CreateForumPostRequest, CreatePostSetFields,
     CreatePostSetRequest, CreateTicketFields, CreateTicketRequest, DnpEntry, Dmail, FavoriteRequest,
     FavoriteResponse, ForumPost, ForumTopic, Pool, PoolSuggestion, PostNote, PostSet,
-    PostsResponse, PostVersion, RelatedTag, SetPostIdsRequest, TagInfo, TagRelations, TagSuggestion,
+    PostsResponse, PostVersion, RelatedTag, SetPostIdsRequest, TagImplication, TagInfo, TagRelations, TagSuggestion,
     UpdateCommentFields, UpdateCommentRequest, UpdateUserFields, UpdateUserRequest, UserProfile,
     UserSuggestion, VoteRequest, VoteResponse, WikiPage,
 };
@@ -1041,6 +1041,37 @@ pub async fn get_tag_relations(
         implied_by: implied_by.into_iter().map(|i| i.antecedent_name).collect(),
         aliases: aliases.into_iter().map(|a| a.antecedent_name).collect(),
     })
+}
+
+/// One page of the active implications whose antecedent is any of `names` (comma-joined on the
+/// wire - e621 accepts a list there). Games use it to tell grouping species tags (`canine`,
+/// `mammal`) from real species: anything another tag implies is a group. Public.
+#[tauri::command]
+pub async fn get_implications_from(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    names: Vec<String>,
+    page: u32,
+) -> Result<Vec<TagImplication>, String> {
+    let names = names.join(",");
+    let page = page.max(1).to_string();
+    let response = request(&state, site, Method::GET, "tag_implications.json")
+        .await?
+        .query(&[
+            ("search[antecedent_name]", names.as_str()),
+            ("search[status]", "active"),
+            ("limit", "320"),
+            ("page", page.as_str()),
+        ])
+        .send_retry(&state, site)
+        .await
+        .map_err(|e| e.to_string())?;
+    let body = ensure_success(response).await?.text().await.map_err(|e| e.to_string())?;
+    // e621 answers an empty search with `{"tag_implications":[]}` rather than `[]`.
+    if body.trim_start().starts_with('{') {
+        return Ok(Vec::new());
+    }
+    serde_json::from_str(&body).map_err(|e| e.to_string())
 }
 
 /// Looks up an artist by exact tag name (`artists.json?search[name]=`). Public. Returns `None`
