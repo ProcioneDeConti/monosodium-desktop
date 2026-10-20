@@ -25,6 +25,9 @@ interface GamesState {
   /** Games draw only from the signed-in user's favorites (where the game supports it). */
   favoritesOnly: boolean;
   setFavoritesOnly: (on: boolean) => void;
+  /** Background music while the Games panel is open. */
+  musicOn: boolean;
+  setMusicOn: (on: boolean) => void;
 }
 
 let storePromise: Promise<Store> | null = null;
@@ -45,6 +48,12 @@ export const useGamesStore = create<GamesState>((set, get) => ({
   best: {},
   sixDaily: {},
   favoritesOnly: false,
+  musicOn: true,
+
+  setMusicOn: (musicOn) => {
+    set({ musicOn });
+    void persist("musicOn", musicOn);
+  },
 
   setFavoritesOnly: (favoritesOnly) => {
     set({ favoritesOnly });
@@ -79,7 +88,8 @@ export async function loadGames(): Promise<void> {
   const best = (await store.get<Record<string, number>>("best")) ?? {};
   const sixDaily = (await store.get<Record<string, number | null>>("sixDaily")) ?? {};
   const favoritesOnly = (await store.get<boolean>("favoritesOnly")) ?? false;
-  useGamesStore.setState({ best, sixDaily, favoritesOnly, isLoaded: true });
+  const musicOn = (await store.get<boolean>("musicOn")) ?? true;
+  useGamesStore.setState({ best, sixDaily, favoritesOnly, musicOn, isLoaded: true });
 }
 
 const SPECIES_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;

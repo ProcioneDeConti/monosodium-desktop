@@ -1857,3 +1857,10 @@ live call before implementing (per user instruction - no more guessing).
         Tagdle): games deal from `fav:<user>` decks (`useDeckRound`; `usePostDeck` now reports
         `exhausted`). Tag Hopper favorites = Endless only, endpoints from tags common in a 320-post
         favorites sample (`favoriteEndpoints`). Favorites bests stored under separate keys.
+      - Three more games: Sus (`OddOneOut.tsx` - three posts share a tag, spot the impostor),
+        Time Machine (`YearGuesser.tsx` - guess the upload year, closer = more points), Tag Bingo
+        (`TagBingo.tsx` - claim posts for card squares, first line in fewest posts). Logic +
+        tests in `lib/games.ts`/`games.test.ts`.
+      - Background music in the games sheet (`GameMusic.tsx`): royalty-free tracks from
+        `/bgmusic`, bundled by Vite via `import.meta.glob`; play/pause/skip/volume persisted in
+        games.json. Not yet live-tested in a release build.

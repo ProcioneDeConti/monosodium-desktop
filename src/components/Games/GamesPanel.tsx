@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  CalendarClock,
   Cat,
   ChevronLeft,
   Church,
@@ -8,9 +9,11 @@ import {
   EyeOff,
   FingerprintPattern,
   Gamepad2,
+  Grid3x3,
   Heart,
   Rabbit,
   ScanSearch,
+  SearchX,
   Siren,
   SprayCan,
   X,
@@ -24,7 +27,11 @@ import { Graffiti } from "../Tagdle/Graffiti";
 import { TagdleGame } from "../Tagdle/TagdlePanel";
 import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
+import { GameMusic } from "./GameMusic";
 import { HigherLower } from "./HigherLower";
+import { OddOneOut } from "./OddOneOut";
+import { TagBingo } from "./TagBingo";
+import { YearGuesser } from "./YearGuesser";
 import { ArtistGuesser, SpeciesGuesser } from "./GuessGames";
 import { RatingJudge } from "./RatingJudge";
 import { SixDegrees } from "./SixDegrees";
@@ -105,6 +112,27 @@ const GAMES: GameInfo[] = [
     icon: <Rabbit size={22} />, // hop
     tint: "from-cyan-500/30 to-blue-500/20",
   },
+  {
+    id: "oddOneOut",
+    name: "Sus",
+    blurb: "Three posts share a tag. Spot the impostor.",
+    icon: <SearchX size={22} />,
+    tint: "from-rose-500/30 to-pink-500/20",
+  },
+  {
+    id: "yearGuess",
+    name: "Time Machine",
+    blurb: "When was this uploaded? The closer the year, the more points.",
+    icon: <CalendarClock size={22} />,
+    tint: "from-violet-500/30 to-indigo-500/20",
+  },
+  {
+    id: "bingo",
+    name: "Tag Bingo",
+    blurb: "Claim posts for the squares on your card. First line in the fewest posts wins.",
+    icon: <Grid3x3 size={22} />,
+    tint: "from-lime-500/30 to-green-500/20",
+  },
 ];
 
 interface GamesPanelProps {
@@ -146,6 +174,7 @@ export function GamesPanel({ site, onClose }: GamesPanelProps) {
         <h1 className="text-base font-black tracking-tight">{game ? game.name : "Games"}</h1>
         {/* Every game but Tagdle (whose site-wide tag counts don't narrow to a favorites list). */}
         <div className="ml-auto flex items-center gap-1.5">
+          <GameMusic />
           <BlacklistToggle />
           {selected !== "tagdle" && <FavoritesToggle site={site} />}
         </div>
@@ -246,6 +275,12 @@ function GameBody({ id, site }: { id: GameId; site: Site }) {
       return <RatingJudge key={site} site={site} />;
     case "sixDegrees":
       return <SixDegrees key={site} site={site} />;
+    case "oddOneOut":
+      return <OddOneOut key={site} site={site} />;
+    case "yearGuess":
+      return <YearGuesser key={site} site={site} />;
+    case "bingo":
+      return <TagBingo key={site} site={site} />;
     case "tagdle":
       return null; // rendered full-bleed by GamesPanel itself
   }
