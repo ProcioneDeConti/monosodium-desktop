@@ -35,6 +35,7 @@ import { UnlockScreen } from "./components/Vault/UnlockScreen";
 import { Button } from "./components/ui/Button";
 import { Spinner } from "./components/ui/Spinner";
 import { EmptyState } from "./components/ui/EmptyState";
+import { Mascot } from "./components/ui/Mascot";
 import { focusManager, useQueryClient } from "@tanstack/react-query";
 import { usePostsQuery } from "./queries/usePostsQuery";
 import { usePostMutations } from "./queries/usePostMutations";
@@ -56,7 +57,7 @@ import { isOwnFavoritesView, normalizeQuery, withRandomOrder } from "./lib/searc
 import { useDownloadsStore } from "./state/downloadsStore";
 import { useFullscreen } from "./lib/useFullscreen";
 import { hexToRgbTriplet } from "./lib/color";
-import { applyTheme } from "./lib/theme";
+import { applyMotion, applyPalette, applyTheme } from "./lib/theme";
 import { cacheTagCategory } from "./lib/tagCategoryCache";
 import { CURRENT_EULA_HASH } from "./lib/eula";
 import { notify } from "./lib/notifications";
@@ -340,6 +341,10 @@ function App() {
   // Re-applies whenever the mode changes and keeps a live listener for OS theme changes while
   // on "system" - see lib/theme.ts.
   useEffect(() => applyTheme(themeMode), [themeMode]);
+  const palette = useSettingsStore((s) => s.palette);
+  const motionMode = useSettingsStore((s) => s.motionMode);
+  useEffect(() => applyPalette(palette), [palette]);
+  useEffect(() => applyMotion(motionMode), [motionMode]);
 
   const blacklistEntries = useMemo(() => parseBlacklist(blacklist), [blacklist]);
 
@@ -782,12 +787,16 @@ function App() {
       isLoadingPosts={isLoading || isFetchingNextPage || isRefetching}
     >
       {!booted || isLoading ? (
-        <div className="flex h-full items-center justify-center gap-2 text-sm opacity-60">
-          <Spinner size={15} />
-          Loading posts…
+        <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
+          <Mascot size={104} />
+          <span className="flex items-center gap-2 opacity-60">
+            <Spinner size={15} />
+            Loading posts…
+          </span>
         </div>
       ) : isError ? (
         <EmptyState
+          mascot="sad"
           icon={<TriangleAlert />}
           title="Couldn't load posts"
           hint={errorMessage(error)}
@@ -798,7 +807,7 @@ function App() {
           }
         />
       ) : (
-        <div className="flex h-full flex-col">
+        <div className="depth-recede flex h-full flex-col">
           {/* "Show blacklisted posts" moved into the View menu (AppShell). A caution stripe still
               marks any shown-but-blacklisted post so the state stays visible. */}
           <div className="relative flex-1 min-h-0">

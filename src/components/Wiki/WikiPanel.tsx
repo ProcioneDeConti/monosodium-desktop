@@ -84,7 +84,7 @@ export function WikiPanel({ site, initialTag = "", onClose, onSearch }: WikiPane
           />
         </div>
         {suggestOpen && shownSuggestions.length > 0 && (
-          <ul className="absolute left-3 right-3 z-20 mt-1 max-h-72 overflow-auto rounded-[var(--radius-md)] border border-black/10 dark:border-white/10 bg-[rgb(250,250,250)] dark:bg-[rgb(38,38,38)] shadow-lg">
+          <ul className="absolute left-3 right-3 z-20 mt-1 max-h-72 overflow-auto rounded-[var(--radius-md)] border border-black/10 dark:border-white/10 bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface-3))] shadow-lg">
             {shownSuggestions.map((s) => (
               <li key={s.name}>
                 <button

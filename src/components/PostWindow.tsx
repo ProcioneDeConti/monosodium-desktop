@@ -11,7 +11,7 @@ import { loadSettings, useSettingsStore } from "../state/settingsStore";
 import { loadAllAccounts } from "../state/accountStore";
 import { parseBlacklist } from "../lib/blacklist";
 import { hexToRgbTriplet } from "../lib/color";
-import { applyTheme } from "../lib/theme";
+import { applyMotion, applyPalette, applyTheme } from "../lib/theme";
 
 interface PostWindowProps {
   postId: number;
@@ -43,6 +43,10 @@ export function PostWindow({ postId, site }: PostWindowProps) {
   }, [accentColor]);
 
   useEffect(() => applyTheme(themeMode), [themeMode]);
+  const palette = useSettingsStore((s) => s.palette);
+  const motionMode = useSettingsStore((s) => s.motionMode);
+  useEffect(() => applyPalette(palette), [palette]);
+  useEffect(() => applyMotion(motionMode), [motionMode]);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["standalonePost", site, postId],
@@ -56,7 +60,7 @@ export function PostWindow({ postId, site }: PostWindowProps) {
 
   if (!booted || isLoading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-black text-sm text-white/60">
+      <div className="flex h-full w-full items-center justify-center bg-black text-sm text-white/60">
         <Spinner size={18} />
       </div>
     );
@@ -64,14 +68,14 @@ export function PostWindow({ postId, site }: PostWindowProps) {
 
   if (isError || !data) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-black text-sm text-white/60">
+      <div className="flex h-full w-full items-center justify-center bg-black text-sm text-white/60">
         Post not found.
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-screen">
+    <div className="h-full w-full">
       <PostViewer
         site={site}
         posts={[data]}

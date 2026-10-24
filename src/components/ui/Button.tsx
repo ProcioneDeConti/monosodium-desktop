@@ -21,7 +21,7 @@ export function Button({ children, icon, variant = "surface", className = "", ..
   return (
     <button
       type="button"
-      className={`inline-flex shrink-0 items-center gap-1.5 transition-colors duration-150
+      className={`inline-flex shrink-0 items-center gap-1.5 transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.96]
                   disabled:opacity-40 disabled:pointer-events-none
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent))]
                   ${VARIANT_CLASSES[variant]} ${className}`}

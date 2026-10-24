@@ -11,5 +11,7 @@ export function openPostWindow(postId: number, site: Site): void {
     title: `Post #${postId} - Monosodium Desktop`,
     width: 900,
     height: 700,
+    // Frameless like the main window - WindowFrame draws the title bar + traffic lights.
+    decorations: false,
   });
 }

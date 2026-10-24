@@ -27,6 +27,7 @@ import { SourceLoginsSection } from "./SourceLoginsSection";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
+import { MOTION_MODES, PALETTES } from "../../lib/theme";
 import { Section } from "../ui/Section";
 
 interface SettingsPanelProps {
@@ -75,6 +76,14 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   const setAccentColor = useSettingsStore((s) => s.setAccentColor);
   const themeMode = useSettingsStore((s) => s.themeMode);
   const setThemeMode = useSettingsStore((s) => s.setThemeMode);
+  const palette = useSettingsStore((s) => s.palette);
+  const setPalette = useSettingsStore((s) => s.setPalette);
+  const motionMode = useSettingsStore((s) => s.motionMode);
+  const setMotionMode = useSettingsStore((s) => s.setMotionMode);
+  const ambientHeader = useSettingsStore((s) => s.ambientHeader);
+  const setAmbientHeader = useSettingsStore((s) => s.setAmbientHeader);
+  const viewerAmbient = useSettingsStore((s) => s.viewerAmbient);
+  const setViewerAmbient = useSettingsStore((s) => s.setViewerAmbient);
   const videoLoopEnabled = useSettingsStore((s) => s.videoLoopEnabled);
   const setVideoLoopEnabled = useSettingsStore((s) => s.setVideoLoopEnabled);
   const videoAutoplayEnabled = useSettingsStore((s) => s.videoAutoplayEnabled);
@@ -194,6 +203,43 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
               </div>
             </div>
 
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-sm w-36 shrink-0">Palette</span>
+              <Segmented value={palette} options={PALETTES} onChange={setPalette} />
+            </div>
+            <p className="-mt-3 mb-4 pl-[9.5rem] text-xs opacity-60">
+              Background and panel colours. Navy, OLED and Warm restyle dark mode; Warm also tints
+              light mode.
+            </p>
+
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-sm w-36 shrink-0">Motion</span>
+              <Segmented value={motionMode} options={MOTION_MODES} onChange={setMotionMode} />
+            </div>
+            <p className="-mt-3 mb-4 pl-[9.5rem] text-xs opacity-60">
+              Reduced turns off animations and transitions. System follows Windows' "Animation
+              effects" setting.
+            </p>
+
+            <label className="mb-2 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={ambientHeader}
+                onChange={(e) => setAmbientHeader(e.target.checked)}
+                className="accent-[rgb(var(--accent))]"
+              />
+              Ambient title bar (soft accent-coloured glow)
+            </label>
+            <label className="mb-4 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={viewerAmbient}
+                onChange={(e) => setViewerAmbient(e.target.checked)}
+                className="accent-[rgb(var(--accent))]"
+              />
+              Post viewer glows with each post's colours
+            </label>
+
             <div className="flex items-center gap-2">
               {ACCENT_PRESETS.map((color) => (
                 <button
@@ -201,7 +247,7 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
                   type="button"
                   onClick={() => setAccentColor(color)}
                   title={color}
-                  className={`h-7 w-7 rounded-full ${accentColor === color ? "ring-2 ring-offset-2 ring-offset-[rgb(250,250,250)] dark:ring-offset-[rgb(24,24,24)] ring-black/50 dark:ring-white/70" : ""}`}
+                  className={`h-7 w-7 rounded-full ${accentColor === color ? "ring-2 ring-offset-2 ring-offset-[rgb(var(--lt-surface))] dark:ring-offset-[rgb(var(--dk-surface))] ring-black/50 dark:ring-white/70" : ""}`}
                   style={{ backgroundColor: color }}
                 />
               ))}
@@ -352,6 +398,36 @@ function CreditsFooter() {
       >
         @ProcioneDeConti
       </button>
+    </div>
+  );
+}
+
+/** A small segmented control - same look as the Theme switcher above, without icons. */
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="inline-flex overflow-hidden rounded-[var(--radius-md)] border border-black/10 dark:border-white/10">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={`px-3 py-1.5 text-xs transition-colors ${
+            value === o.value
+              ? "bg-[rgb(var(--accent))]/20 text-[rgb(var(--accent))]"
+              : "hover:bg-black/5 dark:hover:bg-white/10"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }

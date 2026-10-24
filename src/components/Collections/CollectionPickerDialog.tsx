@@ -53,7 +53,7 @@ export function CollectionPickerDialog({ posts, onClose }: CollectionPickerDialo
       <div
         className="flex max-h-[80vh] w-full max-w-sm animate-[scale-in_120ms_ease-out] flex-col
                    rounded-[var(--radius-md)] border border-black/10 dark:border-white/10
-                   bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl"
+                   bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface))] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">

@@ -220,7 +220,7 @@ function SetGridView({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col animate-[fade-in_150ms_ease-out] bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)]">
+    <div className="fixed inset-0 z-50 flex flex-col animate-[fade-in_150ms_ease-out] bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface))]">
       <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
         <IconButton onClick={onBack} title="Back to sets">
           <ChevronLeft size={18} />

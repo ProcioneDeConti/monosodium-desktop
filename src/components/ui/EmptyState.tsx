@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Mascot } from "./Mascot";
 
 interface EmptyStateProps {
   /** A lucide icon (or any node) - rendered large and dim above the text. */
@@ -8,17 +9,21 @@ interface EmptyStateProps {
   hint?: ReactNode;
   /** An optional button / link row below the text. */
   action?: ReactNode;
+  /** Show the raccoon mascot (in this mood) instead of the icon. */
+  mascot?: "happy" | "sad";
   className?: string;
 }
 
 /** The shared "there's nothing here (and here's what to do about it)" block - replaces the bare
  *  one-liners ("No posts found.", "Loading…") that were scattered across the grid and panels. */
-export function EmptyState({ icon, title, hint, action, className = "" }: EmptyStateProps) {
+export function EmptyState({ icon, title, hint, action, mascot, className = "" }: EmptyStateProps) {
   return (
     <div
       className={`flex h-full flex-col items-center justify-center gap-3 px-6 text-center ${className}`}
     >
-      {icon != null && (
+      {mascot ? (
+        <Mascot size={112} mood={mascot} />
+      ) : icon != null && (
         <div className="opacity-25 [&>svg]:h-9 [&>svg]:w-9" aria-hidden>
           {icon}
         </div>

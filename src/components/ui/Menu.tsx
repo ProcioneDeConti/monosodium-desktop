@@ -100,7 +100,7 @@ export function Menu({
         <div
           className={`absolute top-full z-30 mt-1 ${align === "end" ? "right-0 origin-top-right" : "left-0 origin-top-left"}
                       ${width} animate-[scale-in_100ms_ease-out] rounded-[var(--radius-md)]
-                      border border-black/10 dark:border-white/10 bg-[rgb(250,250,250)] dark:bg-[rgb(28,28,28)]
+                      border border-black/10 dark:border-white/10 bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface-2))]
                       p-1 text-sm shadow-xl shadow-black/20`}
         >
           <MenuCloseContext.Provider value={close}>{children}</MenuCloseContext.Provider>

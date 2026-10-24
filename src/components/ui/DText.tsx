@@ -193,7 +193,7 @@ function WikiLink({ label, page, url, site }: { label: string; page: string; url
         <span
           className="absolute left-0 top-full z-20 mt-1 block w-72 max-w-[80vw] animate-[scale-in_100ms_ease-out]
                      origin-top-left rounded-[var(--radius-md)] border border-black/10 dark:border-white/10
-                     bg-[rgb(250,250,250)] dark:bg-[rgb(28,28,28)] p-3 text-left text-xs normal-case not-italic
+                     bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface-2))] p-3 text-left text-xs normal-case not-italic
                      no-underline shadow-xl shadow-black/20"
         >
           {isLoading ? (

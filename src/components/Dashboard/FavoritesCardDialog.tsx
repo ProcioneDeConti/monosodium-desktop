@@ -219,8 +219,8 @@ export function FavoritesCardDialog({
     >
       <div
         className="flex max-h-[90vh] w-full max-w-md animate-[scale-in_120ms_ease-out] flex-col
-                   rounded-[var(--radius-md)] border border-black/10 bg-[rgb(250,250,250)] shadow-2xl
-                   dark:border-white/10 dark:bg-[rgb(24,24,24)]"
+                   rounded-[var(--radius-md)] border border-black/10 bg-[rgb(var(--lt-surface))] shadow-2xl
+                   dark:border-white/10 dark:bg-[rgb(var(--dk-surface))]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center gap-2 border-b border-black/10 px-4 py-3 dark:border-white/10">

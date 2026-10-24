@@ -45,7 +45,7 @@ export function UnlockScreen({ onUnlocked }: UnlockScreenProps) {
   }
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] p-8">
+    <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface))] p-8">
       <Lock size={32} className="text-[rgb(var(--accent))]" />
       <div className="w-full max-w-xs text-center">
         <h1 className="mb-1 text-base font-semibold">Enter your password</h1>

@@ -16,7 +16,7 @@ import { e621Api } from "../api/client";
 import type { Rating } from "../models/post";
 import type { Site } from "../models/site";
 import type { SlideshowTransition } from "./slideshow";
-import type { ThemeMode } from "./theme";
+import type { MotionMode, Palette, ThemeMode } from "./theme";
 import { useAccountStore } from "../state/accountStore";
 import { useSaucenaoStore } from "../state/saucenaoStore";
 import { DEFAULT_VIEWER_SIDEBAR_PX, useSettingsStore } from "../state/settingsStore";
@@ -47,6 +47,11 @@ export interface SettingsBackup {
   accentColor: string;
   /** Absent on a backup made before this field existed - `?? "system"` on read. */
   themeMode?: ThemeMode;
+  /** Appearance additions - absent on older backups, defaults applied on read. */
+  palette?: Palette;
+  motionMode?: MotionMode;
+  ambientHeader?: boolean;
+  viewerAmbient?: boolean;
   gridThumbnailSizePx: number;
   /** Absent on a backup made before this field existed - `?? DEFAULT_VIEWER_SIDEBAR_PX` on read. */
   viewerSidebarWidthPx?: number;
@@ -86,6 +91,10 @@ export async function buildBackup(): Promise<SettingsBackup> {
     blacklist: settings.blacklist,
     accentColor: settings.accentColor,
     themeMode: settings.themeMode,
+    palette: settings.palette,
+    motionMode: settings.motionMode,
+    ambientHeader: settings.ambientHeader,
+    viewerAmbient: settings.viewerAmbient,
     gridThumbnailSizePx: settings.gridThumbnailSizePx,
     viewerSidebarWidthPx: settings.viewerSidebarWidthPx,
     videoLoopEnabled: settings.videoLoopEnabled,
@@ -121,6 +130,10 @@ export async function applyBackup(backup: SettingsBackup): Promise<void> {
   settings.setBlacklist(backup.blacklist);
   settings.setAccentColor(backup.accentColor);
   settings.setThemeMode(backup.themeMode ?? "system");
+  settings.setPalette(backup.palette ?? "default");
+  settings.setMotionMode(backup.motionMode ?? "system");
+  settings.setAmbientHeader(backup.ambientHeader ?? true);
+  settings.setViewerAmbient(backup.viewerAmbient ?? true);
   settings.setGridThumbnailSizePx(backup.gridThumbnailSizePx);
   settings.setViewerSidebarWidthPx(backup.viewerSidebarWidthPx ?? DEFAULT_VIEWER_SIDEBAR_PX);
   settings.setVideoLoopEnabled(backup.videoLoopEnabled);

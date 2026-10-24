@@ -36,7 +36,7 @@ export function EulaScreen({ onAgree }: EulaScreenProps) {
 
   if (disagreed) {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] p-8 text-center">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface))] p-8 text-center">
         <TriangleAlert size={48} className="text-red-500" />
         <p className="max-w-sm text-base font-semibold">
           You must agree to the EULA to use this app. Closing…
@@ -46,7 +46,7 @@ export function EulaScreen({ onAgree }: EulaScreenProps) {
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] p-5">
+    <div className="flex h-full w-full flex-col bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface))] p-5">
       <h1 className="mb-4 shrink-0 text-xl font-bold">End User License Agreement</h1>
       <div
         ref={scrollRef}

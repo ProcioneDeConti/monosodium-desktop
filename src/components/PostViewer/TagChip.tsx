@@ -111,7 +111,7 @@ export function TagChip({
         onClick={() => setOpen((v) => !v)}
         title={isBlacklistMatch ? "Blacklisted - shown because filtering is disabled" : undefined}
         className={`rounded-[7px] px-2 py-1 text-xs font-medium leading-none transition-transform
-                    duration-100 hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-2
+                    duration-150 ease-[var(--ease-spring)] hover:scale-[1.06] active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2
                     focus-visible:ring-[rgb(var(--accent))] ${
           isBlacklistMatch ? "outline outline-2 outline-offset-1 outline-amber-400" : ""
         }`}

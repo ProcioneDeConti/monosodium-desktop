@@ -2,7 +2,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useInfiniteLoader, useMasonry, usePositioner, useResizeObserver } from "masonic";
 import { ArrowUp, EyeOff, SearchX } from "lucide-react";
 import { EmptyState } from "../ui/EmptyState";
-import { playableUrl, type Post } from "../../models/post";
+import { isVideo, playableUrl, type Post } from "../../models/post";
+import { setMorph, withViewTransition } from "../../lib/theme";
+
+/** How long after the grid mounts newly mounted cells still get the entrance ripple. */
+const ENTRANCE_WINDOW_MS = 400;
 import type { Site } from "../../models/site";
 import { PostThumbnail } from "./PostThumbnail";
 import { isBlacklisted, visiblePosts, type BlacklistEntries } from "../../lib/blacklist";
@@ -129,8 +133,16 @@ export function PostGrid({
   // Coalesce scroll events to one state update per frame - the raw event can fire several times
   // between paints, and each `setScrollTop` re-runs this component (and masonic's whole layout
   // pass). `isScrolling` is set eagerly so masonic can start skipping paint work immediately.
+  // The ripple-in only plays for the cells mounted with the first page, right after this grid
+  // mounts (new search/refresh remount it) - and never once the user has scrolled. Cells masonic
+  // mounts while scrolling must appear instantly: with the ripple, each sat invisible through its
+  // stagger delay + fade, leaving cell/row-shaped gaps if you scrolled right after a load.
+  const gridMountedAt = useRef(performance.now());
+  const entranceOpen = useRef(true);
+
   const onScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
+    entranceOpen.current = false;
     setIsScrolling(true);
     window.clearTimeout(scrollIdleTimer.current);
     scrollIdleTimer.current = window.setTimeout(() => setIsScrolling(false), SCROLL_IDLE_MS);
@@ -226,6 +238,24 @@ export function PostGrid({
   // Stable identity so masonic keeps its per-cell React.memo intact - a fresh render function
   // every pass forces every visible thumbnail to re-render on any parent state change (scroll
   // included).
+  // Opening a post morphs its thumbnail into the viewer (View Transitions - lib/theme.ts). Images
+  // only: the viewer's morph target is ZoomableImage's preview placeholder, videos have none.
+  const openPost = useCallback(
+    (index: number, post: Post) => {
+      const img =
+        !isVideo(post) && post.file.url
+          ? containerRef.current?.querySelector<HTMLElement>(`[data-post-thumb="${post.id}"] img`)
+          : null;
+      setMorph(img, true);
+      withViewTransition(() => {
+        onPostClick(index);
+        setMorph(img, false);
+      });
+    },
+    [onPostClick],
+  );
+
+
   const renderCell = useCallback(
     ({ index, data }: { index: number; data: Post }) => {
       const blacklisted = blacklistDisabled && isBlacklisted(blacklistEntries, data);
@@ -237,9 +267,15 @@ export function PostGrid({
             if (onSelectToggle && (selectionActive || e.ctrlKey || e.metaKey || e.shiftKey)) {
               onSelectToggle(data, { range: e.shiftKey });
             } else {
-              onPostClick(index);
+              openPost(index, data);
             }
           }}
+          // Ripple-in stagger for a fresh batch: ~one 30-post page spread over ~360ms.
+          enterDelayMs={
+            entranceOpen.current && performance.now() - gridMountedAt.current < ENTRANCE_WINDOW_MS
+              ? (index % 30) * 12
+              : null
+          }
           canInteract={canInteract}
           onToggleFavorite={onToggleFavorite}
           onUpvote={onUpvote}
@@ -254,7 +290,7 @@ export function PostGrid({
     [
       blacklistDisabled,
       blacklistEntries,
-      onPostClick,
+      openPost,
       canInteract,
       onToggleFavorite,
       onUpvote,
@@ -374,7 +410,7 @@ export function PostGrid({
           const post = focusIndex != null ? visible[focusIndex] : undefined;
           if (!post) break;
           if (selectionActive && onSelectToggle) onSelectToggle(post, { range: e.shiftKey });
-          else onPostClick(focusIndex!);
+          else openPost(focusIndex!, post);
           break;
         }
         default:
@@ -382,7 +418,7 @@ export function PostGrid({
       }
       e.preventDefault();
     },
-    [visible, columns, focusIndex, selectionActive, onSelectToggle, onPostClick],
+    [visible, columns, focusIndex, selectionActive, onSelectToggle, openPost],
   );
 
   // The container below must never conditionally unmount - the ResizeObserver that measures it
@@ -442,12 +478,14 @@ export function PostGrid({
       {empty ? (
         allHiddenByBlacklist ? (
           <EmptyState
+            mascot="sad"
             icon={<EyeOff />}
             title={`All ${posts.length} result${posts.length === 1 ? "" : "s"} are hidden by your blacklist`}
             hint="Turn on “Show blacklisted posts” in the View menu to see them, or loosen the blacklist in Settings."
           />
         ) : (
           <EmptyState
+            mascot="sad"
             icon={<SearchX />}
             title="No posts matched"
             hint="Try fewer tags, or more general ones. Check your spelling and any excluded (−) tags too."

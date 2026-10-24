@@ -20,7 +20,7 @@ export function IconButton({ children, tone = "default", className = "", ...prop
     <button
       type="button"
       className={`inline-flex shrink-0 items-center justify-center rounded-[var(--radius-sm)] p-1.5
-                  transition-colors duration-150 disabled:opacity-30 disabled:pointer-events-none
+                  transition-[color,background-color,opacity,transform] duration-150 active:scale-90 disabled:opacity-30 disabled:pointer-events-none
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent))]
                   ${TONE_CLASSES[tone]} ${className}`}
       {...props}

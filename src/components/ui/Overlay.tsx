@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { pushOverlayDepth } from "../../lib/theme";
 
 /** How long the exit animation runs before the parent is told to unmount us. Keep in step with
  *  the `fade-out` / `scale-out` durations in index.css. */
@@ -68,6 +69,10 @@ export const Overlay = forwardRef<OverlayHandle, OverlayProps>(function Overlay(
 
   useImperativeHandle(ref, () => ({ close }), [close]);
 
+  // Sheets and dialogs float over the shell, so it recedes behind them (index.css .depth-recede).
+  // Full-screen overlays are opaque - nothing to see behind.
+  useEffect(() => (variant === "full" ? undefined : pushOverlayDepth()), [variant]);
+
   useEffect(() => {
     if (!closeOnEsc) return;
     function onKeyDown(e: KeyboardEvent) {
@@ -91,7 +96,7 @@ export const Overlay = forwardRef<OverlayHandle, OverlayProps>(function Overlay(
         <div
           onClick={(e) => e.stopPropagation()}
           className={`flex max-h-[85vh] w-full ${sheetWidth} flex-col rounded-[var(--radius-md)] border
-                      border-black/10 dark:border-white/10 bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl ${
+                      border-black/10 dark:border-white/10 bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface))] shadow-2xl ${
                         closing ? "animate-[scale-out_130ms_ease-in]" : "animate-[scale-in_120ms_ease-out]"
                       } ${className}`}
         >
@@ -111,8 +116,10 @@ export const Overlay = forwardRef<OverlayHandle, OverlayProps>(function Overlay(
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`flex h-full w-full ${sheetWidth} flex-col bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] shadow-2xl ${
-            closing ? "animate-[scale-out_130ms_ease-in]" : "animate-[scale-in_150ms_ease-out]"
+          className={`flex h-full w-full ${sheetWidth} flex-col bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface))] shadow-2xl ${
+            closing
+              ? "animate-[sheet-out_130ms_ease-in]"
+              : "animate-[sheet-in_260ms_var(--ease-out-expo)]"
           } ${className}`}
         >
           {children}
@@ -123,7 +130,7 @@ export const Overlay = forwardRef<OverlayHandle, OverlayProps>(function Overlay(
 
   return (
     <div
-      className={`fixed inset-0 ${zClassName} flex flex-col bg-[rgb(250,250,250)] dark:bg-[rgb(24,24,24)] ${
+      className={`fixed inset-0 ${zClassName} flex flex-col bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface))] ${
         closing ? "animate-[fade-out_130ms_ease-in]" : "animate-[fade-in_150ms_ease-out]"
       } ${className}`}
     >

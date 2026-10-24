@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { openPostWindow } from "../../lib/postWindow";
+import { pushOverlayDepth, setMorph, withViewTransition } from "../../lib/theme";
+import { useImageAccentColor } from "../../lib/dominantColor";
+import { Burst, useAnimatedNumber, useReactionFx } from "../ui/Burst";
 import {
   AppWindow,
   Check,
@@ -136,6 +139,35 @@ export function PostViewer({
   const [showOriginal, setShowOriginal] = useState(false);
   const enqueueDownload = useDownloadsStore((s) => s.enqueue);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
+  // Ambient backdrop: the post's dominant colour glows behind the media, crossfading between
+  // posts (index.css .viewer-ambient - a registered --amb colour property so it can transition).
+  const viewerAmbient = useSettingsStore((s) => s.viewerAmbient);
+  const ambient = useImageAccentColor(viewerAmbient ? post?.preview.url : null);
+  const fx = useReactionFx(post?.id ?? 0, post?.is_favorited ?? false, post?.vote_by ?? 0);
+  const shownScore = useAnimatedNumber(post?.score.total ?? 0, post?.id);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => pushOverlayDepth(), []);
+
+  // Close with the reverse morph: the on-screen image flies back into its grid thumbnail (when
+  // that thumbnail is still mounted - otherwise it's a plain crossfade).
+  const closeViewer = useCallback(() => {
+    const id = post?.id;
+    const root = rootRef.current;
+    // While the full image is still loading, ZoomableImage's placeholder already carries the morph
+    // name - naming the hidden full image too would be a duplicate, which aborts the transition.
+    if (!root?.querySelector("[data-morph-placeholder]")) {
+      setMorph(root?.querySelector<HTMLElement>("[data-morph-img]"), true);
+    }
+    let thumb: HTMLElement | null = null;
+    withViewTransition(
+      () => {
+        onClose();
+        thumb = document.querySelector<HTMLElement>(`[data-post-thumb="${id}"] img`);
+        setMorph(thumb, true);
+      },
+      () => setMorph(thumb, false),
+    );
+  }, [onClose, post?.id]);
   const [slideshowPaused, setSlideshowPaused] = useState(false);
   const [transitionMenuOpen, setTransitionMenuOpen] = useState(false);
   const transitionMenuRef = useRef<HTMLDivElement>(null);
@@ -290,7 +322,7 @@ export function PostViewer({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") closeViewer();
       else if (e.key === "ArrowLeft" && !e.altKey) goPrev();
       else if (e.key === "ArrowRight" && !e.altKey) goNext();
       else if (e.key === " " && slideshowActive) {
@@ -300,7 +332,7 @@ export function PostViewer({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose, goPrev, goNext, slideshowActive]);
+  }, [closeViewer, goPrev, goNext, slideshowActive]);
 
   const highlightedTags = useMemo(
     () => (post && blacklistDisabled ? matchingBlacklistTags(blacklistEntries, post) : new Set<string>()),
@@ -324,9 +356,17 @@ export function PostViewer({
   const favPending = favorite.isPending || unfavorite.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] flex-col bg-black/90">
+    <div
+      ref={rootRef}
+      className="viewer-ambient fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] flex-col bg-black/90"
+      style={
+        {
+          "--amb": ambient ? `rgb(${ambient.r} ${ambient.g} ${ambient.b} / 0.32)` : "transparent",
+        } as React.CSSProperties
+      }
+    >
       <div className="flex shrink-0 items-center gap-2 px-3 py-2 text-white">
-        <IconButton tone="invert" onClick={onClose} title="Close (Esc)">
+        <IconButton tone="invert" onClick={closeViewer} title="Close (Esc)">
           <X size={18} />
         </IconButton>
         <span className="text-sm opacity-70">#{post.id}</span>
@@ -379,10 +419,21 @@ export function PostViewer({
             {votePending && vote.variables?.direction === 1 ? (
               <Spinner size={16} />
             ) : (
-              <ThumbsUp size={16} className={post.vote_by > 0 ? "fill-current" : ""} />
+              <span
+                key={fx.voteDir === 1 ? fx.voteKey : -1}
+                className={`flex ${fx.voteKey && fx.voteDir === 1 ? "anim-vote-up" : ""}`}
+              >
+                <ThumbsUp size={16} className={post.vote_by > 0 ? "fill-current" : ""} />
+              </span>
             )}
           </IconButton>
-          <span className="min-w-7 text-center text-sm tabular-nums">{post.score.total}</span>
+          <span
+            className={`min-w-7 text-center text-sm tabular-nums transition-colors duration-300 ${
+              post.vote_by > 0 ? "text-green-300" : post.vote_by < 0 ? "text-red-300" : ""
+            }`}
+          >
+            {shownScore}
+          </span>
           <IconButton
             tone="invert"
             disabled={!isAuthenticated || votePending}
@@ -393,7 +444,12 @@ export function PostViewer({
             {votePending && vote.variables?.direction === -1 ? (
               <Spinner size={16} />
             ) : (
-              <ThumbsDown size={16} className={post.vote_by < 0 ? "fill-current" : ""} />
+              <span
+                key={fx.voteDir === -1 ? fx.voteKey : -1}
+                className={`flex ${fx.voteKey && fx.voteDir === -1 ? "anim-vote-down" : ""}`}
+              >
+                <ThumbsDown size={16} className={post.vote_by < 0 ? "fill-current" : ""} />
+              </span>
             )}
           </IconButton>
           <IconButton
@@ -403,13 +459,16 @@ export function PostViewer({
             onClick={() =>
               post.is_favorited ? unfavorite.mutate(post.id) : favorite.mutate(post.id)
             }
-            className={post.is_favorited ? "!text-pink-400" : ""}
+            className={`relative ${post.is_favorited ? "!text-pink-400" : ""}`}
           >
             {favPending ? (
               <Spinner size={16} />
             ) : (
-              <Heart size={16} className={post.is_favorited ? "fill-current" : ""} />
+              <span key={fx.heartKey} className={`flex ${fx.heartKey ? "anim-heart-pop" : ""}`}>
+                <Heart size={16} className={post.is_favorited ? "fill-current" : ""} />
+              </span>
             )}
+            <Burst trigger={fx.favBurst} />
           </IconButton>
           <IconButton
             tone="invert"
@@ -476,6 +535,7 @@ export function PostViewer({
                 notes={notes}
                 imageWidth={post.file.width}
                 imageHeight={post.file.height}
+                placeholderSrc={post.preview.url}
               />
             )}
           </div>

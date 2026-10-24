@@ -6,6 +6,7 @@ import { queryClient } from "./lib/queryClient";
 import App from "./App";
 import { PostWindow } from "./components/PostWindow";
 import { BrowserNotice } from "./components/BrowserNotice";
+import { WindowFrame } from "./components/shell/WindowFrame";
 import { applyTheme, cachedThemeMode } from "./lib/theme";
 import "./index.css";
 
@@ -26,9 +27,13 @@ const site = params.get("site");
 const content = !isTauri() ? (
   <BrowserNotice />
 ) : postId && site ? (
-  <PostWindow postId={Number(postId)} site={site as "e621" | "e6ai"} />
+  <WindowFrame title={`Post #${postId} - Monosodium Desktop`}>
+    <PostWindow postId={Number(postId)} site={site as "e621" | "e6ai"} />
+  </WindowFrame>
 ) : (
-  <App />
+  <WindowFrame>
+    <App />
+  </WindowFrame>
 );
 
 const root = (

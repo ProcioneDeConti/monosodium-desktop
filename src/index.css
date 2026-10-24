@@ -21,6 +21,40 @@
   --radius-lg: 12px;
   --radius-md: 8px;
   --radius-sm: 6px;
+  /* Surface palette (lib/theme.ts applyPalette / Settings > Appearance). Space-separated RGB
+     triplets, used as rgb(var(--x)). --lt-* apply in light mode, --dk-* in dark. */
+  --lt-bg: 243 243 243;
+  --lt-surface: 250 250 250;
+  --dk-bg: 32 32 32;
+  --dk-surface: 24 24 24;
+  --dk-surface-2: 28 28 28;
+  --dk-surface-3: 38 38 38;
+  /* Shared easing for the "springy" bits - overshoots slightly, then settles. */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-palette="navy"] {
+  --dk-bg: 12 28 54;
+  --dk-surface: 17 36 68;
+  --dk-surface-2: 21 43 79;
+  --dk-surface-3: 31 60 103;
+}
+
+[data-palette="oled"] {
+  --dk-bg: 0 0 0;
+  --dk-surface: 0 0 0;
+  --dk-surface-2: 10 10 10;
+  --dk-surface-3: 24 24 24;
+}
+
+[data-palette="warm"] {
+  --lt-bg: 241 236 228;
+  --lt-surface: 250 247 242;
+  --dk-bg: 34 30 27;
+  --dk-surface: 28 25 22;
+  --dk-surface-2: 33 29 26;
+  --dk-surface-3: 46 41 36;
 }
 
 /* The window is opaque (see src-tauri/src/lib.rs / tauri.conf.json). A transparent window +
@@ -35,8 +69,10 @@ body,
 }
 
 body {
-  background-color: rgb(243 243 243);
+  background-color: rgb(var(--lt-bg));
   color: rgb(20 20 20);
+  /* Fixed-width digits everywhere, so scores/counts don't jitter as they change. */
+  font-variant-numeric: tabular-nums;
   font-family:
     "Segoe UI Variable",
     "Segoe UI",
@@ -48,23 +84,305 @@ body {
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) body {
-    background-color: rgb(32 32 32);
+    background-color: rgb(var(--dk-bg));
     color: rgb(240 240 240);
   }
 }
 
 [data-theme="dark"] body {
-  background-color: rgb(32 32 32);
+  background-color: rgb(var(--dk-bg));
   color: rgb(240 240 240);
 }
 
 [data-theme="light"] body {
-  background-color: rgb(243 243 243);
+  background-color: rgb(var(--lt-bg));
   color: rgb(20 20 20);
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Display face for headings - Windows 11's optical-size "Display" cut of Segoe UI Variable
+   (falls back to plain Segoe UI on Windows 10). */
+h1,
+h2,
+h3 {
+  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: rgb(var(--accent) / 0.35);
+}
+
+/* ---------- Custom title bar (components/shell/WindowFrame.tsx) ---------- */
+
+/* Full-window overlays (viewer, sheets, dialogs - all `fixed inset-0`) start below the custom
+   title bar; WindowFrame sets --titlebar-h (0 in fullscreen). Unlayered, so it beats Tailwind's
+   `inset-0` utility. */
+.fixed.inset-0 {
+  top: var(--titlebar-h, 0px);
+}
+
+.titlebar {
+  background-color: rgb(var(--lt-bg));
+}
+
+[data-theme="dark"] .titlebar {
+  background-color: rgb(var(--dk-bg));
+}
+
+/* Ambient wash: two soft accent-tinted blobs drifting slowly behind the title. Only
+   background-position animates, on a 30px strip, so it's cheap. */
+.titlebar-ambient {
+  background-image:
+    radial-gradient(ellipse 30% 180% at 20% 50%, rgb(var(--accent) / 0.18), transparent 70%),
+    radial-gradient(ellipse 25% 160% at 80% 50%, rgb(var(--accent) / 0.11), transparent 70%);
+  background-size: 200% 100%;
+  animation: titlebar-drift 24s ease-in-out infinite alternate;
+}
+
+@keyframes titlebar-drift {
+  to {
+    background-position: 100% 0;
+  }
+}
+
+.traffic-lights .light {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgb(0 0 0 / 0.25);
+  cursor: pointer;
+  transition:
+    filter 120ms,
+    transform 120ms var(--ease-spring),
+    background-color 150ms;
+}
+
+.light-close {
+  background-color: #ff5f57;
+}
+.light-min {
+  background-color: #febc2e;
+}
+.light-max {
+  background-color: #28c840;
+}
+
+/* Glyphs appear when hovering the group, like macOS. */
+.traffic-lights .light::after {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  line-height: 1;
+  color: rgb(0 0 0 / 0.6);
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.traffic-lights .light-close::after {
+  content: "\2715";
+  font-size: 7px;
+}
+.traffic-lights .light-min::after {
+  content: "\2212";
+}
+.traffic-lights .light-max::after {
+  content: "+";
+}
+.traffic-lights:hover .light::after {
+  opacity: 1;
+}
+.traffic-lights .light:active {
+  filter: brightness(0.85);
+  transform: scale(0.9);
+}
+.traffic-lights .light:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}
+
+/* Unfocused window: lights go grey (colour returns on hover), title dims. */
+.titlebar-blurred .traffic-lights:not(:hover) .light {
+  background-color: rgb(128 128 128 / 0.45);
+}
+.titlebar-blurred > span {
+  opacity: 0.35;
+}
+
+/* ---------- Overlay depth: the shell recedes behind sheets / dialogs / the viewer ---------- */
+
+.depth-recede {
+  transition:
+    transform 260ms var(--ease-out-expo),
+    filter 260ms var(--ease-out-expo);
+  transform-origin: 50% 0;
+}
+
+[data-overlay] .depth-recede {
+  transform: scale(0.985);
+  filter: brightness(0.8) saturate(0.9);
+}
+
+/* Sheets slide up instead of only scaling (ui/Overlay.tsx). */
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.99);
+  }
+}
+
+@keyframes sheet-out {
+  to {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+/* ---------- Grid entrance (PostGrid/PostThumbnail) ---------- */
+
+/* First appearance of a thumbnail: rises and fades in, delayed by --stagger (set inline from
+   the cell's position) so a fresh page ripples in instead of popping. */
+@keyframes thumb-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+/* `backwards` (not `both`) so a finished cell holds no animated transform; PostThumbnail also
+   drops the class on animationend. Only ever applied to the first page - see PostGrid's
+   entranceOpen. */
+.thumb-enter {
+  animation: thumb-rise 420ms var(--ease-out-expo) backwards;
+  animation-delay: var(--stagger, 0ms);
+}
+
+/* ---------- Favorite / vote micro-interactions ---------- */
+
+@keyframes heart-pop {
+  30% {
+    transform: scale(1.45);
+  }
+  60% {
+    transform: scale(0.9);
+  }
+}
+
+@keyframes vote-up {
+  35% {
+    transform: translateY(-4px) scale(1.15);
+  }
+  70% {
+    transform: translateY(1px);
+  }
+}
+
+@keyframes vote-down {
+  35% {
+    transform: translateY(4px) scale(1.15);
+  }
+  70% {
+    transform: translateY(-1px);
+  }
+}
+
+.anim-heart-pop {
+  animation: heart-pop 480ms var(--ease-spring);
+}
+.anim-vote-up {
+  animation: vote-up 420ms var(--ease-spring);
+}
+.anim-vote-down {
+  animation: vote-down 420ms var(--ease-spring);
+}
+
+/* Particle burst (ui/Burst.tsx): each dot flies out along --dx/--dy and fades. */
+@keyframes burst-fly {
+  from {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.2);
+    opacity: 0;
+  }
+}
+
+.burst-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  pointer-events: none;
+  animation: burst-fly 560ms var(--ease-out-expo) forwards;
+}
+
+/* Soft press-down for chips and pill buttons. */
+.press {
+  transition: transform 140ms var(--ease-spring);
+}
+.press:active {
+  transform: scale(0.94);
+}
+
+/* ---------- Viewer ambient glow (PostViewer) ---------- */
+
+/* Registered so a change of colour (next post) actually tweens instead of snapping. */
+@property --amb {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
+.viewer-ambient {
+  background-image:
+    radial-gradient(ellipse 75% 65% at 40% 50%, var(--amb), transparent 72%),
+    radial-gradient(ellipse 50% 40% at 50% 0%, var(--amb), transparent 80%);
+  transition: --amb 700ms ease;
+}
+
+/* ---------- View transition: thumbnail <-> viewer morph (lib/theme.ts withViewTransition) ---------- */
+
+::view-transition-group(post-media) {
+  animation-duration: 340ms;
+  animation-timing-function: var(--ease-out-expo);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+}
+
+/* Mascot gentle bob (ui/Mascot.tsx). */
+@keyframes mascot-bob {
+  50% {
+    transform: translateY(-5px) rotate(-1.5deg);
+  }
+}
+
+.mascot-bob {
+  animation: mascot-bob 3.6s ease-in-out infinite;
+}
+
+/* Reduced motion (Settings > Appearance > Motion, or Windows' animation setting on "System"):
+   collapse every animation and transition to its end state. Infinite loops (shimmer, ambient
+   wash, mascot bob) just stop. */
+[data-motion="reduced"] *,
+[data-motion="reduced"] *::before,
+[data-motion="reduced"] *::after {
+  animation-duration: 1ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
 }
 
 @keyframes fade-in {
@@ -208,7 +526,11 @@ body {
 
 .skeleton-shimmer {
   overflow: hidden;
-  background-color: rgb(128 128 128 / 0.12);
+  background-color: rgb(128 128 128 / 0.1);
+  /* A soft accent-tinted glow instead of flat grey - reads as "colour coming" rather than empty. */
+  background-image:
+    radial-gradient(ellipse at 30% 25%, rgb(var(--accent) / 0.16), transparent 60%),
+    radial-gradient(ellipse at 75% 80%, rgb(var(--accent) / 0.1), transparent 55%);
 }
 
 .skeleton-shimmer::after {
@@ -233,10 +555,12 @@ body {
 ::-webkit-scrollbar-thumb {
   background: rgb(128 128 128 / 0.4);
   border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(128 128 128 / 0.6);
+  background-color: rgb(var(--accent) / 0.7);
 }
 
 ::-webkit-scrollbar-track {

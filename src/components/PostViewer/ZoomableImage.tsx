@@ -3,6 +3,7 @@ import type { PostNote } from "../../models/note";
 import type { Site } from "../../models/site";
 import { DText } from "../ui/DText";
 import { Spinner } from "../ui/Spinner";
+import { MORPH_NAME } from "../../lib/theme";
 
 interface ZoomableImageProps {
   src: string;
@@ -13,6 +14,8 @@ interface ZoomableImageProps {
    *  are defined in, regardless of what resolution `src` actually is. */
   imageWidth?: number;
   imageHeight?: number;
+  /** The post's small preview - shown (and used as the open-morph target) until `src` loads. */
+  placeholderSrc?: string | null;
   /** Called if the browser fails to load/decode `src`. */
   onError?: () => void;
 }
@@ -22,7 +25,16 @@ const MAX_SCALE = 6;
 
 /** Wheel-to-zoom (anchored under the cursor) + drag-to-pan image viewer, desktop's answer to the
  *  reference app's pinch/spread. Resets whenever `src` changes (navigating to another post). */
-export function ZoomableImage({ src, alt, site, notes, imageWidth, imageHeight, onError }: ZoomableImageProps) {
+export function ZoomableImage({
+  src,
+  alt,
+  site,
+  notes,
+  imageWidth,
+  imageHeight,
+  placeholderSrc,
+  onError,
+}: ZoomableImageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [scale, setScale] = useState(1);
@@ -158,13 +170,35 @@ export function ZoomableImage({ src, alt, site, notes, imageWidth, imageHeight, 
       style={{ cursor: scale > 1 ? (dragState.current ? "grabbing" : "grab") : "default" }}
     >
       {!loaded && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
           <Spinner size={28} className="text-white/70" />
+        </div>
+      )}
+
+      {/* Morph target + placeholder: the post's thumbnail, blown up to exactly where the full
+          image will sit (container-query units fit the known aspect ratio), shown until the full
+          image loads. Carries the view-transition name while loading so the grid thumbnail has
+          something sized to fly into (PostViewer / PostThumbnail - lib/theme.ts withViewTransition). */}
+      {placeholderSrc && imageWidth && imageHeight && !loaded && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center [container-type:size]">
+          <img
+            src={placeholderSrc}
+            alt=""
+            draggable={false}
+            data-morph-placeholder
+            className="object-cover blur-[2px]"
+            style={{
+              aspectRatio: `${imageWidth} / ${imageHeight}`,
+              width: `min(100cqw, calc(100cqh * ${imageWidth / imageHeight}))`,
+              viewTransitionName: MORPH_NAME,
+            }}
+          />
         </div>
       )}
 
       <img
         ref={imgRef}
+        data-morph-img
         src={src}
         alt={alt}
         draggable={false}

@@ -285,7 +285,7 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
       {open && metaActive && (metaSuggestions.length > 0 || meta.hint) && (
         <ul
           className="absolute z-20 mt-1 w-full max-h-80 overflow-auto rounded-[var(--radius-md)] border
-                     border-black/10 dark:border-white/10 bg-[rgb(250,250,250)] dark:bg-[rgb(38,38,38)] shadow-lg"
+                     border-black/10 dark:border-white/10 bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface-3))] shadow-lg"
         >
           {meta.hint && (
             <li className="px-3 py-1.5 text-xs italic opacity-60">{meta.hint}</li>
@@ -318,7 +318,7 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
       {showHistory && !almostThereEgg && (
         <ul
           className="absolute z-20 mt-1 w-full overflow-hidden rounded-[var(--radius-md)] border
-                     border-black/10 dark:border-white/10 bg-[rgb(250,250,250)] dark:bg-[rgb(38,38,38)] shadow-lg"
+                     border-black/10 dark:border-white/10 bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface-3))] shadow-lg"
         >
           <li className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-50">
             Recent
@@ -368,7 +368,7 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
       {open && almostThereEgg && (
         <div
           className="absolute z-20 mt-1 w-full rounded-[var(--radius-md)] border border-black/10
-                     dark:border-white/10 bg-[rgb(250,250,250)] dark:bg-[rgb(38,38,38)] px-3 py-2
+                     dark:border-white/10 bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface-3))] px-3 py-2
                      text-sm italic opacity-70 shadow-lg"
         >
           Almost there…
@@ -377,7 +377,7 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
       {open && !almostThereEgg && shownSuggestions.length > 0 && (
         <ul
           className="absolute z-20 mt-1 w-full max-h-80 overflow-auto rounded-[var(--radius-md)]
-                     border border-black/10 dark:border-white/10 bg-[rgb(250,250,250)] dark:bg-[rgb(38,38,38)] shadow-lg"
+                     border border-black/10 dark:border-white/10 bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface-3))] shadow-lg"
         >
           {shownSuggestions.map((s, i) => {
             const category = tagSuggestionCategory(s);

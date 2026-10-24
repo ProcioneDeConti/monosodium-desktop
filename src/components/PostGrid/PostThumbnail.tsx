@@ -14,6 +14,7 @@ import { aspectRatio, isAnimated, isVideo, type Post } from "../../models/post";
 import { artistNames, formatArtists } from "../../lib/artistTags";
 import { formatCount } from "../../lib/formatCount";
 import { Spinner } from "../ui/Spinner";
+import { Burst, useReactionFx } from "../ui/Burst";
 
 interface PostThumbnailProps {
   post: Post;
@@ -35,6 +36,9 @@ interface PostThumbnailProps {
   cellWidthPx?: number;
   /** Square-crop the cell (uniform grid mode) instead of using the post's own aspect ratio. */
   square?: boolean;
+  /** Delay before this cell's first-appearance rise-in (index.css .thumb-enter); null = don't
+   *  animate (cells mounted by scrolling - see PostGrid's ENTRANCE_WINDOW_MS). */
+  enterDelayMs?: number | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -76,6 +80,10 @@ function mediaKindOf(post: Post) {
  *  from-scratch fade animation was visible). */
 const loadedThumbUrls = new Set<string>();
 
+/** Post ids whose entrance animation already played - same masonic remount reasoning as above,
+ *  so scrolling back up doesn't ripple the grid in again. */
+const enteredIds = new Set<number>();
+
 function PostThumbnailImpl({
   post,
   blacklisted,
@@ -88,7 +96,14 @@ function PostThumbnailImpl({
   selected = false,
   cellWidthPx = 220,
   square = false,
+  enterDelayMs = null,
 }: PostThumbnailProps) {
+  // Decided once per mount: animate only the first time this post ever appears.
+  const [entering, setEntering] = useState(() => enterDelayMs != null && !enteredIds.has(post.id));
+  useEffect(() => {
+    enteredIds.add(post.id);
+  }, [post.id]);
+  const fx = useReactionFx(post.id, post.is_favorited, post.vote_by);
   const thumbUrl = post.preview.url ?? post.sample.url ?? post.file.url;
   const rating = RATING_STYLE[post.rating] ?? RATING_STYLE.e;
   const mediaKind = mediaKindOf(post);
@@ -139,10 +154,19 @@ function PostThumbnailImpl({
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ aspectRatio: square ? 1 : aspectRatio(post) }}
-      className={`group relative block w-full overflow-hidden rounded-[var(--radius-md)] border
+      data-post-thumb={post.id}
+      onAnimationEnd={(e) => {
+        if (e.target === e.currentTarget) setEntering(false);
+      }}
+      style={
+        {
+          aspectRatio: square ? 1 : aspectRatio(post),
+          "--stagger": `${enterDelayMs ?? 0}ms`,
+        } as React.CSSProperties
+      }
+      className={`group relative ${entering ? "thumb-enter" : ""} block w-full overflow-hidden rounded-[var(--radius-md)] border
                   bg-black/5 dark:bg-white/5 transition-[box-shadow,transform] duration-200 ease-out
-                  hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/25 focus-visible:outline-none
+                  hover:-translate-y-1 hover:shadow-[0_14px_30px_-10px_rgb(var(--accent)/0.55)] focus-visible:outline-none
                   focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent))]
                   ${selected ? "ring-2 ring-[rgb(var(--accent))] ring-offset-1 ring-offset-transparent" : ""}
                   ${blacklisted ? "caution-stripe" : "border-black/5 dark:border-white/10"}`}
@@ -219,14 +243,17 @@ function PostThumbnailImpl({
                     .finally(() => setFavBusy(false));
                 }}
                 title={post.is_favorited ? "Remove favorite" : "Add favorite"}
-                className={`pointer-events-auto flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white
+                className={`press pointer-events-auto relative flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white
                             hover:bg-black/75 ${post.is_favorited ? "!text-pink-400" : ""}`}
               >
                 {favBusy ? (
                   <Spinner size={13} />
                 ) : (
-                  <Heart size={13} className={post.is_favorited ? "fill-current" : ""} />
+                  <span key={fx.heartKey} className={`flex ${fx.heartKey ? "anim-heart-pop" : ""}`}>
+                    <Heart size={13} className={post.is_favorited ? "fill-current" : ""} />
+                  </span>
                 )}
+                <Burst trigger={fx.favBurst} radius={14} />
               </span>
               <span
                 role="button"
@@ -240,13 +267,15 @@ function PostThumbnailImpl({
                     .finally(() => setVoteBusy(false));
                 }}
                 title="Upvote"
-                className={`pointer-events-auto flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white
+                className={`press pointer-events-auto flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white
                             hover:bg-black/75 ${post.vote_by > 0 ? "!text-green-400" : ""}`}
               >
                 {voteBusy ? (
                   <Spinner size={13} />
                 ) : (
-                  <ThumbsUp size={13} className={post.vote_by > 0 ? "fill-current" : ""} />
+                  <span key={fx.voteKey} className={`flex ${fx.voteKey ? (fx.voteDir === 1 ? "anim-vote-up" : "anim-vote-down") : ""}`}>
+                    <ThumbsUp size={13} className={post.vote_by > 0 ? "fill-current" : ""} />
+                  </span>
                 )}
               </span>
             </>
@@ -264,7 +293,7 @@ function PostThumbnailImpl({
               );
             }}
             title={dl === "err" ? "Download failed" : dl === "done" ? "Queued" : "Download file"}
-            className={`pointer-events-auto flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white
+            className={`press pointer-events-auto flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white
                         hover:bg-black/75 ${dl === "done" ? "!text-green-400" : dl === "err" ? "!text-red-400" : ""}
                         ${dl === "saving" ? "opacity-60" : ""}`}
           >

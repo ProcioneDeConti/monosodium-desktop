@@ -198,7 +198,7 @@ export function AppShell({
     <div className="flex h-full flex-col">
       <header
         data-tauri-drag-region
-        className="flex items-center gap-2 border-b border-black/10 dark:border-white/10 px-3 py-2 shrink-0"
+        className="depth-recede flex items-center gap-2 border-b border-black/10 dark:border-white/10 px-3 py-2 shrink-0"
       >
         {canGoBack && (
           <IconButton onClick={onBack} title="Back (Alt+←)">

@@ -4,7 +4,7 @@
  *  this stands in with an explanation rather than a blank page. */
 export function BrowserNotice() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[rgb(250,250,250)] p-6 text-center text-[rgb(24,24,24)] dark:bg-[rgb(24,24,24)] dark:text-[rgb(240,240,240)]">
+    <div className="flex min-h-screen items-center justify-center bg-[rgb(var(--lt-surface))] p-6 text-center text-[rgb(24,24,24)] dark:bg-[rgb(var(--dk-surface))] dark:text-[rgb(240,240,240)]">
       <div className="max-w-sm space-y-2">
         <p className="text-sm font-semibold">This page intentionally blank.</p>
         <p className="text-sm opacity-70">

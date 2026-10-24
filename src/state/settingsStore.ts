@@ -11,7 +11,7 @@ import { e621Api } from "../api/client";
 import type { Rating } from "../models/post";
 import type { Site } from "../models/site";
 import { parseBlacklist, type BlacklistEntries } from "../lib/blacklist";
-import type { ThemeMode } from "../lib/theme";
+import type { MotionMode, Palette, ThemeMode } from "../lib/theme";
 import {
   clampSlideshowInterval,
   DEFAULT_SLIDESHOW_INTERVAL_SEC,
@@ -49,6 +49,12 @@ interface SettingsState {
   accentColor: string;
   /** "system" follows the OS; "light"/"dark" force it (see lib/theme.ts). */
   themeMode: ThemeMode;
+  palette: Palette;
+  motionMode: MotionMode;
+  /** Slow accent-tinted wash behind the custom title bar. */
+  ambientHeader: boolean;
+  /** Post viewer backdrop glows with the current post's dominant colour. */
+  viewerAmbient: boolean;
   gridThumbnailSizePx: number;
   gridMode: GridMode;
   /** Width of the post viewer's info/tags sidebar, in px (drag the divider to resize). */
@@ -75,6 +81,10 @@ interface SettingsState {
   setBlacklistDisabled: (disabled: boolean) => void;
   setAccentColor: (color: string) => void;
   setThemeMode: (mode: ThemeMode) => void;
+  setPalette: (palette: Palette) => void;
+  setMotionMode: (mode: MotionMode) => void;
+  setAmbientHeader: (enabled: boolean) => void;
+  setViewerAmbient: (enabled: boolean) => void;
   setGridThumbnailSizePx: (size: number) => void;
   setViewerSidebarWidthPx: (px: number) => void;
   setVideoLoopEnabled: (enabled: boolean) => void;
@@ -124,6 +134,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   blacklistDisabled: false,
   accentColor: "#6366f1",
   themeMode: "system",
+  palette: "default",
+  motionMode: "system",
+  ambientHeader: true,
+  viewerAmbient: true,
   gridThumbnailSizePx: DEFAULT_THUMBNAIL_SIZE_PX,
   viewerSidebarWidthPx: DEFAULT_VIEWER_SIDEBAR_PX,
   videoLoopEnabled: true,
@@ -161,6 +175,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setThemeMode: (themeMode) => {
     set({ themeMode });
     void persist("themeMode", themeMode);
+  },
+  setPalette: (palette) => {
+    set({ palette });
+    void persist("palette", palette);
+  },
+  setMotionMode: (motionMode) => {
+    set({ motionMode });
+    void persist("motionMode", motionMode);
+  },
+  setAmbientHeader: (ambientHeader) => {
+    set({ ambientHeader });
+    void persist("ambientHeader", ambientHeader);
+  },
+  setViewerAmbient: (viewerAmbient) => {
+    set({ viewerAmbient });
+    void persist("viewerAmbient", viewerAmbient);
   },
   setGridThumbnailSizePx: (size) => {
     const clamped = Math.min(MAX_THUMBNAIL_SIZE_PX, Math.max(MIN_THUMBNAIL_SIZE_PX, size));
@@ -239,6 +269,10 @@ export async function loadSettings(): Promise<void> {
       blacklistEntries: parseBlacklist(blacklist),
       accentColor: (values.accentColor as string) ?? state.accentColor,
       themeMode: (values.themeMode as ThemeMode) ?? state.themeMode,
+      palette: (values.palette as Palette) ?? state.palette,
+      motionMode: (values.motionMode as MotionMode) ?? state.motionMode,
+      ambientHeader: (values.ambientHeader as boolean) ?? state.ambientHeader,
+      viewerAmbient: (values.viewerAmbient as boolean) ?? state.viewerAmbient,
       gridThumbnailSizePx: (values.gridThumbnailSizePx as number) ?? state.gridThumbnailSizePx,
       viewerSidebarWidthPx:
         values.viewerSidebarWidthPx != null

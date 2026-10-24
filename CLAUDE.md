@@ -97,6 +97,10 @@ src/
   components/
     ui/                        shared button/section chrome (IconButton, Button, Section) reused
                                across the shell, viewer, settings, and profile panel
+    shell/WindowFrame.tsx     custom title bar (window is frameless): traffic-light controls +
+                               drag region. `fixed inset-0` overlays are pushed below it by an
+                               index.css rule (--titlebar-h). Grid cells mounted by scrolling
+                               must never get a delayed/fading entrance - they show as gaps
     shell/AppShell.tsx        top bar: title, SearchBar, site toggle, thumbnail-size slider,
                                Favorites/Profile shortcuts
     SearchBar/SearchBar.tsx   tag-chip input + live category-colored autocomplete

@@ -1825,7 +1825,7 @@ live call before implementing (per user instruction - no more guessing).
       - `tauri-plugin-single-instance` (registered first in `lib.rs`): a second launch exits and
         re-shows/unminimizes the running window, including from the tray. Not yet live-tested
         (incl. Settings reset / data-move relaunch).
-- [x] **Games launcher** (unreleased)
+- [x] **Games launcher** (v1.21.0)
       - Menu's "Tagdle" item is now "Games" -> `Games/GamesPanel.tsx`: a launcher grid; the
         chosen game renders in the same sheet (back arrow / Esc returns to the launcher).
         Tagdle became an embeddable `TagdleGame` (alley wall kept).
@@ -1864,3 +1864,36 @@ live call before implementing (per user instruction - no more guessing).
       - Background music in the games sheet (`GameMusic.tsx`): royalty-free tracks from
         `/bgmusic`, bundled by Vite via `import.meta.glob`; play/pause/skip/volume persisted in
         games.json. Not yet live-tested in a release build.
+- [x] **Visual polish pass + frameless window** (v1.22.0)
+      - Frameless window (`decorations: false` - tauri.conf.json + `lib/postWindow.ts`):
+        `shell/WindowFrame.tsx` draws a 30px title bar with macOS-style traffic-light buttons
+        (same look as the Traveling Raccman Solver app), greyed when unfocused, hidden in F11
+        fullscreen. `fixed inset-0` overlays start below it via an index.css rule
+        (`top: var(--titlebar-h)`). First attempt used `contain: layout` on a wrapper as the
+        overlays' containing block - that made WebView2 black out grid thumbnails in tile-shaped
+        strips while scrolling. (That turned out not to be the flicker's cause, but the CSS rule
+        is simpler anyway.) The real cause: `.thumb-enter` used `animation-fill-mode: both`, so
+        every initially-visible cell held a filled transform = its own GPU layer for its whole
+        life; WebView2 ran out of tile memory and blacked out rows on fresh load until those
+        cells scrolled away. Now `backwards` + the class is dropped on animationend.
+      - Grid ripple-in only plays for cells mounted within 400ms of the grid mounting AND before
+        the first scroll event. Any looser and cells masonic mounts mid-scroll sit invisible
+        through their stagger delay + fade - seen (from a screen recording) as missing cells /
+        partial rows when scrolling right after a load or refresh. That, not GPU layers, was the
+        "flicker"; the `backwards` fill change is kept as a harmless improvement.
+      - Thumbnail <-> viewer morph via View Transitions (`withViewTransition`/`setMorph` in
+        `lib/theme.ts`). The view-transition name is set imperatively only around the
+        transition; the viewer's target is ZoomableImage's preview placeholder (sized with
+        container-query units to the post's aspect ratio) since the full image isn't loaded yet.
+        Images only - videos get a plain crossfade.
+      - Viewer ambient glow from the post's dominant colour (`useImageAccentColor`, registered
+        `--amb` property so it tweens). Grid ripple-in stagger (`.thumb-enter`, once per post id),
+        accent-tinted skeletons and hover glow. Favourite burst + heart pop, vote bounce, score
+        count-up (`ui/Burst.tsx`). Shell recedes behind sheets/dialogs/viewer
+        (`pushOverlayDepth` -> `.depth-recede`); sheets slide up.
+      - Settings > Appearance: Palette (Neutral / e621 navy / OLED / Warm - surfaces are now
+        `--lt-*`/`--dk-*` CSS variables), Motion (System / Full / Reduced - `data-motion` collapses
+        all animation), ambient title bar, viewer glow. All four included in backups.
+      - Raccoon mascot (`ui/Mascot.tsx`, `assets/mascot.png` - 384px downscale of raccute2.png)
+        on loading / no-results / error states. Display face for headings, tabular digits
+        globally, accent text selection + scrollbar hover, press feedback on buttons/chips.

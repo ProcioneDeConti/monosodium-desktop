@@ -174,8 +174,8 @@ function ProfileContent({
               alt={profile.name}
               draggable={false}
               className="block h-auto w-auto max-h-[108px] max-w-[176px] rounded-[24px] border-4
-                         border-[rgb(var(--accent))] bg-[rgb(250,250,250)]
-                         shadow-[0_14px_36px_-8px_rgba(0,0,0,0.55)] dark:bg-[rgb(24,24,24)]"
+                         border-[rgb(var(--accent))] bg-[rgb(var(--lt-surface))]
+                         shadow-[0_14px_36px_-8px_rgba(0,0,0,0.55)] dark:bg-[rgb(var(--dk-surface))]"
             />
           ) : (
             <div
