@@ -142,9 +142,18 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
     setTags(tags.filter((_, i) => i !== index));
   }
 
+  /** Leaves the search box for the post grid, so arrows / h-j-k-l drive the grid instead of the
+   *  input's caret. If the grid is mid-remount (a new search), the blur alone is enough - the
+   *  fresh grid takes focus itself on mount when nothing else holds it. */
+  function leaveInput() {
+    setOpen(false);
+    inputRef.current?.blur();
+    document.getElementById("post-grid")?.focus({ preventScroll: true });
+  }
+
   function submit(finalTags: string[]) {
     onSearch(finalTags.join(" "));
-    setOpen(false);
+    leaveInput();
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -209,8 +218,11 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
       removeTag(tags.length - 1);
       return;
     }
+    // Escape closes the dropdown and leaves the box in one press (focusing the box opens the
+    // Recent list, so a close-first-then-leave Escape would nearly always take two).
     if (e.key === "Escape") {
-      setOpen(false);
+      e.preventDefault();
+      leaveInput();
     }
   }
 

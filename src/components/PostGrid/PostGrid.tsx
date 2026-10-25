@@ -323,6 +323,30 @@ export function PostGrid({
   // --- keyboard navigation ---
   const columns = Math.max(1, positioner.columnCount);
 
+  // Where a fresh focus ring starts: the first cell already on screen, not index 0 - seeding 0
+  // makes the reveal effect below yank a scrolled grid back to the very top.
+  const firstInView = useCallback((): number => {
+    const el = containerRef.current;
+    if (!el || visible.length === 0) return 0;
+    let best = Infinity;
+    positioner.range(el.scrollTop, el.scrollTop + el.clientHeight, (index) => {
+      if (index < best) best = index;
+    });
+    return Number.isFinite(best) ? Math.min(best, visible.length - 1) : 0;
+  }, [positioner, visible.length]);
+
+  // Take keyboard focus on mount if nothing else holds it (e.g. right after a search submitted
+  // from the search bar, which blurs itself), so arrows / h-j-k-l work without a click first.
+  // No ring is seeded for this - it's not the user tabbing in.
+  const quietFocus = useRef(false);
+  useEffect(() => {
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    quietFocus.current = true;
+    containerRef.current?.focus({ preventScroll: true });
+    quietFocus.current = false;
+  }, []);
+
   // Keep the ring valid when `visible` shrinks (blacklist toggle) without a remount.
   useEffect(() => {
     setFocusIndex((f) => (f == null ? null : visible.length === 0 ? null : Math.min(f, visible.length - 1)));
@@ -380,7 +404,11 @@ export function PostGrid({
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const move = (delta: number) =>
         setFocusIndex((cur) =>
-          visible.length === 0 ? null : Math.min(visible.length - 1, Math.max(0, (cur ?? 0) + delta)),
+          visible.length === 0
+            ? null
+            : cur == null
+              ? firstInView()
+              : Math.min(visible.length - 1, Math.max(0, cur + delta)),
         );
       switch (e.key) {
         case "ArrowRight":
@@ -418,7 +446,7 @@ export function PostGrid({
       }
       e.preventDefault();
     },
-    [visible, columns, focusIndex, selectionActive, onSelectToggle, openPost],
+    [visible, columns, focusIndex, selectionActive, onSelectToggle, openPost, firstInView],
   );
 
   // The container below must never conditionally unmount - the ResizeObserver that measures it
@@ -464,11 +492,19 @@ export function PostGrid({
     <div className="relative h-full">
     <div
       ref={containerRef}
+      id="post-grid"
       onScroll={onScroll}
       onWheel={() => (revealedIndex.current = focusIndex)}
       onKeyDown={onGridKeyDown}
+      // Seed the ring only when keyboard focus lands on the grid itself (Tab, or Escape out of
+      // the search bar). The viewer-close effect above calls focus() right after its own
+      // setFocusIndex(prev), before that commits - so on the first close after a search this
+      // handler still saw `focusIndex == null` and queued a 0 that overrode `prev`, scrolling the
+      // grid back to the top. The functional update keeps a ring set earlier in the same tick.
       onFocus={(e) => {
-        if (e.target === e.currentTarget && focusIndex == null && visible.length > 0) setFocusIndex(0);
+        if (e.target !== e.currentTarget || quietFocus.current || visible.length === 0) return;
+        if (!e.currentTarget.matches(":focus-visible")) return;
+        setFocusIndex((f) => f ?? firstInView());
       }}
       tabIndex={0}
       role="grid"

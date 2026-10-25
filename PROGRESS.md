@@ -1897,3 +1897,12 @@ live call before implementing (per user instruction - no more guessing).
       - Raccoon mascot (`ui/Mascot.tsx`, `assets/mascot.png` - 384px downscale of raccute2.png)
         on loading / no-results / error states. Display face for headings, tabular digits
         globally, accent text selection + scrollbar hover, press feedback on buttons/chips.
+- [x] **Grid/search focus fixes** (v1.22.1)
+      - First viewer close after a search scrolled the grid to the top: the viewer-close effect
+        calls `setFocusIndex(prev)` then `container.focus()`, and the grid's `onFocus` (still
+        holding the pre-commit `focusIndex == null`) queued `setFocusIndex(0)` on top - the reveal
+        effect then scrolled to post 0. `onFocus` now uses a functional update (`f ?? ...`), only
+        seeds on `:focus-visible` (keyboard), and seeds the first on-screen cell, not 0.
+      - Search box kept focus after submitting, and Escape only closed the dropdown. Submit and
+        Escape now blur it and focus the grid (`#post-grid`); a freshly mounted grid also takes
+        focus itself when nothing else holds it, so arrows / h-j-k-l work right after a search.
