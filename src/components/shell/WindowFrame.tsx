@@ -76,17 +76,17 @@ function TrafficLights() {
       />
       <button
         type="button"
-        className="light light-min"
-        title="Minimize"
-        aria-label="Minimize"
-        onClick={() => void win.minimize()}
-      />
-      <button
-        type="button"
         className="light light-max"
         title="Maximize"
         aria-label="Maximize"
         onClick={() => void win.toggleMaximize()}
+      />
+      <button
+        type="button"
+        className="light light-min"
+        title="Minimize"
+        aria-label="Minimize"
+        onClick={() => void win.minimize()}
       />
     </div>
   );

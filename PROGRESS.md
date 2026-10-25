@@ -1906,3 +1906,5 @@ live call before implementing (per user instruction - no more guessing).
       - Search box kept focus after submitting, and Escape only closed the dropdown. Submit and
         Escape now blur it and focus the grid (`#post-grid`); a freshly mounted grid also takes
         focus itself when nothing else holds it, so arrows / h-j-k-l work right after a search.
+      - Title-bar lights reordered to close / maximize / minimize (on request). Colour and hover
+        glyph are per-class (`.light-max`/`.light-min` in index.css), so they moved with the buttons.
