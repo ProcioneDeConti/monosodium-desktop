@@ -280,6 +280,11 @@ export const e621Api = {
     return invoke("get_tag", { site, name });
   },
 
+  /** Stats for several exact tag names in one request; unknown names are simply absent. */
+  getTagsByNames(site: Site, names: string[]): Promise<TagInfo[]> {
+    return invoke("get_tags_by_names", { site, names });
+  },
+
   /** One page of a category's most-used tags (tags.json?search[order]=count) - Tagdle's pool. */
   getTopTags(site: Site, category: number, page: number, limit: number): Promise<TagInfo[]> {
     return invoke("get_top_tags", { site, category, page, limit });

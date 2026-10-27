@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useInfiniteLoader, useMasonry, usePositioner, useResizeObserver } from "masonic";
 import { ArrowUp, EyeOff, SearchX } from "lucide-react";
 import { EmptyState } from "../ui/EmptyState";
+import { BlacklistedResultsHelp, NoResultsHelp } from "./NoResultsHelp";
 import { isVideo, playableUrl, type Post } from "../../models/post";
 import { setMorph, withViewTransition } from "../../lib/theme";
 
@@ -42,6 +43,12 @@ interface PostGridProps {
   /** The open viewer's index (null = closed). When the viewer closes, the grid moves its focus
    *  ring to the last-viewed post, scrolls it into view and briefly flashes it. */
   viewerIndex?: number | null;
+  /** The user's search (without rating filters) - lets the no-results state suggest which term
+   *  to drop. Omit, along with `onSearch`, for the plain empty state. */
+  query?: string;
+  onSearch?: (query: string) => void;
+  /** Flips "Show blacklisted posts" on - offered when the blacklist hid every result. */
+  onShowBlacklisted?: () => void;
   /** post id -> 1-based fetched page, for the "Page N" markers and floating page indicator. */
   pageOfPost?: Map<number, number>;
 }
@@ -85,6 +92,9 @@ export function PostGrid({
   scrollKey,
   viewerIndex = null,
   pageOfPost,
+  query,
+  onSearch,
+  onShowBlacklisted,
 }: PostGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -532,12 +542,13 @@ export function PostGrid({
             }
           />
         ) : allHiddenByBlacklist ? (
-          <EmptyState
-            mascot="sad"
-            icon={<EyeOff />}
-            title={`All ${posts.length} result${posts.length === 1 ? "" : "s"} are hidden by your blacklist`}
-            hint="Turn on “Show blacklisted posts” in the View menu to see them, or loosen the blacklist in Settings."
+          <BlacklistedResultsHelp
+            posts={posts}
+            entries={blacklistEntries}
+            onShowBlacklisted={onShowBlacklisted}
           />
+        ) : query != null && onSearch ? (
+          <NoResultsHelp site={site} query={query} onSearch={onSearch} />
         ) : (
           <EmptyState
             mascot="sad"

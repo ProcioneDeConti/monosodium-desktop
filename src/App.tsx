@@ -869,6 +869,9 @@ function App() {
               scrollKey={`${site}:${effectiveTags}`}
               viewerIndex={viewerIndex}
               pageOfPost={pageOfPost}
+              query={activeQuery}
+              onSearch={runNewSearch}
+              onShowBlacklisted={() => setBlacklistDisabled(true)}
               selectionActive={selectionActive}
               selectedIds={selectedIds}
               onSelectToggle={handleSelectToggle}

@@ -1926,3 +1926,11 @@ live call before implementing (per user instruction - no more guessing).
   previews also now stream the smallest `sample.alternates.samples` mp4 (480p, ~1/5 the size)
   via `previewVideoUrl()` instead of the original - `PostSample` gained the `alternates` field
   (Rust + TS). Viewer still plays the original. Not live-tested.
+- [x] **Smart empty states** (unreleased) "No posts matched" now does one `tags.json` lookup
+  (`get_tags_by_names` - `search[name]` takes a comma list, so it's a single rate-limiter token)
+  for the query's plain tags, flags ones that don't exist ("isn't a tag - check the spelling") or
+  are rare (<100 posts), and offers up to 4 one-click "search without X" buttons, likeliest
+  culprit first (`lib/emptyState.ts`, unit-tested; UI in `PostGrid/NoResultsHelp.tsx`).
+  "All results hidden by your blacklist" names the lines doing the hiding with per-line counts
+  and has a "Show them anyway" button. Metatags/negations/wildcards aren't looked up, just
+  offered as droppable. Not live-tested.

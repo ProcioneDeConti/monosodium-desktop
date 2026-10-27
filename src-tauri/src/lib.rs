@@ -182,6 +182,7 @@ pub fn run() {
             api::get_artist,
             api::get_artist_dnp,
             api::get_tag,
+            api::get_tags_by_names,
             api::get_top_tags,
             api::get_implications_from,
             api::get_tag_relations,

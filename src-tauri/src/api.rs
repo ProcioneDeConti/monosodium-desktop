@@ -939,6 +939,32 @@ pub async fn get_tag(
     Ok(if tags.is_empty() { None } else { Some(tags.remove(0)) })
 }
 
+/// Stats for several exact names in one request (`search[name]` takes a comma list) - powers the
+/// no-results empty state. Names that don't exist are simply absent from the result. Public.
+#[tauri::command]
+pub async fn get_tags_by_names(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    names: Vec<String>,
+) -> Result<Vec<TagInfo>, String> {
+    if names.is_empty() {
+        return Ok(Vec::new());
+    }
+    let joined = names.join(",");
+    let limit = names.len().min(320).to_string();
+    let response = request(&state, site, Method::GET, "tags.json")
+        .await?
+        .query(&[("search[name]", joined.as_str()), ("limit", limit.as_str())])
+        .send_retry(&state, site)
+        .await
+        .map_err(|e| e.to_string())?;
+    ensure_success(response)
+        .await?
+        .json::<Vec<TagInfo>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// One page of the most-used tags in a category (`tags.json?search[order]=count`), for the
 /// Tagdle game's pool. Public. `limit` is capped at e621's 320 max.
 #[tauri::command]
