@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MascotCue } from "../Mascot/MascotLayer";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Copy, Flame, ImageOff, Settings2, Trophy, X } from "lucide-react";
 import { e621Api } from "../../api/client";
@@ -305,6 +306,7 @@ function DailySummary({
     <div className="flex flex-col items-center gap-3 py-8 text-center">
       <p className="relative text-3xl font-bold">
         {celebrate && <ConfettiBurst variant="rainbow" />}
+        {celebrate && <MascotCue kind="gameWin" />}
         {score}/{results.length}
       </p>
       <p className="text-2xl tracking-wide">{results.map((ok) => (ok ? "🟩" : "🟥")).join("")}</p>
@@ -382,6 +384,7 @@ function EndlessGame({ site, categories }: { site: Site; categories: TagdleCateg
       {picked && raceDone && (
         <div className="mt-4 flex flex-col items-center gap-2">
           {wrong && <p className="text-sm font-semibold">Game over - final streak {streak}</p>}
+          {wrong && <MascotCue kind="gameLose" />}
           <NextButton onClick={wrong ? restart : deal}>{wrong ? "Play again" : "Next"}</NextButton>
         </div>
       )}
@@ -461,6 +464,7 @@ function RoundView({
         {picked === null ? "Which tag has more posts?" : !finished ? "And the counts are…" : null}
         {finished && (
           <span className={picked === correct ? "text-green-500" : "text-red-500"}>
+            <MascotCue kind={picked === correct ? "gameRight" : "gameWrong"} />
             {picked === correct ? "Correct!" : "Not quite!"}
           </span>
         )}

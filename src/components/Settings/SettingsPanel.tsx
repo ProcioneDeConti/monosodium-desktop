@@ -9,7 +9,9 @@ import {
   MIN_VIDEO_SPEED,
   STEP_VIDEO_SPEED,
   useSettingsStore,
+  type MascotMode,
 } from "../../state/settingsStore";
+import { useMascotStore } from "../../state/mascotStore";
 import { useAccountStore } from "../../state/accountStore";
 import { e621Api } from "../../api/client";
 import type { Rating } from "../../models/post";
@@ -30,6 +32,12 @@ import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { MOTION_MODES, PALETTES } from "../../lib/theme";
 import { Section } from "../ui/Section";
+
+const MASCOT_MODES: { value: MascotMode; label: string }[] = [
+  { value: "companion", label: "Companion" },
+  { value: "cameos", label: "Cameos" },
+  { value: "off", label: "Off" },
+];
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -80,6 +88,12 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   const palette = useSettingsStore((s) => s.palette);
   const setPalette = useSettingsStore((s) => s.setPalette);
   const motionMode = useSettingsStore((s) => s.motionMode);
+  const mascotMode = useSettingsStore((s) => s.mascotMode);
+  const setMascotMode = useSettingsStore((s) => s.setMascotMode);
+  const mascotSpeech = useSettingsStore((s) => s.mascotSpeech);
+  const setMascotSpeech = useSettingsStore((s) => s.setMascotSpeech);
+  const mascotHidden = useMascotStore((s) => s.hiddenForSession);
+  const restoreMascot = useMascotStore((s) => s.restore);
   const setMotionMode = useSettingsStore((s) => s.setMotionMode);
   const ambientHeader = useSettingsStore((s) => s.ambientHeader);
   const setAmbientHeader = useSettingsStore((s) => s.setAmbientHeader);
@@ -244,6 +258,40 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
               />
               Post viewer glows with each post's colours
             </label>
+
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-sm w-36 shrink-0">Mascot</span>
+              <Segmented value={mascotMode} options={MASCOT_MODES} onChange={setMascotMode} />
+            </div>
+            <p className="-mt-3 mb-2 pl-[9.5rem] text-xs opacity-60">
+              The raccoon reacts to favourites, votes, searches and more. Companion sits in a corner
+              of the grid (drag it to move, right-click to hide); Cameos pops in briefly instead.
+            </p>
+            <label
+              className={`mb-4 flex items-center gap-2 pl-[9.5rem] text-sm ${mascotMode === "off" ? "opacity-40" : ""}`}
+            >
+              <input
+                type="checkbox"
+                checked={mascotSpeech}
+                disabled={mascotMode === "off"}
+                onChange={(e) => setMascotSpeech(e.target.checked)}
+                className="accent-[rgb(var(--accent))]"
+              />
+              Let it talk now and then
+            </label>
+            {mascotHidden && mascotMode !== "off" && (
+              <div className="-mt-2 mb-4 flex items-center gap-2 pl-[9.5rem] text-xs">
+                <span className="opacity-60">Mascot hidden</span>
+                <span className="opacity-30">-</span>
+                <button
+                  type="button"
+                  onClick={restoreMascot}
+                  className="font-semibold text-[rgb(var(--accent))] hover:underline"
+                >
+                  Restore
+                </button>
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               {ACCENT_PRESETS.map((color) => (

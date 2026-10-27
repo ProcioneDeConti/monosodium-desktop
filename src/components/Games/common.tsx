@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { MascotCue } from "../Mascot/MascotLayer";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Check, ExternalLink, RotateCcw, Trophy, X } from "lucide-react";
 import { e621Api } from "../../api/client";
@@ -397,6 +398,7 @@ export function RunSummary({
       <p className="relative text-4xl font-black tabular-nums">
         {/* Any run that scored gets the rainbow, like Tagdle's finished daily. */}
         {score > 0 && <ConfettiBurst variant="rainbow" />}
+        <MascotCue kind={score > 0 ? "gameWin" : "gameLose"} />
         {score}
         <span className="text-xl font-semibold opacity-50">
           {" "}
@@ -431,6 +433,7 @@ export function Verdict({ ok, children }: { ok: boolean; children?: ReactNode })
       className={`relative rounded-full bg-neutral-900/85 px-3 py-1 text-sm font-semibold ${ok ? "text-green-400" : "text-red-400"}`}
     >
       {ok && <ConfettiBurst />}
+      <MascotCue kind={ok ? "gameRight" : "gameWrong"} />
       {ok ? "Correct!" : "Not quite!"} {children}
     </p>
   );

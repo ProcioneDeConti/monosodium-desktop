@@ -1,3 +1,4 @@
+import { mascotReact } from "../../state/mascotStore";
 import { useEffect, useState } from "react";
 import { CheckCircle2, ExternalLink } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -30,6 +31,10 @@ const UPDATE_HINT: Partial<Record<InstallInfo["kind"], string>> = {
 export function UpdateSection() {
   const check = useUpdateCheck();
   const result = check.data;
+  // Held by the mascot store while Settings covers him - he reacts once you close it.
+  useEffect(() => {
+    if (result?.update_available) mascotReact("updateAvailable");
+  }, [result]);
   const [install, setInstall] = useState<InstallInfo | null>(null);
 
   useEffect(() => {

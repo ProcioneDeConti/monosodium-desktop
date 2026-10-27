@@ -1,3 +1,4 @@
+import { useMascotStore } from "./mascotStore";
 // Session-only download queue (not persisted - a half-finished queue isn't worth restoring, and
 // the files it would re-fetch are large). Feeds the DownloadsPanel; bulk "download selected" and
 // the single-post download buttons both enqueue here. The actual fetch+write is
@@ -99,6 +100,7 @@ async function runJob(job: DownloadJob) {
   try {
     const path = await e621Api.downloadPostFile(job.url, job.fileName, job.dir, job.isVideo);
     setStatus(job.id, { status: "done", savedPath: path });
+    useMascotStore.getState().downloaded();
     useStatsStore.getState().recordDownload(job.bytes);
   } catch (e) {
     setStatus(job.id, { status: "error", error: errorMessage(e, "Download failed") });

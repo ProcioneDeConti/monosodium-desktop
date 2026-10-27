@@ -1,3 +1,4 @@
+import { mascotReact } from "./mascotStore";
 // Desktop analogue of the reference Android app's data/settings/SavedSearchStore.kt: a small,
 // purely local list of {label, query} shortcuts (e621 itself has no saved-search feature to sync
 // against). Kept in its own JSON file rather than folded into settingsStore.ts, matching the
@@ -41,6 +42,7 @@ export const useSavedSearchesStore = create<SavedSearchesState>((set, get) => ({
     const trimmedLabel = label.trim();
     const trimmedQuery = query.trim();
     if (!trimmedLabel || !trimmedQuery) return;
+    mascotReact("savedSearch");
     const next = [
       ...get().savedSearches,
       { id: crypto.randomUUID(), label: trimmedLabel, query: trimmedQuery, createdAt: Date.now() },

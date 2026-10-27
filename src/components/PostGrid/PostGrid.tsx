@@ -3,6 +3,7 @@ import { useInfiniteLoader, useMasonry, usePositioner, useResizeObserver } from 
 import { ArrowUp, EyeOff, SearchX } from "lucide-react";
 import { EmptyState } from "../ui/EmptyState";
 import { BlacklistedResultsHelp, NoResultsHelp } from "./NoResultsHelp";
+import { mascotReact } from "../../state/mascotStore";
 import { isVideo, playableUrl, type Post } from "../../models/post";
 import { setMorph, withViewTransition } from "../../lib/theme";
 
@@ -243,6 +244,17 @@ export function PostGrid({
   // without this, a thumbnail-size change or window resize would keep using stale cached
   // heights from the old column width and cells would overlap/gap incorrectly.
   const resizeObserver = useResizeObserver(positioner);
+
+  // Mascot "that's everything" - once per search, when the user has actually scrolled down to the
+  // bottom of a result set with no further pages (a one-screen result doesn't count).
+  const endReacted = useRef(false);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (endReacted.current || !el || hasNextPage || isFetchingNextPage || visible.length === 0) return;
+    if (scrollTop <= 0 || el.scrollHeight - scrollTop - el.clientHeight > 200) return;
+    endReacted.current = true;
+    mascotReact("endOfResults");
+  }, [scrollTop, hasNextPage, isFetchingNextPage, visible.length]);
 
   const loadMore = useInfiniteLoader(
     async () => {
@@ -609,7 +621,10 @@ export function PostGrid({
         {showJumpTop && (
           <button
             type="button"
-            onClick={() => containerRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+            onClick={() => {
+              containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+              mascotReact("rocket");
+            }}
             title="Back to top"
             className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full
                        bg-[rgb(var(--accent))] text-white shadow-lg hover:brightness-110"

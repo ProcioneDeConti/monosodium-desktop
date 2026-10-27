@@ -1938,3 +1938,53 @@ live call before implementing (per user instruction - no more guessing).
   ran `~id:X ~parent:X`; e621 drops `~` on id:/parent: metatags, so it matched everything (and
   `parent:X` alone excludes X). Now fetches the parent (one id: lookup) for its children list and
   searches `id:X,child,... order:id`. The "N children" chip likewise includes the current post.
+- [x] **Mascot reactions** (unreleased) Settings > Appearance > Mascot: Companion (default) /
+  Cameos / Off, plus "Let it talk now and then" (speech bubbles). Off disables reactions only -
+  empty/loading screens keep the raccoon. Companion: 56px in a grid corner (default bottom-left;
+  bottom-right sits above the back-to-top pills), click = pet, drag = snap to nearest corner
+  (persisted `mascotCorner`), right-click = hide until restart, fades near the cursor, hidden in
+  multi-select; the viewer/Games/sheets cover it. Cameos: peeks up from the bottom edge per
+  reaction; minor reactions skipped, >=60s cooldown per kind. Everything goes through
+  `useMascotStore.react(kind)` (`state/mascotStore.ts`); the table, throttling (per-kind cooldown,
+  priority interrupts), speech picking (>=3min gap, 50% chance; milestones always talk) and
+  milestone maths are pure in `lib/mascot.ts` (unit-tested). Art is the existing mascot.png only:
+  whole-image CSS motions (`.mascot-m-*` in index.css) + lucide overlay symbols; a `pose` field is
+  reserved for future pose images. Triggers: favorite/vote (usePostMutations), download done
+  (downloadsStore), unknown tag / empty search (NoResultsHelp), end of results (PostGrid),
+  idle sleep 5min, late-night yawn, wheel-fling dizzy, health-check error / 503 sweat, new dmail,
+  favorite milestones (100..50k, via the 60s own-profile poll) - `Mascot/useMascotTriggers.ts`.
+  Reduced motion: no movement, symbols shown static. Not live-tested.
+  - Follow-ups (same feature): companion sits on a frosted squircle that moves with him
+    (`MascotStage backdrop`); right-click hide shows a 6s "Mascot hidden - Undo" pill, and
+    Settings > Mascot shows "Mascot hidden - Restore". Reactions now release real emoji in a
+    live-stream-style feed (`EmojiFeed`: 2-7 per reaction, staggered, rise with sway, fade) -
+    `ReactionDef.emoji` lists, `react(kind, { emoji })` overrides. Games: `<MascotCue kind>` beside
+    the existing confetti (Verdict, RunSummary, Higher/Lower, Tag Bingo, Six Degrees, Tagdle) ->
+    gameRight / gameWrong (angry) / gameWin (rainbow confetti) / gameLose; a `MascotLayer inOverlay`
+    lives inside the Games sheet. More triggers: show blacklisted (queasy 🤮), hide seen (🙈),
+    unfavorite (💔), site switch (🤖 / 🦊), order:random (🎲), raccoon search (selfie), thumbnail
+    slider at min/max, add-to-blacklist, saved search, launch-day holidays (`holidayFor`).
+    Reactions fired while an overlay covers the grid (viewer, Settings, sheets) are held in
+    `mascotStore.pending` (best priority wins, no cooldown spent) and play when the last overlay
+    closes (MutationObserver on `data-overlay`); wheel-dizzy only counts grid scrolling.
+  - Reaction batch 3 (all on request): long scroll (500 posts, 😅), deep search (page 20, 🗺️),
+    back-to-top 🚀, 4+ tabs 🤹, refresh 🔄, layout toggle 🧱/📐; species searches (`SPECIES_REACTIONS`:
+    raccoon selfie, cat hiss 🙀, dog wag 🐶, dragon cower 🐉), order:score 🏆, order:id 🦖, 8+ terms 🧠,
+    exactly one result 🦄, `fav:<you>` 💕 (`queryReaction`); favorites now pick shiny (1/500 ✨) >
+    streak (5/min 🔥) > bold (negative score 🤨, upvotes too) > popular (2000+ favs ⭐) > plain
+    (`mascotStore.favorited`); 5 downloads in 30s = one 📦 batch; info-panel copy 📋; 2h stretch
+    nudge 🧘; launch greetings via `launchGreeting` (holiday/birthday Feb 5 🎂 > missed-you after a
+    week > late night > morning ☕ > weekend 🛋️; previous launch in localStorage); perk-up 👀 after
+    30min away; update available 🎁 (Settings check); pet combos (5 in 3s flustered 😳, 15 in 10s
+    annoyed 😤 + refuses pets 60s); 3 drags in 20s manhandled 🥴; restore 🥺; ambient fidget (look
+    around after 20min with no reaction); Konami code on the grid = 5s disco 🪩. New motions: spin,
+    disco (hue-cycling bounce), look.
+  - Dashboard: a `MascotLayer inOverlay` lives in the Dashboard (click = next remark instead of
+    petting, via `onPet`). ~1.2s after opening he comments on your stats (`dashboardRemarks` in
+    lib/mascotDashboard.ts - top artist/search/character, hours, longest session, voting habits,
+    unfavourites, data used, downloads, e6AI share, slideshow time, active days, rewatching,
+    anniversary), snapshotted on open, starting at a random remark. While a favorites analysis
+    fetches he's in a "thinking" pose (`mascotStore.thinking`, slow chin-tilt + 🤔💭🧮📊💡 drifting
+    up), then remarks on the result (`analysisRemark`: wholesome / very explicit / many deleted /
+    top artist / top tag; "you" vs the analyzed user's name). Dashboard lines ignore the speech
+    gap (`ignoreGap`) but still respect the speech toggle.

@@ -1,3 +1,4 @@
+import { mascotReact } from "../../state/mascotStore";
 import { useState } from "react";
 
 interface CopyableFieldProps {
@@ -11,6 +12,7 @@ export function CopyableField({ label, value }: CopyableFieldProps) {
   async function copy() {
     try {
       await navigator.clipboard.writeText(value);
+      mascotReact("copy");
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
     } catch {

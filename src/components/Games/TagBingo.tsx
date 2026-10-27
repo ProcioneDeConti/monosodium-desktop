@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { MascotCue } from "../Mascot/MascotLayer";
 import { useQuery } from "@tanstack/react-query";
 import { RotateCcw, SkipForward, Trophy } from "lucide-react";
 import {
@@ -202,6 +203,7 @@ function BingoRun({
             <div className="flex flex-col items-center gap-2 py-2 text-center">
               <p className="relative text-4xl font-black">
                 <ConfettiBurst variant="rainbow" />
+                <MascotCue kind="gameWin" />
                 {blackout ? "BLACKOUT!" : "BINGO!"}
               </p>
               <p className="text-sm opacity-70">

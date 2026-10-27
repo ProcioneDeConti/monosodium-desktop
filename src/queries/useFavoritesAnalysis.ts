@@ -16,6 +16,9 @@ import {
 } from "../lib/favoritesAnalysis";
 import { useSettingsStore } from "../state/settingsStore";
 import { errorMessage } from "../lib/errors";
+import { analysisRemark } from "../lib/mascotDashboard";
+import { mascotReact, useMascotStore } from "../state/mascotStore";
+import { useAccountStore } from "../state/accountStore";
 
 export const FAV_PAGE_LIMIT = 320;
 
@@ -108,6 +111,21 @@ export function useFavoritesAnalysis(site: Site) {
     },
     [],
   );
+
+  // The mascot thinks while an analysis crunches, then comments on the result.
+  useEffect(() => {
+    if (state.phase !== "fetching") return;
+    const mascot = useMascotStore.getState();
+    mascot.setThinking(true);
+    return () => mascot.setThinking(false);
+  }, [state.phase]);
+  useEffect(() => {
+    const result = state.result;
+    if (state.phase !== "done" || !result || result.sampled === 0 || result.cancelled) return;
+    const me = useAccountStore.getState().accounts[site]?.username?.toLowerCase();
+    const line = analysisRemark(result.analysis, result.name.toLowerCase() === me, result.name);
+    mascotReact("analysisDone", { line });
+  }, [state.phase, state.result, site]);
 
   // Live elapsed ticker while fetching (pages can be ~1s+ apart).
   useEffect(() => {

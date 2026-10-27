@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Eye, EyeOff, SearchX, X } from "lucide-react";
 import { e621Api } from "../../api/client";
@@ -14,6 +14,7 @@ import {
 } from "../../lib/emptyState";
 import { formatCount } from "../../lib/formatCount";
 import { EmptyState } from "../ui/EmptyState";
+import { mascotReact } from "../../state/mascotStore";
 import { Button } from "../ui/Button";
 
 /** At most this many "drop a term" buttons - past that it's a wall, not a suggestion. */
@@ -39,7 +40,7 @@ export function NoResultsHelp({
   onSearch: (query: string) => void;
 }) {
   const names = useMemo(() => lookupNames(query), [query]);
-  const { data: tags } = useQuery({
+  const { data: tags, isFetched } = useQuery({
     queryKey: ["tagsByNames", site, names],
     queryFn: () => e621Api.getTagsByNames(site, names),
     enabled: names.length > 0,
@@ -48,6 +49,14 @@ export function NoResultsHelp({
   const suggestions = useMemo(() => dropSuggestions(query, tags), [query, tags]);
   const unknown = suggestions.filter((s) => s.reason === "unknown");
   const canDrop = suggestions.length > 1;
+
+  // One reaction per empty search, once we know whether a typo is the reason.
+  const reacted = useRef(false);
+  useEffect(() => {
+    if (reacted.current || (names.length > 0 && !isFetched)) return;
+    reacted.current = true;
+    mascotReact(unknown.length > 0 ? "unknownTag" : "emptySearch");
+  }, [names.length, isFetched, unknown.length]);
 
   const hint =
     unknown.length > 0

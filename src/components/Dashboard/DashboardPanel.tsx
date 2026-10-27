@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowBigDown,
@@ -33,6 +33,9 @@ import { Section } from "../ui/Section";
 import { Heatmap, SplitBar, StatTile } from "./charts";
 import { FavoritesAnalysisRunner } from "./FavoritesAnalysisRunner";
 import { OtherUserAnalysis } from "./OtherUserAnalysis";
+import { MascotLayer } from "../Mascot/MascotLayer";
+import { dashboardRemarks } from "../../lib/mascotDashboard";
+import { mascotReact } from "../../state/mascotStore";
 
 interface DashboardPanelProps {
   site: Site;
@@ -41,6 +44,9 @@ interface DashboardPanelProps {
 }
 
 type HeatMetric = "postsViewed" | "activeMs" | "apiCalls";
+
+/** He waits a beat after the dashboard opens before commenting. */
+const REMARK_DELAY_MS = 1200;
 
 const HEAT_METRICS: { key: HeatMetric; label: string; unit: string }[] = [
   { key: "postsViewed", label: "Posts viewed", unit: "posts" },
@@ -135,6 +141,37 @@ export function DashboardPanel({ site, onClose, onSearch }: DashboardPanelProps)
     onSearch(q);
   }
 
+  // Mascot commentary: remarks drawn from these same stats (lib/mascotDashboard.ts). One shortly
+  // after opening, then the next on each click of him - starting at a random one so reopening
+  // the dashboard doesn't always lead with the same line.
+  const remarks = useMemo(
+    () =>
+      dashboardRemarks({
+        ...lifetime,
+        dataBytes: dataUsedEst,
+        e621Viewed: perSite.e621.postsViewed,
+        e6aiViewed: perSite.e6ai.postsViewed,
+        daysUsing,
+        activeDays: lastNDayKeys(119).filter((d) => (daily[d]?.activeMs ?? 0) > 0).length,
+        topSearched: topSearched[0]?.[0] ?? null,
+        topArtist: topArtists[0]?.[0] ?? null,
+        topCharacter: topChars[0]?.[0] ?? null,
+      }),
+    // Snapshot on open - stats ticking while it's up shouldn't reshuffle what he says.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const remarkIndex = useRef(Math.floor(Math.random() * remarks.length));
+  const nextRemark = useCallback(() => {
+    const line = remarks[remarkIndex.current % remarks.length];
+    remarkIndex.current += 1;
+    mascotReact("dashComment", { line });
+  }, [remarks]);
+  useEffect(() => {
+    const t = window.setTimeout(nextRemark, REMARK_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [nextRemark]);
+
   return (
     <div className="fixed inset-0 z-[60] flex flex-col animate-[fade-in_150ms_ease-out] bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface))]">
       <div className="flex shrink-0 items-center gap-2 border-b border-black/10 px-4 py-3 dark:border-white/10">
@@ -145,6 +182,8 @@ export function DashboardPanel({ site, onClose, onSearch }: DashboardPanelProps)
         </IconButton>
       </div>
 
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <MascotLayer inOverlay onPet={nextRemark} />
       <div className="min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl px-4 py-5 sm:px-6">
           {firstLaunch && (
@@ -384,6 +423,7 @@ export function DashboardPanel({ site, onClose, onSearch }: DashboardPanelProps)
             </p>
           </Section>
         </div>
+      </div>
       </div>
     </div>
   );

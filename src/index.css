@@ -373,6 +373,145 @@ h3 {
   animation: mascot-bob 3.6s ease-in-out infinite;
 }
 
+/* Mascot reactions (mascot/MascotStage.tsx). Whole-image transforms layered on a wrapper around
+   the bobbing <Mascot>, pivoting at his feet so tilts read as body language, not spinning. */
+.mascot-motion {
+  transform-origin: 50% 92%;
+}
+@keyframes mascot-m-hop {
+  0% { transform: none; }
+  15% { transform: scale(1.12, 0.86); }
+  40% { transform: translateY(-22%) scale(0.94, 1.08); }
+  65% { transform: translateY(0) scale(1.08, 0.92); }
+  80% { transform: translateY(-4%) scale(1); }
+  100% { transform: none; }
+}
+@keyframes mascot-m-nod {
+  0%, 100% { transform: none; }
+  25% { transform: rotate(6deg) translateY(3%); }
+  50% { transform: none; }
+  75% { transform: rotate(5deg) translateY(2%); }
+}
+@keyframes mascot-m-tilt {
+  0% { transform: none; }
+  25%, 75% { transform: rotate(-12deg); }
+  100% { transform: none; }
+}
+@keyframes mascot-m-shake {
+  0%, 100% { transform: none; }
+  25% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
+  75% { transform: rotate(-3deg); }
+}
+@keyframes mascot-m-wobble {
+  0%, 100% { transform: none; }
+  15% { transform: rotate(-14deg) translateX(-6%); }
+  30% { transform: rotate(11deg) translateX(5%); }
+  45% { transform: rotate(-8deg) translateX(-3%); }
+  60% { transform: rotate(6deg) translateX(2%); }
+  80% { transform: rotate(-2deg); }
+}
+@keyframes mascot-m-shrug {
+  0%, 100% { transform: none; }
+  30%, 60% { transform: translateY(-8%) scale(1.04, 0.97); }
+}
+@keyframes mascot-m-droop {
+  0% { transform: none; filter: none; }
+  30%, 80% { transform: rotate(-7deg) translateY(5%) scale(0.97); filter: grayscale(0.5); }
+  100% { transform: none; filter: none; }
+}
+@keyframes mascot-m-jitter {
+  0%, 100% { transform: none; }
+  10%, 30%, 50%, 70% { transform: translateX(-3%); }
+  20%, 40%, 60%, 80% { transform: translateX(3%); }
+}
+@keyframes mascot-m-stretch {
+  0%, 100% { transform: none; }
+  35%, 55% { transform: scale(0.94, 1.12) rotate(-3deg); }
+  75% { transform: scale(1.04, 0.95); }
+}
+@keyframes mascot-m-spin {
+  0% { transform: none; }
+  70% { transform: rotate(350deg) scale(0.95); }
+  100% { transform: rotate(360deg); }
+}
+/* Konami disco: bounce side to side on the beat while the colours cycle. */
+@keyframes mascot-m-disco {
+  0%, 100% { transform: none; filter: hue-rotate(0deg) saturate(1.3); }
+  12.5% { transform: translateY(-10%) rotate(-10deg); }
+  25% { transform: rotate(0deg); }
+  37.5% { transform: translateY(-10%) rotate(10deg); }
+  50% { transform: none; filter: hue-rotate(180deg) saturate(1.6); }
+  62.5% { transform: translateY(-10%) rotate(-10deg) scale(1.05); }
+  75% { transform: none; }
+  87.5% { transform: translateY(-10%) rotate(10deg) scale(1.05); }
+}
+/* Looking around: glance one way, the other, back. */
+@keyframes mascot-m-look {
+  0%, 100% { transform: none; }
+  20%, 40% { transform: translateX(-5%) rotate(-5deg); }
+  60%, 80% { transform: translateX(5%) rotate(5deg) scaleX(-1); }
+}
+/* Thinking: slow head-tilt back and forth, like scratching his chin over a sum. */
+@keyframes mascot-thinking {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(6deg) translateY(-3%); }
+}
+.mascot-thinking {
+  animation: mascot-thinking 2.4s ease-in-out infinite;
+}
+.mascot-m-spin { animation: mascot-m-spin 0.8s cubic-bezier(0.4, 0, 0.3, 1) both; }
+.mascot-m-disco { animation: mascot-m-disco 1.25s ease-in-out 4 both; }
+.mascot-m-look { animation: mascot-m-look 1.6s ease-in-out both; }
+.mascot-m-hop { animation: mascot-m-hop 0.75s cubic-bezier(0.3, 0.7, 0.4, 1) both; }
+.mascot-m-nod { animation: mascot-m-nod 0.8s ease-in-out both; }
+.mascot-m-tilt { animation: mascot-m-tilt 1.6s ease-in-out both; }
+.mascot-m-shake { animation: mascot-m-shake 0.45s ease-in-out both; }
+.mascot-m-wobble { animation: mascot-m-wobble 1.3s ease-in-out both; }
+.mascot-m-shrug { animation: mascot-m-shrug 1.2s ease-in-out both; }
+.mascot-m-droop { animation: mascot-m-droop 1.8s ease-in-out both; }
+.mascot-m-jitter { animation: mascot-m-jitter 0.5s linear 3 both; }
+.mascot-m-stretch { animation: mascot-m-stretch 1.8s ease-in-out both; }
+
+/* Asleep: slow deep breathing, slumped and dimmed. */
+@keyframes mascot-sleep {
+  50% { transform: rotate(-5deg) translateY(4%) scale(1.03, 0.97); }
+}
+.mascot-sleeping {
+  animation: mascot-sleep 4.2s ease-in-out infinite;
+  filter: brightness(0.8) saturate(0.7);
+}
+
+/* Live-stream reaction feed: rise with a sideways sway, hold, then soft fade over the last ~40%. */
+@keyframes mascot-feed {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.4) rotate(0deg); }
+  12% { opacity: 1; transform: translate(calc(var(--feed-dx) * 0.15), -10px) scale(1.05) rotate(calc(var(--feed-rot) * 0.3)); }
+  60% { opacity: 1; transform: translate(calc(var(--feed-dx) * -0.4), -46px) scale(1) rotate(calc(var(--feed-rot) * -0.4)); }
+  100% { opacity: 0; transform: translate(var(--feed-dx), -78px) scale(0.9) rotate(var(--feed-rot)); }
+}
+.mascot-feed {
+  opacity: 0;
+  animation: mascot-feed var(--feed-dur, 1.7s) cubic-bezier(0.25, 0.6, 0.35, 1) both;
+}
+@keyframes mascot-zzz {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.7); }
+  30% { opacity: 0.8; }
+  100% { opacity: 0; transform: translate(10px, -22px) scale(1.1); }
+}
+.mascot-zzz {
+  animation: mascot-zzz 3s ease-out infinite;
+}
+
+/* Cameo: slide up from below the bottom edge, hold, duck back. */
+@keyframes mascot-peek {
+  0% { transform: translateY(105%); }
+  14%, 86% { transform: translateY(18%); }
+  100% { transform: translateY(105%); }
+}
+.mascot-peek {
+  animation: mascot-peek var(--mascot-dur, 1.6s) cubic-bezier(0.3, 0.8, 0.4, 1) both;
+}
+
 /* Reduced motion (Settings > Appearance > Motion, or Windows' animation setting on "System"):
    collapse every animation and transition to its end state. Infinite loops (shimmer, ambient
    wash, mascot bob) just stop. */

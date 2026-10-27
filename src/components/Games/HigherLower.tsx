@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { MascotCue } from "../Mascot/MascotLayer";
 import { ArrowDown, ArrowUp, Flame, Heart, ThumbsUp, Trophy } from "lucide-react";
 import type { Post } from "../../models/post";
 import type { Site } from "../../models/site";
@@ -129,6 +130,7 @@ function HigherLowerRun({ site, stat, favUser }: { site: Site; stat: Stat; favUs
                 the record. */}
             {ok && <ConfettiBurst />}
             {!ok && streak > runBest && <ConfettiBurst variant="rainbow" />}
+            <MascotCue kind={ok ? "gameRight" : streak > runBest ? "gameWin" : "gameLose"} />
             {ok
               ? tie
                 ? "A tie - counts!"

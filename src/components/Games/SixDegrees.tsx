@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MascotCue } from "../Mascot/MascotLayer";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Check, ChevronRight, Copy, Flag, Heart, Info, Link2, Shuffle, Trophy } from "lucide-react";
 import { e621Api } from "../../api/client";
@@ -149,6 +150,7 @@ function SixDaily({ site, candidates }: { site: Site; candidates: ReturnType<typ
         <Endpoints puzzle={puzzle} />
         <p className="relative text-3xl font-black">
           {justFinished && saved !== null && <ConfettiBurst variant="rainbow" />}
+          {justFinished && <MascotCue kind={saved !== null ? "gameWin" : "gameLose"} />}
           {saved === null ? "Gave up" : `${saved} hop${saved === 1 ? "" : "s"}`}
         </p>
         <p className="text-sm opacity-60">Today's puzzle is done - a new one unlocks at 00:00 UTC. Endless is always open.</p>
@@ -227,6 +229,7 @@ function SixEndless({
           <Endpoints puzzle={puzzle} />
           <p className="relative text-3xl font-black">
             {result.hops !== null && <ConfettiBurst variant="rainbow" />}
+            <MascotCue kind={result.hops !== null ? "gameWin" : "gameLose"} />
             {result.hops === null ? "Gave up" : `${result.hops} hop${result.hops === 1 ? "" : "s"}`}
           </p>
           <NextButton onClick={another}>Next puzzle</NextButton>

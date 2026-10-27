@@ -5,6 +5,9 @@ import { listen } from "@tauri-apps/api/event";
 import { AppShell } from "./components/shell/AppShell";
 import { TabBar, type SearchTab } from "./components/shell/TabBar";
 import { PostGrid } from "./components/PostGrid/PostGrid";
+import { MascotLayer } from "./components/Mascot/MascotLayer";
+import { useMascotTriggers } from "./components/Mascot/useMascotTriggers";
+import { mascotReact } from "./state/mascotStore";
 import { SelectionBar } from "./components/PostGrid/SelectionBar";
 import { SetPickerDialog } from "./components/Sets/SetPickerDialog";
 import { PostViewer } from "./components/PostViewer/PostViewer";
@@ -384,6 +387,7 @@ function App() {
     isRefetching,
   } = usePostsQuery(site, effectiveTags, blacklistEntries, booted);
 
+
   // Flatten pages, de-duping by id. Numbered pagination for `order:random` (and any transient
   // overlap at a page boundary) can hand back a post that's already on screen; masonic keys
   // cells by `post.id`, so a duplicate would collide. Dropping repeats here keeps the grid and
@@ -757,12 +761,34 @@ function App() {
 
   function addTagToBlacklist(tag: string) {
     setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`);
+    mascotReact("blacklistAdd");
+  }
+
+  function showBlacklisted(show: boolean) {
+    setBlacklistDisabled(show);
+    if (show) mascotReact("queasy");
   }
 
   // Password-protection gate (Settings > Encryption, src-tauri/src/vault.rs) - even earlier than
   // the EULA gate below, since settingsStore/savedSearchesStore can't be read at all until this
   // resolves. `null` (still checking vault_status) renders nothing rather than flashing the rest
   // of the app for a frame; that check is fast enough not to need its own spinner.
+  // Mascot reactions to app/search state (components/Mascot/useMascotTriggers.ts). Down here so
+  // tabs and the flattened post list are in scope - but above every early return (hook rules).
+  useMascotTriggers({
+    site,
+    query: activeQuery,
+    ownName: account?.username ?? null,
+    searchKey: `${site}:${effectiveTags}`,
+    loadedCount: posts.length,
+    pageCount: data?.pages.length ?? 0,
+    resultsSettled: !isLoading && !isFetchingNextPage && !hasNextPage,
+    tabCount: tabs.length,
+    unreadMessageCount,
+    favoriteCount: ownProfile?.favorite_count ?? null,
+    apiError: isError ? error : null,
+  });
+
   if (vaultLocked === null) return null;
   if (vaultLocked) return <UnlockScreen onUnlocked={() => setVaultLocked(false)} />;
 
@@ -800,7 +826,10 @@ function App() {
       onOpenSavedSearches={() => navigate({ savedSearchesOpen: true })}
       onOpenGames={() => navigate({ gamesOpen: true })}
       onStartSlideshow={shownPosts.length > 0 ? startSlideshow : null}
-      onRefresh={() => void refresh()}
+      onRefresh={() => {
+        mascotReact("refresh");
+        void refresh();
+      }}
       onShuffle={() => runNewSearch(withRandomOrder(activeQuery))}
       onToggleSelection={() => (selectionActive ? exitSelection() : setSelectionActive(true))}
       selectionActive={selectionActive}
@@ -809,9 +838,12 @@ function App() {
       onNewTab={newTab}
       blacklistActive={blacklistEntries.length > 0}
       blacklistDisabled={blacklistDisabled}
-      onToggleBlacklistDisabled={setBlacklistDisabled}
+      onToggleBlacklistDisabled={showBlacklisted}
       seenMode={seenMode}
-      onSeenModeChange={setSeenMode}
+      onSeenModeChange={(mode) => {
+        setSeenMode(mode);
+        if (mode === "hide") mascotReact("peekaboo");
+      }}
       accountAvatarId={ownProfile?.avatar_id ?? null}
       tabBar={
         tabs.length >= 2 ? (
@@ -871,11 +903,12 @@ function App() {
               pageOfPost={pageOfPost}
               query={activeQuery}
               onSearch={runNewSearch}
-              onShowBlacklisted={() => setBlacklistDisabled(true)}
+              onShowBlacklisted={() => showBlacklisted(true)}
               selectionActive={selectionActive}
               selectedIds={selectedIds}
               onSelectToggle={handleSelectToggle}
             />
+            <MascotLayer suppressed={selectionActive} />
             {selectionActive && (
               <SelectionBar
                 count={selectedIds.size}

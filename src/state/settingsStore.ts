@@ -27,6 +27,10 @@ export const DEFAULT_THUMBNAIL_SIZE_PX = 220;
 export type GridMode = "masonry" | "uniform";
 /** Already-viewed posts in the grid: left alone, dimmed, or filtered out (state/seenStore.ts). */
 export type SeenMode = "off" | "dim" | "hide";
+/** Mascot reactions: a persistent corner raccoon, brief pop-in cameos, or none ("off" keeps the
+ *  raccoon on empty/loading screens - it only disables reactions). */
+export type MascotMode = "companion" | "cameos" | "off";
+export type MascotCorner = "br" | "bl" | "tr" | "tl";
 export const MIN_THUMBNAIL_SIZE_PX = 120;
 export const MAX_THUMBNAIL_SIZE_PX = 420;
 export const MIN_VIDEO_SPEED = 0.25;
@@ -58,6 +62,11 @@ interface SettingsState {
   /** Post viewer backdrop glows with the current post's dominant colour. */
   viewerAmbient: boolean;
   seenMode: SeenMode;
+  mascotMode: MascotMode;
+  /** Occasional short speech bubbles on top of reactions. */
+  mascotSpeech: boolean;
+  /** Which grid corner the companion sits in (drag to move). */
+  mascotCorner: MascotCorner;
   gridThumbnailSizePx: number;
   gridMode: GridMode;
   /** Width of the post viewer's info/tags sidebar, in px (drag the divider to resize). */
@@ -89,6 +98,9 @@ interface SettingsState {
   setAmbientHeader: (enabled: boolean) => void;
   setViewerAmbient: (enabled: boolean) => void;
   setSeenMode: (mode: SeenMode) => void;
+  setMascotMode: (mode: MascotMode) => void;
+  setMascotSpeech: (enabled: boolean) => void;
+  setMascotCorner: (corner: MascotCorner) => void;
   setGridThumbnailSizePx: (size: number) => void;
   setViewerSidebarWidthPx: (px: number) => void;
   setVideoLoopEnabled: (enabled: boolean) => void;
@@ -143,6 +155,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   ambientHeader: true,
   viewerAmbient: true,
   seenMode: "dim",
+  mascotMode: "companion",
+  mascotSpeech: true,
+  mascotCorner: "bl",
   gridThumbnailSizePx: DEFAULT_THUMBNAIL_SIZE_PX,
   viewerSidebarWidthPx: DEFAULT_VIEWER_SIDEBAR_PX,
   videoLoopEnabled: true,
@@ -200,6 +215,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setSeenMode: (seenMode) => {
     set({ seenMode });
     void persist("seenMode", seenMode);
+  },
+  setMascotMode: (mascotMode) => {
+    set({ mascotMode });
+    void persist("mascotMode", mascotMode);
+  },
+  setMascotSpeech: (mascotSpeech) => {
+    set({ mascotSpeech });
+    void persist("mascotSpeech", mascotSpeech);
+  },
+  setMascotCorner: (mascotCorner) => {
+    set({ mascotCorner });
+    void persist("mascotCorner", mascotCorner);
   },
   setGridThumbnailSizePx: (size) => {
     const clamped = Math.min(MAX_THUMBNAIL_SIZE_PX, Math.max(MIN_THUMBNAIL_SIZE_PX, size));
@@ -283,6 +310,9 @@ export async function loadSettings(): Promise<void> {
       ambientHeader: (values.ambientHeader as boolean) ?? state.ambientHeader,
       viewerAmbient: (values.viewerAmbient as boolean) ?? state.viewerAmbient,
       seenMode: (values.seenMode as SeenMode) ?? state.seenMode,
+      mascotMode: (values.mascotMode as MascotMode) ?? state.mascotMode,
+      mascotSpeech: (values.mascotSpeech as boolean) ?? state.mascotSpeech,
+      mascotCorner: (values.mascotCorner as MascotCorner) ?? state.mascotCorner,
       gridThumbnailSizePx: (values.gridThumbnailSizePx as number) ?? state.gridThumbnailSizePx,
       viewerSidebarWidthPx:
         values.viewerSidebarWidthPx != null

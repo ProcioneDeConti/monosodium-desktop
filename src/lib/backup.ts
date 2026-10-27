@@ -19,7 +19,7 @@ import type { SlideshowTransition } from "./slideshow";
 import type { MotionMode, Palette, ThemeMode } from "./theme";
 import { useAccountStore } from "../state/accountStore";
 import { useSaucenaoStore } from "../state/saucenaoStore";
-import { DEFAULT_VIEWER_SIDEBAR_PX, useSettingsStore, type SeenMode } from "../state/settingsStore";
+import { DEFAULT_VIEWER_SIDEBAR_PX, useSettingsStore, type MascotCorner, type MascotMode, type SeenMode } from "../state/settingsStore";
 import {
   applyStatsBackup,
   statsBackupAggregates,
@@ -53,6 +53,9 @@ export interface SettingsBackup {
   ambientHeader?: boolean;
   viewerAmbient?: boolean;
   seenMode?: SeenMode;
+  mascotMode?: MascotMode;
+  mascotSpeech?: boolean;
+  mascotCorner?: MascotCorner;
   gridThumbnailSizePx: number;
   /** Absent on a backup made before this field existed - `?? DEFAULT_VIEWER_SIDEBAR_PX` on read. */
   viewerSidebarWidthPx?: number;
@@ -97,6 +100,9 @@ export async function buildBackup(): Promise<SettingsBackup> {
     ambientHeader: settings.ambientHeader,
     viewerAmbient: settings.viewerAmbient,
     seenMode: settings.seenMode,
+    mascotMode: settings.mascotMode,
+    mascotSpeech: settings.mascotSpeech,
+    mascotCorner: settings.mascotCorner,
     gridThumbnailSizePx: settings.gridThumbnailSizePx,
     viewerSidebarWidthPx: settings.viewerSidebarWidthPx,
     videoLoopEnabled: settings.videoLoopEnabled,
@@ -137,6 +143,9 @@ export async function applyBackup(backup: SettingsBackup): Promise<void> {
   settings.setAmbientHeader(backup.ambientHeader ?? true);
   settings.setViewerAmbient(backup.viewerAmbient ?? true);
   settings.setSeenMode(backup.seenMode ?? "dim");
+  settings.setMascotMode(backup.mascotMode ?? "companion");
+  settings.setMascotSpeech(backup.mascotSpeech ?? true);
+  settings.setMascotCorner(backup.mascotCorner ?? "bl");
   settings.setGridThumbnailSizePx(backup.gridThumbnailSizePx);
   settings.setViewerSidebarWidthPx(backup.viewerSidebarWidthPx ?? DEFAULT_VIEWER_SIDEBAR_PX);
   settings.setVideoLoopEnabled(backup.videoLoopEnabled);

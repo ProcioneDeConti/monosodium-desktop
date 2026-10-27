@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { MascotLayer } from "../Mascot/MascotLayer";
 import {
   CalendarClock,
   Cat,
@@ -183,6 +184,10 @@ export function GamesPanel({ site, onClose }: GamesPanelProps) {
         </IconButton>
       </div>
 
+      {/* Positioned wrapper so the mascot can sit in a corner of the game area - the sheet
+          covers the grid's own companion. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+      <MascotLayer inOverlay />
       {selected === "tagdle" ? (
         <TagdleGame site={site} />
       ) : (
@@ -207,6 +212,7 @@ export function GamesPanel({ site, onClose }: GamesPanelProps) {
           </div>
         </div>
       )}
+      </div>
     </Overlay>
   );
 }
