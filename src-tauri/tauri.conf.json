@@ -41,5 +41,12 @@
         "type": "offlineInstaller"
       }
     }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["monosodium"]
+      }
+    }
   }
 }

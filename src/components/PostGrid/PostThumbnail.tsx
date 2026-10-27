@@ -93,7 +93,7 @@ const enteredIds = new Set<number>();
  *  unmounts (pointer leaves), not when the whole cell does. */
 function HoverPreviewVideo({ src }: { src: string }) {
   const ref = useRef<HTMLVideoElement>(null);
-  useReleaseVideo(ref);
+  useReleaseVideo(ref, src);
   return (
     <video
       ref={ref}

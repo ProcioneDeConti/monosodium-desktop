@@ -52,5 +52,6 @@ md-5 = "0.10"
 imagesize = "0.13"
 rand = "0.8.5"
 winreg = "0.56.0"
-tauri-plugin-single-instance = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+tauri-plugin-deep-link = "2"
 

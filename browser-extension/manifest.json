@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Open in Monosodium Desktop",
+  "version": "1.0.2",
+  "description": "Opens e621 / e6AI links in the Monosodium Desktop app instead of the browser.",
+  "icons": { "32": "icons/32.png", "128": "icons/128.png" },
+  "action": { "default_title": "Monosodium Desktop: ON (click to pause)", "default_icon": { "32": "icons/32.png" } },
+  "background": { "service_worker": "background.js", "scripts": ["background.js"] },
+  "permissions": ["webNavigation", "tabs", "storage", "contextMenus"],
+  "host_permissions": ["*://e621.net/*", "*://*.e621.net/*", "*://e926.net/*", "*://*.e926.net/*", "*://e6ai.net/*", "*://*.e6ai.net/*"],
+  "browser_specific_settings": { "gecko": { "id": "open-in-monosodium@procione", "strict_min_version": "140.0", "data_collection_permissions": { "required": ["none"] } }, "gecko_android": { "strict_min_version": "142.0" } }
+}

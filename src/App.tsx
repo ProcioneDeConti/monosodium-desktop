@@ -6,6 +6,9 @@ import { AppShell } from "./components/shell/AppShell";
 import { TabBar, type SearchTab } from "./components/shell/TabBar";
 import { PostGrid } from "./components/PostGrid/PostGrid";
 import { MascotLayer } from "./components/Mascot/MascotLayer";
+import { getCurrent as getCurrentDeepLinks, onOpenUrl } from "@tauri-apps/plugin-deep-link";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { parseSiteUrl, unwrapDeepLink } from "./lib/deepLink";
 import { useMascotTriggers } from "./components/Mascot/useMascotTriggers";
 import { mascotReact } from "./state/mascotStore";
 import { LINGER_VIEW_MS } from "./lib/mascot";
@@ -762,6 +765,108 @@ function App() {
       dashboardOpen: false,
     });
   }
+
+  // --- monosodium:// deep links (browser extension -> app); see lib/deepLink.ts ---
+  // A post link runs an `id:` search and opens the viewer once that single result lands. State
+  // (with a nonce) rather than a ref so re-clicking the same link re-runs the open effect even
+  // when the query and its cached data are unchanged.
+  const [pendingPost, setPendingPost] = useState<{ id: number; nonce: number } | null>(null);
+  function openDeepLink(raw: string) {
+    const url = unwrapDeepLink(raw);
+    if (!url) return;
+    const target = parseSiteUrl(url);
+    if (!target) {
+      // Not a page the app has - hand it back to the browser rather than swallow the click.
+      if (/^https?:\/\//i.test(url)) void openUrl(url);
+      return;
+    }
+    if (target.site !== site) useSettingsStore.getState().setSite(target.site);
+    switch (target.kind) {
+      case "post":
+        setPendingPost({ id: target.id, nonce: Date.now() });
+        runNewSearch(`id:${target.id}`);
+        break;
+      case "search":
+        runNewSearch(target.query);
+        break;
+      case "pool":
+        navigate({ poolTarget: target.id });
+        break;
+      case "user":
+        navigate({ profileTarget: target.id });
+        break;
+      case "wiki":
+        navigate({ wikiTarget: target.tag });
+        break;
+      case "artist":
+        navigate({ artistTarget: target.tag });
+        break;
+      case "popular":
+        navigate({ popularOpen: true });
+        break;
+    }
+  }
+  useEffect(() => {
+    if (!pendingPost) return;
+    // The user searched for something else before it landed - drop it so a later, unrelated
+    // `id:` search doesn't pop the viewer open.
+    if (activeQuery !== `id:${pendingPost.id}`) {
+      setPendingPost(null);
+      return;
+    }
+    const i = shownPosts.findIndex((p) => p.id === pendingPost.id);
+    if (i >= 0) {
+      setPendingPost(null);
+      navigate({ viewerIndex: i });
+    } else if (!isLoading) {
+      // Loaded but filtered out (blacklist / hide-seen / rating) or gone - leave the grid's own
+      // empty state to explain it.
+      setPendingPost(null);
+    }
+  }, [pendingPost, shownPosts, activeQuery, isLoading, navigate]);
+  // The listener is registered once; route through a ref so it always sees current state.
+  const openDeepLinkRef = useRef(openDeepLink);
+  openDeepLinkRef.current = openDeepLink;
+  // Links that arrive before the stores hydrate are queued: handling them earlier would compare
+  // against the default site and record into (and persist over) the not-yet-loaded search history.
+  const deepLinkQueue = useRef<string[]>([]);
+  const bootedRef = useRef(booted);
+  bootedRef.current = booted;
+  function handleDeepLinks(urls: string[] | null | undefined) {
+    urls?.forEach((u) => {
+      if (!bootedRef.current) deepLinkQueue.current.push(u);
+      else {
+        try {
+          openDeepLinkRef.current(u);
+        } catch (e) {
+          console.warn("deep link failed", u, e);
+        }
+      }
+    });
+  }
+  const handleDeepLinksRef = useRef(handleDeepLinks);
+  handleDeepLinksRef.current = handleDeepLinks;
+  useEffect(() => {
+    if (!booted || deepLinkQueue.current.length === 0) return;
+    const queued = deepLinkQueue.current;
+    deepLinkQueue.current = [];
+    handleDeepLinksRef.current(queued);
+  }, [booted]);
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    // Cold start: the link that launched the app.
+    void getCurrentDeepLinks().then((urls) => handleDeepLinksRef.current(urls), () => {});
+    // Warm: links clicked while running (forwarded by single-instance).
+    void onOpenUrl((urls) => handleDeepLinksRef.current(urls)).then((f) => {
+      if (cancelled) f();
+      else unlisten = f;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
 
   function startSlideshow() {
     navigate({ viewerIndex: 0, slideshowActive: true });

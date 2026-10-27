@@ -77,6 +77,8 @@ export type ReactionKind =
   | "disco"
   // dashboard
   | "dashComment"
+  // Popular page: the line comes from lib/mascotPopular.ts via vars.line
+  | "popularComment"
   | "analysisDone"
   // the cooter easter egg - the card is Procione (the owner's character), Gus just reacts to it
   | "eggSpotted"
@@ -342,6 +344,10 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
   // --- Dashboard: the line comes from lib/mascotDashboard.ts via vars.line ---
   dashComment: {
     motion: "nod", emoji: ["💭"], durationMs: 2600, cooldownMs: 0, minor: false, priority: 2, burst: 2,
+    lines: ["{line}"], alwaysTalks: true, ignoreGap: true,
+  },
+  popularComment: {
+    motion: "look", emoji: ["🔥", "📈", "👀"], durationMs: 2600, cooldownMs: 0, minor: false, priority: 2, burst: 3,
     lines: ["{line}"], alwaysTalks: true, ignoreGap: true,
   },
   analysisDone: {

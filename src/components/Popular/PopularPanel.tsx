@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, TrendingUp, X } from "lucide-react";
 import type { Site } from "../../models/site";
 import { usePopularPostsQuery } from "../../queries/usePopularQuery";
@@ -18,6 +18,14 @@ import { PoolPanel } from "../Pool/PoolPanel";
 import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Spinner } from "../ui/Spinner";
+import { MascotLayer } from "../Mascot/MascotLayer";
+import { mascotReact } from "../../state/mascotStore";
+import { shuffled } from "../../lib/mascotDashboard";
+import { spicyAllowed } from "../../lib/mascotSpicy";
+import { popularFacts, popularRemarks, spicyPopularRemarks } from "../../lib/mascotPopular";
+
+/** Pause after a list loads before Gus weighs in (matches the Dashboard's). */
+const REMARK_DELAY_MS = 1200;
 
 interface PopularPanelProps {
   site: Site;
@@ -73,6 +81,31 @@ export function PopularPanel({ site, onClose, onSearch, onOpenProfile, onOpenArt
       setViewerIndex(shownPosts.length > 0 ? shownPosts.length - 1 : null);
     }
   }, [viewerIndex, shownPosts.length]);
+
+  // Gus's commentary: rebuilt (and reshuffled) for each loaded period, then served in order on
+  // each click - no repeats until the list runs out. One remark when a period first loads.
+  const atCurrentPeriod = isCurrentOrFuturePeriod(date, scale);
+  const remarks = useMemo(() => {
+    if (!posts) return [];
+    const f = popularFacts(shownPosts, scale, atCurrentPeriod, formatPeriod(date, scale));
+    const spicy = spicyAllowed(useSettingsStore.getState());
+    return shuffled([...popularRemarks(f), ...(spicy ? spicyPopularRemarks(f) : [])]);
+    // Keyed on the loaded list, not the blacklist toggles - those shouldn't reshuffle him.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts]);
+  const remarkIndex = useRef(0);
+  const nextRemark = useCallback(() => {
+    if (!remarks.length) return;
+    const line = remarks[remarkIndex.current % remarks.length];
+    remarkIndex.current += 1;
+    mascotReact("popularComment", { line });
+  }, [remarks]);
+  useEffect(() => {
+    remarkIndex.current = 0;
+    if (!remarks.length) return;
+    const t = window.setTimeout(nextRemark, REMARK_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [remarks, nextRemark]);
 
   function addTagToBlacklist(tag: string) {
     setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`);
@@ -141,7 +174,8 @@ export function PopularPanel({ site, onClose, onSearch, onOpenProfile, onOpenArt
         </IconButton>
       </div>
 
-      <div className="flex-1 min-h-0">
+      <div className="relative flex-1 min-h-0">
+        <MascotLayer inOverlay suppressed={viewerIndex !== null || nestedPoolId !== null} onPet={nextRemark} />
         {isLoading ? (
           <div className="flex h-full items-center justify-center gap-2 text-sm opacity-60">
             <Spinner size={15} />

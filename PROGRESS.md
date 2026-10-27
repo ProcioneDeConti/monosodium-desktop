@@ -2042,3 +2042,22 @@ live call before implementing (per user instruction - no more guessing).
   or left when he's in a right-hand corner - popping out from the tail. Lines can carry a small
   aside after "¦". Typing within two letters of the magic word fires `eggClose`: "Ooh! You're
   getting close!" (cheeky mode always adds the aside "same!").
+- [x] **Wrapped card zhuzh** (unreleased) Favorites-analysis share card per the agreed plan:
+  personality archetype + Gus pose (`lib/wrappedArchetype.ts`), tilted masonry collage wall with
+  frosted panels (`lib/wrappedFrame.ts`), Single (tall / square) vs. multi-slide story mode
+  (`lib/wrappedSlides.ts`; PNG exports one file per slide, PDF one page per slide), SFW toggle.
+  Pre-release review fixes: SFW also drops the avatar (it's a post image); image aspects measured
+  in one batch (was ~90 full rebuilds); each collage photo defined once and `<use>`d per tile;
+  multi-page PNG writes page 1 to the confirmed name and never overwrites for pages 2+
+  (`save_export_file_new`).
+- [x] **Gus on Popular** (unreleased) Remarks about the ranked list (`lib/mascotPopular.ts`):
+  one when a period loads, another per pet; cheeky pool when allowed.
+- [x] **Deep links + browser extension** (unreleased) `monosodium://open?url=<e621 URL>`
+  (tauri-plugin-deep-link) maps e621/e926/e6AI pages to in-app screens (`lib/deepLink.ts`);
+  unrecognised pages go back to the browser. `browser-extension/` hands supported page loads to
+  the app (its SUPPORTED list must match `parseSiteUrl`, or links loop). Review fixes: links are
+  queued until the stores hydrate (cold start used the default site and overwrote search
+  history); post links reopen on repeat clicks and a filtered-out post no longer leaves a stale
+  pending id; malformed %-escapes rejected on both sides. Not live-tested.
+- [x] **useReleaseVideo StrictMode fix** (unreleased) Re-applies `src` on setup so a dev-mode
+  remount doesn't leave the player sourceless. Tauri JS/CLI deps bumped.

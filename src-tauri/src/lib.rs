@@ -77,6 +77,9 @@ pub fn run() {
                 let _ = window.unminimize();
             }
         }))
+        // monosodium:// links (from the browser extension). With single-instance's "deep-link"
+        // feature, a link clicked while the app runs is forwarded to this instance's onOpenUrl.
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
@@ -99,6 +102,16 @@ pub fn run() {
         .manage(api::AppState::new())
         .setup(|app| {
             let window = app.get_webview_window("main").expect("main window");
+
+            // Claim monosodium:// for this exe under HKCU. The installer registers it too, but
+            // this also covers the portable build and dev runs - and re-points the scheme at
+            // whichever copy ran last. Best-effort: links just won't open the app if it fails.
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Err(e) = app.deep_link().register_all() {
+                    eprintln!("monosodium:// scheme not registered: {e}");
+                }
+            }
 
             // Best-effort - see the global-shortcut plugin comment above. If it's already held
             // (a lingering previous process), the app still runs fine, just without the hotkey.
@@ -210,6 +223,7 @@ pub fn run() {
             source_login::source_login_status,
             source_login::source_logout,
             export::save_export_file,
+            export::save_export_file_new,
             export::save_pdf_with_jpeg,
             credentials::save_credentials,
             credentials::load_credentials,

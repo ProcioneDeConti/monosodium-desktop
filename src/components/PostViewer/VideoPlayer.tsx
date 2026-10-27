@@ -41,7 +41,7 @@ export function VideoPlayer({ src, loopDefault, speedDefault, autoplayEnabled }:
   const [duration, setDuration] = useState(0);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [buffering, setBuffering] = useState(true);
-  useReleaseVideo(videoRef);
+  useReleaseVideo(videoRef, src);
 
   useEffect(() => {
     setPlaying(autoplayEnabled);

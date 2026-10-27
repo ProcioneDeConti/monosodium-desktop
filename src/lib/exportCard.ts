@@ -1,5 +1,5 @@
 // Rasterises an SVG string to PNG/JPEG in a canvas and writes it to a user-chosen path via the
-// Rust export commands. Used by the Dashboard's favourites-card export.
+// Rust export commands (or copies it to the clipboard). Used by the Dashboard's favourites-card export.
 
 import { save } from "@tauri-apps/plugin-dialog";
 import { e621Api } from "../api/client";
@@ -59,34 +59,48 @@ async function blobToBase64(blob: Blob): Promise<string> {
 }
 
 /**
- * Rasterise `svg` and save it. Returns the saved path, or null if the user cancelled the dialog.
+ * Rasterise the card page(s) and save them. PNG: one file, or for several pages the first at the
+ * chosen name and the rest suffixed `-2`, `-3`... (never overwriting). PDF: one document, one page per card. Returns the first
+ * saved path, or null if the user cancelled the dialog.
  */
 export async function exportCard(
-  svg: string,
+  svgs: string[],
   width: number,
   height: number,
   format: CardFormat,
   defaultName: string,
 ): Promise<string | null> {
   if (format === "png") {
-    const blob = await rasterize(svg, width, height, "image/png");
     const path = await save({
       defaultPath: `${defaultName}.png`,
       filters: [{ name: "PNG image", extensions: ["png"] }],
     });
     if (!path) return null;
-    await e621Api.saveExportFile(path, await blobToBase64(blob));
+    // Page 1 goes to exactly the name the user confirmed (the dialog already asked about
+    // overwriting it); later pages get `-2`, `-3`... and never replace an existing file.
+    await e621Api.saveExportFile(path, await blobToBase64(await rasterize(svgs[0], width, height, "image/png")));
+    for (let i = 1; i < svgs.length; i++) {
+      const blob = await rasterize(svgs[i], width, height, "image/png");
+      await e621Api.saveExportFileNew(path.replace(/(\.png)?$/i, `-${i + 1}.png`), await blobToBase64(blob));
+    }
     return path;
   }
 
-  const blob = await rasterize(svg, width, height, "image/jpeg");
   const path = await save({
     defaultPath: `${defaultName}.pdf`,
     filters: [{ name: "PDF document", extensions: ["pdf"] }],
   });
   if (!path) return null;
-  await e621Api.savePdfWithJpeg(path, await blobToBase64(blob), width * SCALE, height * SCALE);
+  const jpegs: string[] = [];
+  for (const svg of svgs) jpegs.push(await blobToBase64(await rasterize(svg, width, height, "image/jpeg")));
+  await e621Api.savePdfWithJpeg(path, jpegs, width * SCALE, height * SCALE);
   return path;
+}
+
+/** Rasterise one card page to PNG and put it on the system clipboard. */
+export async function copyCardToClipboard(svg: string, width: number, height: number): Promise<void> {
+  const blob = await rasterize(svg, width, height, "image/png");
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
 }
 
 /** A data: URL for previewing the SVG in an <img> without rasterising. */

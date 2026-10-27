@@ -6,9 +6,13 @@
 import type { FavoritesAnalysis } from "./favoritesAnalysis";
 import type { Site } from "../models/site";
 import { SITE_DISPLAY_NAME } from "../models/site";
+import type { Archetype } from "./wrappedArchetype";
+import { cardFrame, finishFrost, gusSvg, type CardTheme, type CollageItem, type GusArt } from "./wrappedFrame";
 
 export const CARD_W = 1080;
-export const CARD_H = 1750;
+export const CARD_H = 1920;
+/** Vertical room the archetype band takes under the header (everything below shifts by this). */
+const ARCH_H = 150;
 /** How many artist rows / tag chips the card can show. FavoritesCardDialog fetches a background
  *  image for exactly this many - keep them shared so no chip is ever left without one. */
 export const CARD_MAX_ARTISTS = 5;
@@ -17,9 +21,9 @@ export const CARD_MAX_TAGS = 12;
 const PAD = 72;
 const INNER_W = CARD_W - PAD * 2;
 // Quoted family name - unquoted "Segoe UI" parses as two separate families and falls back.
-const FONT = "'Segoe UI', -apple-system, Roboto, Helvetica, Arial, sans-serif";
+export const FONT = "'Segoe UI', -apple-system, Roboto, Helvetica, Arial, sans-serif";
 
-const RATING_COLOR: Record<string, string> = {
+export const RATING_COLOR: Record<string, string> = {
   Safe: "#4CAF50",
   Questionable: "#FFA726",
   Explicit: "#E53935",
@@ -182,7 +186,7 @@ const VERDICT_BALANCED_5K: string[] = [
   "You've hoarded a massive, perfectly balanced mountain of art, proving you contain multitudes—and at least half of them are completely unhinged.",
 ];
 
-function isBalancedRatings(analysis: FavoritesAnalysis): boolean {
+export function isBalancedRatings(analysis: FavoritesAnalysis): boolean {
   const total = analysis.ratings.reduce((s, r) => s + r.count, 0) || 1;
   const shares = analysis.ratings.map((r) => r.count / total);
   return analysis.ratings.length === 3 && Math.max(...shares) - Math.min(...shares) <= 0.16;
@@ -217,20 +221,20 @@ function ctx(): CanvasRenderingContext2D | null {
   }
   return measureCtx;
 }
-function measure(str: string, weight: number, size: number): number {
+export function measure(str: string, weight: number, size: number): number {
   const c = ctx();
   if (!c) return str.length * size * 0.54;
   c.font = `${weight} ${size}px ${FONT}`;
   return c.measureText(str).width;
 }
-function fit(str: string, maxW: number, weight: number, size: number): string {
+export function fit(str: string, maxW: number, weight: number, size: number): string {
   if (measure(str, weight, size) <= maxW) return str;
   let s = str;
   while (s.length > 1 && measure(s + "…", weight, size) > maxW) s = s.slice(0, -1);
   return s.replace(/\s+$/, "") + "…";
 }
 /** Greedy word wrap into at most `maxLines`; the final line is fit-truncated if it overflows. */
-function wrapText(str: string, maxW: number, weight: number, size: number, maxLines: number): string[] {
+export function wrapText(str: string, maxW: number, weight: number, size: number, maxLines: number): string[] {
   const words = str.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let cur = "";
@@ -252,17 +256,17 @@ function wrapText(str: string, maxW: number, weight: number, size: number, maxLi
 }
 
 // --- xml helpers ---
-function esc(s: string): string {
+export function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
     c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;",
   );
 }
-const nice = (tag: string) => tag.replace(/_/g, " ");
+export const nice = (tag: string) => tag.replace(/_/g, " ");
 
 let clipSeq = 0;
 /** A post thumbnail as a faded, rounded-rect-clipped background, with a dark scrim on top so
  *  overlaid text keeps its contrast regardless of the image. Empty string when no image. */
-function bgImage(
+export function bgImage(
   x: number,
   y: number,
   w: number,
@@ -281,7 +285,7 @@ function bgImage(
   );
 }
 
-interface TextOpts {
+export interface TextOpts {
   size: number;
   fill: string;
   weight?: number;
@@ -289,7 +293,7 @@ interface TextOpts {
   italic?: boolean;
   anchor?: "start" | "middle" | "end";
 }
-function T(x: number, baseline: number, content: string, o: TextOpts): string {
+export function T(x: number, baseline: number, content: string, o: TextOpts): string {
   const a = [
     `x="${x}"`,
     `y="${baseline}"`,
@@ -304,11 +308,11 @@ function T(x: number, baseline: number, content: string, o: TextOpts): string {
     .join(" ");
   return `<text ${a}>${esc(content)}</text>`;
 }
-const heading = (x: number, baseline: number, label: string) =>
+export const heading = (x: number, baseline: number, label: string) =>
   T(x, baseline, label, { size: 21, fill: "#8a8a9c", weight: 700, spacing: 3 });
 
 /** A "fun" ticked bar: `cells` little rounded blocks, the first `round(ratio * cells)` in accent. */
-function segBar(x: number, y: number, w: number, h: number, ratio: number, accent: string, cells = 20): string {
+export function segBar(x: number, y: number, w: number, h: number, ratio: number, accent: string, cells = 20): string {
   const gap = 3;
   const cellW = (w - gap * (cells - 1)) / cells;
   const clamped = Math.max(0, Math.min(1, ratio));
@@ -329,7 +333,6 @@ export interface CardOptions {
   analysis: FavoritesAnalysis;
   displayName: string;
   site: Site;
-  accent: string;
   sampled: number;
   /** The user's avatar as a `data:` URL (fetched + encoded by the caller). Falls back to a
    *  monogram squircle when absent. */
@@ -342,20 +345,30 @@ export interface CardOptions {
   tagImages?: Record<string, string>;
   /** The Final Verdict line, chosen once by the caller (see `pickFinalVerdict`). */
   verdict?: string;
+  theme: CardTheme;
+  archetype: Archetype;
+  gus?: GusArt | null;
+  /** Favourites laid out as a tilted masonry wall behind everything; empty = plain gradient. */
+  collage?: CollageItem[];
 }
 
 export function buildFavoritesCardSvg({
   analysis,
   displayName,
   site,
-  accent,
   sampled,
   avatarDataUrl,
   avatarAspect = 1,
   artistImages = {},
   tagImages = {},
   verdict,
+  theme,
+  archetype,
+  gus,
+  collage = [],
 }: CardOptions): string {
+  // The themed primary (accent, or sampled from the #1 favourite) drives every accent touch.
+  const accent = theme.primary;
   clipSeq = 0;
   const date = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
   const ratingTotal = analysis.ratings.reduce((s, r) => s + r.count, 0) || 1;
@@ -380,17 +393,15 @@ export function buildFavoritesCardSvg({
 
   const p: string[] = [];
 
-  p.push(`
-    <defs>
-      <radialGradient id="glow" cx="50%" cy="0%" r="90%">
-        <stop offset="0%" stop-color="${esc(accent)}" stop-opacity="0.42"/>
-        <stop offset="55%" stop-color="${esc(accent)}" stop-opacity="0.07"/>
-        <stop offset="100%" stop-color="${esc(accent)}" stop-opacity="0"/>
-      </radialGradient>
-    </defs>
-    <rect width="${CARD_W}" height="${CARD_H}" fill="#0e0e14"/>
-    <rect width="${CARD_W}" height="${CARD_H}" fill="url(#glow)"/>
-  `);
+  p.push(cardFrame(CARD_W, CARD_H, theme, collage));
+
+  // Frosted section backdrop - a soft glass slab behind each group (header, scores, artists,
+  // ratings, characters) so they read as separate blocks over the photo wall.
+  const SEC_X = PAD - 24;
+  const SEC_W = INNER_W + 48;
+  const sectionRect = (y0: number, y1: number) =>
+    `<rect data-frost="1" x="${SEC_X}" y="${y0}" width="${SEC_W}" height="${y1 - y0}" rx="28" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.07"/>`;
+  p.push(sectionRect(50, 330));
 
   // avatar (top-right) - an aspect-preserving squircle, vertically centred on the header text
   const AV_MAX = 172;
@@ -434,9 +445,17 @@ export function buildFavoritesCardSvg({
   );
   p.push(T(PAD, 312, fit(vibe, INNER_W, 600, 26), { size: 26, fill: "#d8d8e4", weight: 600, italic: true }));
 
+  // archetype band
+  const archY = 344;
+  p.push(`<rect x="${PAD}" y="${archY}" width="${INNER_W}" height="${ARCH_H - 22}" rx="22" fill="url(#themeBand)" stroke="#ffffff" stroke-opacity="0.12"/>`);
+  p.push(T(PAD + 28, archY + 38, "YOUR ARCHETYPE", { size: 18, fill: "#ffffff", weight: 700, spacing: 3 }));
+  p.push(T(PAD + 28, archY + 82, fit(archetype.title, INNER_W - 56, 900, 42), { size: 42, fill: "#ffffff", weight: 900 }));
+  p.push(T(PAD + 28, archY + 112, fit(archetype.blurb, INNER_W - 56, 500, 20), { size: 20, fill: "#ffffff", weight: 500 }));
+
   // score tiles
-  const tileY = 360;
+  const tileY = 360 + ARCH_H;
   const tileH = 148;
+  p.push(sectionRect(tileY - 16, tileY + tileH + 16));
   const tileW = (INNER_W - 56) / 3;
   ([
     ["AVG SCORE", analysis.avgScore],
@@ -445,7 +464,7 @@ export function buildFavoritesCardSvg({
   ] as [string, number][]).forEach(([label, value], i) => {
     const x = PAD + i * (tileW + 28);
     p.push(
-      `<rect x="${x}" y="${tileY}" width="${tileW}" height="${tileH}" rx="20" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.08"/>`,
+      `<rect data-frost="1" x="${x}" y="${tileY}" width="${tileW}" height="${tileH}" rx="20" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.08"/>`,
     );
     p.push(T(x + 26, tileY + 46, label, { size: 19, fill: "#8a8a9c", weight: 700, spacing: 2 }));
     p.push(
@@ -458,14 +477,15 @@ export function buildFavoritesCardSvg({
   });
 
   // top artists - full-width rows, each with its top post as a faded background
-  p.push(heading(PAD, 574, "TOP ARTISTS"));
   const artists = analysis.topArtists.slice(0, CARD_MAX_ARTISTS);
+  p.push(sectionRect(546 + ARCH_H, ARCH_H + (artists.length > 0 ? 596 + artists.length * 90 + 6 : 660)));
+  p.push(heading(PAD, 574 + ARCH_H, "TOP ARTISTS"));
   const artistMax = Math.max(1, ...artists.map((a) => a.count));
   const rowH = 78;
   const rowStep = rowH + 12;
   artists.forEach((a, i) => {
-    const y = 596 + i * rowStep;
-    p.push(`<rect x="${PAD}" y="${y}" width="${INNER_W}" height="${rowH}" rx="18" fill="#ffffff" fill-opacity="0.05"/>`);
+    const y = 596 + ARCH_H + i * rowStep;
+    p.push(`<rect data-frost="1" x="${PAD}" y="${y}" width="${INNER_W}" height="${rowH}" rx="18" fill="#ffffff" fill-opacity="0.05"/>`);
     p.push(bgImage(PAD, y, INNER_W, rowH, 18, artistImages[a.label], 0.32, 0.22));
     p.push(`<rect x="${PAD}" y="${y}" width="${INNER_W}" height="${rowH}" rx="18" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>`);
     p.push(
@@ -483,18 +503,19 @@ export function buildFavoritesCardSvg({
         anchor: "end",
       }),
     );
-    p.push(segBar(PAD + 24, y + rowH - 26, INNER_W - 48, 13, a.count / artistMax, accent));
+    p.push(segBar(PAD + 24, y + rowH - 26, INNER_W - 48, 13, a.count / artistMax, theme.primary));
   });
   if (artists.length === 0) {
-    p.push(T(PAD, 636, "No artist tags in this sample.", { size: 24, fill: "#6c6c7c" }));
+    p.push(T(PAD, 636 + ARCH_H, "No artist tags in this sample.", { size: 24, fill: "#6c6c7c" }));
   }
-  const afterArtists = artists.length > 0 ? 596 + artists.length * rowStep : 700;
+  const afterArtists = ARCH_H + (artists.length > 0 ? 596 + artists.length * rowStep : 700);
 
   // ratings segmented bar
   const ratHeadingY = afterArtists + 40;
-  p.push(heading(PAD, ratHeadingY, "RATINGS"));
   const segY = ratHeadingY + 20;
   const segH = 30;
+  p.push(sectionRect(ratHeadingY - 28, segY + segH + 60));
+  p.push(heading(PAD, ratHeadingY, "RATINGS"));
   let segX = PAD;
   analysis.ratings.forEach((r, i) => {
     const w = (r.count / ratingTotal) * INNER_W;
@@ -513,7 +534,8 @@ export function buildFavoritesCardSvg({
   });
 
   // top characters & series - bigger chips, each with a faded favourite behind it
-  const chipsHeadingY = segY + segH + 44 + 44;
+  const chipsHeadingY = segY + segH + 44 + 60;
+  const chipsSectionAt = p.length; // backdrop spliced in here once the chip rows are known
   p.push(heading(PAD, chipsHeadingY, "TOP CHARACTERS & SERIES"));
   const chipH = 56;
   const chipPadX = 22;
@@ -532,29 +554,39 @@ export function buildFavoritesCardSvg({
       rows += 1;
       if (rows >= maxChipRows) break;
     }
-    p.push(`<rect x="${chipX}" y="${chipRowTop}" width="${w}" height="${chipH}" rx="${chipH / 2}" fill="${esc(accent)}" fill-opacity="0.14"/>`);
+    p.push(`<rect data-frost="1" x="${chipX}" y="${chipRowTop}" width="${w}" height="${chipH}" rx="${chipH / 2}" fill="${esc(accent)}" fill-opacity="0.14"/>`);
     p.push(bgImage(chipX, chipRowTop, w, chipH, chipH / 2, tagImages[t.label], 0.36, 0.3));
     p.push(T(chipX + chipPadX, chipRowTop + 37, label, { size: 24, fill: "#f2f2f8", weight: 600 }));
     chipX += w + chipGap;
   }
+  p.splice(chipsSectionAt, 0, sectionRect(chipsHeadingY - 28, chipRowTop + chipH + 18));
 
   // final verdict. Short canned lines get a labelled, left-aligned 2-line box; the long
   // secret / 5k-bonus lines get a label-less, centred, italic box that runs up to 4 lines.
+  const gusW = gus ? 190 : 0;
+  const vTextW = INNER_W - gusW;
   if (verdictLine) {
     const longStyle =
-      balancedVerdict || wrapText(verdictLine, INNER_W - 52, 700, 25, 6).length > 2;
+      balancedVerdict || wrapText(verdictLine, vTextW - 52, 700, 25, 6).length > 2;
     const vH = longStyle ? 168 : 130;
     const vY = CARD_H - 92 - 24 - vH; // footer divider at CARD_H-92, ~24px above it
     p.push(
-      `<rect x="${PAD}" y="${vY}" width="${INNER_W}" height="${vH}" rx="18" fill="${esc(accent)}" fill-opacity="0.08" stroke="${esc(accent)}" stroke-opacity="0.28"/>`,
+      `<rect data-frost="1" x="${PAD}" y="${vY}" width="${vTextW}" height="${vH}" rx="18" fill="${esc(theme.primary)}" fill-opacity="0.14" stroke="${esc(theme.primary)}" stroke-opacity="0.4"/>`,
     );
+    // Gus "says" the verdict: bubble tail pointing at him on the right
+    if (gus) {
+      const tx = PAD + vTextW;
+      const ty = vY + vH / 2;
+      p.push(`<path d="M${tx - 1} ${ty - 16} L${tx + 26} ${ty} L${tx - 1} ${ty + 16} Z" fill="${esc(theme.primary)}" fill-opacity="0.14"/>`);
+      p.push(gusSvg(gus, archetype.pose, CARD_W - PAD - gusW / 2 + 14, vY + vH + 8, 200));
+    }
     if (longStyle) {
       const lh = 27;
-      const lines = wrapText(verdictLine, INNER_W - 68, 700, 21, 5);
+      const lines = wrapText(verdictLine, vTextW - 68, 700, 21, 5);
       const startY = vY + vH / 2 - ((lines.length - 1) * lh) / 2 + 7;
       lines.forEach((ln, i) =>
         p.push(
-          T(CARD_W / 2, startY + i * lh, ln, {
+          T(PAD + vTextW / 2, startY + i * lh, ln, {
             size: 21,
             fill: "#f4f4f8",
             weight: 700,
@@ -564,8 +596,8 @@ export function buildFavoritesCardSvg({
         ),
       );
     } else {
-      p.push(T(PAD + 26, vY + 38, "FINAL VERDICT", { size: 19, fill: accent, weight: 700, spacing: 3 }));
-      const lines = wrapText(verdictLine, INNER_W - 52, 700, 25, 2);
+      p.push(T(PAD + 26, vY + 38, "FINAL VERDICT", { size: 19, fill: theme.primary, weight: 700, spacing: 3 }));
+      const lines = wrapText(verdictLine, vTextW - 52, 700, 25, 2);
       const oneLine = lines.length === 1;
       lines.forEach((ln, i) =>
         p.push(
@@ -589,7 +621,9 @@ export function buildFavoritesCardSvg({
     );
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}" viewBox="0 0 ${CARD_W} ${CARD_H}" font-family="${FONT}">${p.join(
+  return finishFrost(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}" viewBox="0 0 ${CARD_W} ${CARD_H}" font-family="${FONT}">${p.join(
     "",
-  )}</svg>`;
+  )}</svg>`,
+  );
 }

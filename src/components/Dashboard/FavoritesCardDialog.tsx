@@ -1,21 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { Check, FileDown, Image as ImageIcon, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Copy, FileDown, Image as ImageIcon, X } from "lucide-react";
+import mascotUrl from "../../assets/mascot.png";
 import type { Site } from "../../models/site";
 import type { FavoritesAnalysis } from "../../lib/favoritesAnalysis";
 import { e621Api } from "../../api/client";
 import { useAvatarUrl } from "../../queries/useAvatarUrl";
 import { useSettingsStore } from "../../state/settingsStore";
 import { isBlacklisted, parseBlacklist } from "../../lib/blacklist";
-import {
-  buildFavoritesCardSvg,
-  CARD_H,
-  CARD_MAX_ARTISTS,
-  CARD_MAX_TAGS,
-  CARD_W,
-  pickFinalVerdict,
-} from "../../lib/favoritesCard";
-import { exportCard, svgPreviewUrl, type CardFormat } from "../../lib/exportCard";
+import { CARD_MAX_ARTISTS, CARD_MAX_TAGS, pickFinalVerdict } from "../../lib/favoritesCard";
+import { buildWrappedPages, SHAPE_SIZE, type CardMode, type CardShape } from "../../lib/wrappedSlides";
+import { deriveTheme, sampleThemeColor, type GusArt } from "../../lib/wrappedFrame";
+import { pickArchetype } from "../../lib/wrappedArchetype";
+import { spicyAllowed } from "../../lib/mascotSpicy";
+import { copyCardToClipboard, exportCard, svgPreviewUrl, type CardFormat } from "../../lib/exportCard";
 import { errorMessage } from "../../lib/errors";
 import { pushModal } from "../../lib/modalStack";
 import { Button } from "../ui/Button";
@@ -47,6 +45,54 @@ async function toDataUrl(url: string | undefined): Promise<string | null> {
 }
 
 const PREP_TIMEOUT_MS = 45_000;
+/** Random favourites fetched for the background wall (before blacklist filtering). */
+const COLLAGE_FETCH = 75;
+
+/** mascot.png as a data: URL (an <image> in a rasterised SVG can't load external URLs). */
+async function loadGus(): Promise<GusArt> {
+  const blob = await (await fetch(mascotUrl)).blob();
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+  const aspect = await new Promise<number>((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img.naturalWidth / Math.max(1, img.naturalHeight));
+    img.onerror = () => resolve(1);
+    img.src = dataUrl;
+  });
+  return { dataUrl, aspect };
+}
+
+/** A small segmented toggle for the dialog's card options. */
+function Seg<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: [T, string][];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex rounded-[var(--radius-sm)] bg-black/5 p-0.5 dark:bg-white/5">
+      {options.map(([v, label]) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onChange(v)}
+          className={`flex-1 rounded-[var(--radius-sm)] px-2 py-1 text-xs font-medium transition-colors ${
+            value === v ? "bg-[rgb(var(--accent))] text-white" : "opacity-70 hover:opacity-100"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function FavoritesCardDialog({
   analysis,
@@ -63,6 +109,27 @@ export function FavoritesCardDialog({
   const ratingFilter = useSettingsStore((s) => s.ratingTagFilter());
   // Picked once per dialog open, so the preview doesn't re-roll it on every image that loads in.
   const [verdict] = useState(() => pickFinalVerdict(analysis));
+  const cheeky = useSettingsStore((s) => spicyAllowed(s));
+  const [archetype] = useState(() => pickArchetype(analysis, cheeky));
+  const [mode, setMode] = useState<CardMode>("single");
+  const [shape, setShape] = useState<CardShape>("story");
+  const [colorSource, setColorSource] = useState<"auto" | "accent">("auto");
+  const [showImages, setShowImages] = useState(true);
+  const [showGus, setShowGus] = useState(true);
+  const [page, setPage] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [gus, setGus] = useState<GusArt | null>(null);
+  const [sampledColor, setSampledColor] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadGus().then(
+      (g) => !cancelled && setGus(g),
+      () => {},
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [busy, setBusy] = useState<CardFormat | null>(null);
   const [result, setResult] = useState<{ path: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +162,7 @@ export function FavoritesCardDialog({
   // --- card backgrounds: each artist's top post + a random post per character/series tag ---
   const [artistImages, setArtistImages] = useState<Record<string, string>>({});
   const [tagImages, setTagImages] = useState<Record<string, string>>({});
+  const [collageImages, setCollageImages] = useState<string[]>([]);
   const [preparing, setPreparing] = useState(true);
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +224,30 @@ export function FavoritesCardDialog({
       const tagOut: Record<string, string> = {};
       for (const [label, data] of tagResults) if (data) tagOut[label] = data;
       setTagImages(tagOut);
+
+      // Background wall: its own batch of random favourites, so it doesn't have to cycle the
+      // ~17 row/chip images above. One API call; thumbnails come straight off the CDN.
+      try {
+        const r = await e621Api.getPosts(
+          site,
+          `fav:${displayName} order:random ${ratingFilter ?? ""}`.trim(),
+          COLLAGE_FETCH,
+        );
+        const urls = [
+          ...new Set(
+            r.posts
+              .filter((p) => !isBlacklisted(blacklistEntries, p))
+              .map((p) => p.preview?.url)
+              .filter((u): u is string => !!u),
+          ),
+        ];
+        const data = await Promise.all(urls.map(toDataUrl));
+        if (cancelled) return;
+        setCollageImages(data.filter((d): d is string => !!d));
+      } catch {
+        /* fall back to the row/chip images */
+      }
+      if (cancelled) return;
       setPreparing(false);
     })();
 
@@ -166,23 +258,78 @@ export function FavoritesCardDialog({
     };
   }, [analysis, site, displayName, blacklistEntries, ratingFilter]);
 
-  const svg = useMemo(
-    () =>
-      buildFavoritesCardSvg({
+  // Theme colour from the #1 artist's top post once it's in (falls back to the accent).
+  const topArtistImage = analysis.topArtists[0] ? artistImages[analysis.topArtists[0].label] : undefined;
+  useEffect(() => {
+    if (!topArtistImage) return;
+    let cancelled = false;
+    sampleThemeColor(topArtistImage).then(
+      (c) => !cancelled && setSampledColor(c),
+      () => {},
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [topArtistImage]);
+  const theme = useMemo(
+    () => deriveTheme(colorSource === "auto" && sampledColor ? sampledColor : accent),
+    [colorSource, sampledColor, accent],
+  );
+
+  // Each collage photo's aspect ratio, so the background wall packs like the real masonry grid.
+  const [aspects, setAspects] = useState<Record<string, number>>({});
+  useEffect(() => {
+    let cancelled = false;
+    const missing = [...new Set([...collageImages, ...Object.values(artistImages), ...Object.values(tagImages)])].filter(
+      (src) => !(src in aspects),
+    );
+    if (missing.length === 0) return;
+    // Measured as one batch: a setAspects per image would rebuild every page's SVG ~90 times.
+    void Promise.all(
+      missing.map(
+        (src) =>
+          new Promise<[string, number]>((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve([src, img.naturalWidth / Math.max(1, img.naturalHeight)]);
+            img.onerror = () => resolve([src, 1]);
+            img.src = src;
+          }),
+      ),
+    ).then((measured) => !cancelled && setAspects((a) => ({ ...a, ...Object.fromEntries(measured) })));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `aspects` only filters already-measured images
+  }, [collageImages, artistImages, tagImages]);
+
+  const pages = useMemo(() => {
+    const collage = showImages
+      ? [...new Set([...collageImages, ...Object.values(artistImages), ...Object.values(tagImages)])].map((src) => ({ src, aspect: aspects[src] ?? 1 }))
+      : [];
+    return buildWrappedPages(
+      {
         analysis,
         displayName,
         site,
-        accent,
         sampled,
-        avatarDataUrl: avatar?.dataUrl ?? null,
+        // The avatar is itself an e621 post (possibly explicit), so SFW drops it with the rest.
+        avatarDataUrl: showImages ? (avatar?.dataUrl ?? null) : null,
         avatarAspect: avatar?.aspect ?? 1,
-        artistImages,
-        tagImages,
+        artistImages: showImages ? artistImages : {},
+        tagImages: showImages ? tagImages : {},
         verdict,
-      }),
-    [analysis, displayName, site, accent, sampled, avatar, artistImages, tagImages, verdict],
-  );
-  const previewUrl = useMemo(() => svgPreviewUrl(svg), [svg]);
+        theme,
+        archetype,
+        gus: showGus ? gus : null,
+        collage,
+      },
+      mode,
+      shape,
+    );
+  }, [analysis, displayName, site, sampled, avatar, artistImages, tagImages, collageImages, aspects, verdict, theme, archetype, gus, showGus, showImages, mode, shape]);
+  const pageIdx = Math.min(page, pages.length - 1);
+  const previewUrl = useMemo(() => svgPreviewUrl(pages[pageIdx]), [pages, pageIdx]);
+  const { w: cardW, h: cardH } = SHAPE_SIZE[shape];
 
   // Mark a modal as open so the Dashboard panel's own Escape handler stands down while this is up.
   useEffect(() => pushModal(), []);
@@ -203,12 +350,24 @@ export function FavoritesCardDialog({
     setError(null);
     setResult(null);
     try {
-      const path = await exportCard(svg, CARD_W, CARD_H, format, safeFileName(displayName));
+      const path = await exportCard(pages, cardW, cardH, format, safeFileName(displayName));
       if (path) setResult({ path });
     } catch (e) {
       setError(errorMessage(e, "Export failed."));
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function doCopy() {
+    if (busy) return;
+    setError(null);
+    try {
+      await copyCardToClipboard(pages[pageIdx], cardW, cardH);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch (e) {
+      setError(errorMessage(e, "Copy failed."));
     }
   }
 
@@ -231,15 +390,85 @@ export function FavoritesCardDialog({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="mx-auto max-w-[280px] overflow-hidden rounded-[var(--radius-md)] shadow-lg">
-            {/* SVG preview - scaled down to fit; export rasterises at full 2x. */}
-            <img
-              src={previewUrl}
-              alt="Favorites card preview"
-              width={CARD_W}
-              height={CARD_H}
-              className="block h-auto w-full"
+          <div className="mb-4 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 text-xs">
+            <span className="opacity-60">Layout</span>
+            <Seg
+              value={mode}
+              onChange={(v) => {
+                setMode(v);
+                setPage(0);
+              }}
+              options={[
+                ["single", "Single card"],
+                ["multi", "Multiple cards"],
+              ]}
             />
+            <span className="opacity-60">Shape</span>
+            <Seg
+              value={shape}
+              onChange={setShape}
+              options={[
+                ["story", "Story 9:16"],
+                ["square", "Square"],
+              ]}
+            />
+            <span className="opacity-60">Colors</span>
+            <Seg
+              value={colorSource}
+              onChange={setColorSource}
+              options={[
+                ["auto", "From #1 favorite"],
+                ["accent", "Accent"],
+              ]}
+            />
+            <span className="opacity-60">Images</span>
+            <Seg
+              value={showImages ? "on" : "off"}
+              onChange={(v) => setShowImages(v === "on")}
+              options={[
+                ["on", "Show posts"],
+                ["off", "SFW (no posts)"],
+              ]}
+            />
+            <span className="opacity-60">Gus</span>
+            <Seg
+              value={showGus ? "on" : "off"}
+              onChange={(v) => setShowGus(v === "on")}
+              options={[
+                ["on", "On"],
+                ["off", "Off"],
+              ]}
+            />
+          </div>
+
+          <div className="mx-auto max-w-[280px]">
+            <div className="overflow-hidden rounded-[var(--radius-md)] shadow-lg">
+              {/* SVG preview - scaled down to fit; export rasterises at full 2x. */}
+              <img
+                src={previewUrl}
+                alt="Favorites card preview"
+                width={cardW}
+                height={cardH}
+                className="block h-auto w-full"
+              />
+            </div>
+            {pages.length > 1 && (
+              <div className="mt-2 flex items-center justify-center gap-2 text-xs">
+                <IconButton onClick={() => setPage(Math.max(0, pageIdx - 1))} title="Previous card" disabled={pageIdx === 0}>
+                  <ChevronLeft size={15} />
+                </IconButton>
+                <span className="tabular-nums opacity-70">
+                  {pageIdx + 1} / {pages.length}
+                </span>
+                <IconButton
+                  onClick={() => setPage(Math.min(pages.length - 1, pageIdx + 1))}
+                  title="Next card"
+                  disabled={pageIdx === pages.length - 1}
+                >
+                  <ChevronRight size={15} />
+                </IconButton>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 flex gap-2">
@@ -258,6 +487,15 @@ export function FavoritesCardDialog({
               className="flex-1 justify-center"
             >
               Save PDF
+            </Button>
+            <Button
+              icon={copied ? <Check size={13} /> : <Copy size={13} />}
+              disabled={!!busy || preparing}
+              onClick={() => void doCopy()}
+              title={pages.length > 1 ? "Copy the card shown above" : "Copy to clipboard"}
+              className="flex-1 justify-center"
+            >
+              {copied ? "Copied" : "Copy"}
             </Button>
           </div>
 

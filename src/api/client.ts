@@ -347,15 +347,20 @@ export const e621Api = {
   saveExportFile(path: string, dataBase64: string): Promise<void> {
     return invoke("save_export_file", { path, dataBase64 });
   },
+  /** Writes without replacing an existing file (picks `name (2).png`...); returns the path used. */
+  saveExportFileNew(path: string, dataBase64: string): Promise<string> {
+    return invoke("save_export_file_new", { path, dataBase64 });
+  },
 
-  /** Wrap a baseline JPEG (base64) in a minimal one-page PDF at `path` - the card's PDF export. */
+  /** Wrap baseline JPEGs (base64, one per page, all the same size) in a minimal image-only PDF
+   *  at `path` - the card's PDF export. */
   savePdfWithJpeg(
     path: string,
-    jpegBase64: string,
+    jpegsBase64: string[],
     widthPx: number,
     heightPx: number,
   ): Promise<void> {
-    return invoke("save_pdf_with_jpeg", { path, jpegBase64, widthPx, heightPx });
+    return invoke("save_pdf_with_jpeg", { path, jpegsBase64, widthPx, heightPx });
   },
 
   /** Opens the isolated sign-in window for a third-party site ("furaffinity"); the Rust side
