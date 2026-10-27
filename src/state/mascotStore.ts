@@ -1,3 +1,4 @@
+import { SPICY_SHARE, spicyAllowed } from "../lib/mascotSpicy";
 import { create } from "zustand";
 import { useSettingsStore } from "./settingsStore";
 import {
@@ -65,6 +66,7 @@ interface MascotState {
 }
 
 // Rolling timestamps for the combo reactions (not state - nothing renders from them).
+const INTRODUCED_KEY = "mascot.introduced";
 let petStamps: number[] = [];
 let refusePetsUntil = 0;
 let dragStamps: number[] = [];
@@ -96,7 +98,8 @@ export const useMascotStore = create<MascotState>((set, get) => ({
   lastReactAt: Date.now(),
 
   react: (kind, vars) => {
-    const { mascotMode, mascotSpeech } = useSettingsStore.getState();
+    const settings = useSettingsStore.getState();
+    const { mascotMode, mascotTalk } = settings;
     const state = get();
     if (state.hiddenForSession || mascotMode === "off") return;
     if (covered(state.overlayHosts)) {
@@ -112,7 +115,8 @@ export const useMascotStore = create<MascotState>((set, get) => ({
       ? { kind: state.active.kind, startedAt: state.lastPlayed[state.active.kind] ?? 0 }
       : null;
     if (!shouldPlay(kind, mascotMode, now, state.lastPlayed, playing)) return;
-    const line = pickLine(kind, mascotSpeech, now, state.lastSpokeAt, Math.random(), vars);
+    const spicy = spicyAllowed(settings) && Math.random() < SPICY_SHARE;
+    const line = pickLine(kind, mascotTalk, now, state.lastSpokeAt, Math.random(), vars, spicy);
     // Speech stretches the reaction so there's time to read it.
     const duration = REACTIONS[kind].durationMs + (line ? 1800 : 0);
     set({
@@ -141,6 +145,12 @@ export const useMascotStore = create<MascotState>((set, get) => ({
 
   pet: () => {
     const now = Date.now();
+    // The very first pet gets an introduction instead.
+    if (localStorage.getItem(INTRODUCED_KEY) !== "1") {
+      localStorage.setItem(INTRODUCED_KEY, "1");
+      get().react("intro");
+      return;
+    }
     if (now < refusePetsUntil) {
       get().react("wake"); // a curt little shake - "no"
       return;

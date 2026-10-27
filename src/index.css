@@ -752,38 +752,189 @@ h3 {
   }
 }
 
-/* Cooter easter egg (SearchBar.tsx / EasterEggDialog.tsx) - an infinitely scrolling ROYGBIV
-   flag behind the egg image, same stripe colors as the reference app's RainbowStripeColors
-   (shared there with its pull-to-refresh spinner). A repeating-linear-gradient background
-   animated via background-position gives the same seamless scroll effect as the reference app's
-   per-rectangle tiling, without needing individual stripe elements. */
-@keyframes rainbow-scroll {
-  from {
-    background-position-x: 0%;
-  }
+/* Cooter easter egg (EasterEggDialog.tsx) - the card's scrolling rainbow. Diagonal candy
+   stripes on an oversized, tilted layer (::before) that slides by exactly one stripe period
+   (--rainbow-period) per loop, so the wrap is invisible - the old version shifted the background
+   by half a cycle and visibly snapped back mid-rainbow. It's a transform, so it runs on the
+   compositor and stays smooth. ::after adds a soft vignette plus a glossy sheen that sweeps
+   across every few seconds. */
+.rainbow-scroll {
+  --rainbow-band: 34px;
+  --rainbow-period: calc(var(--rainbow-band) * 7);
+  overflow: hidden;
+  isolation: isolate;
+}
+.rainbow-scroll::before {
+  content: "";
+  position: absolute;
+  /* Big enough to cover the card at any point of the slide, after the tilt. */
+  inset: -60% -60% -60% -60%;
+  width: calc(220% + var(--rainbow-period));
+  background: repeating-linear-gradient(
+    90deg,
+    #ff3b5c 0,
+    #ff3b5c calc(var(--rainbow-band) - 3px),
+    #ff8a00 var(--rainbow-band),
+    #ff8a00 calc(var(--rainbow-band) * 2 - 3px),
+    #ffd400 calc(var(--rainbow-band) * 2),
+    #ffd400 calc(var(--rainbow-band) * 3 - 3px),
+    #3ddc84 calc(var(--rainbow-band) * 3),
+    #3ddc84 calc(var(--rainbow-band) * 4 - 3px),
+    #00c2ff calc(var(--rainbow-band) * 4),
+    #00c2ff calc(var(--rainbow-band) * 5 - 3px),
+    #5b6bff calc(var(--rainbow-band) * 5),
+    #5b6bff calc(var(--rainbow-band) * 6 - 3px),
+    #b44dff calc(var(--rainbow-band) * 6),
+    #b44dff calc(var(--rainbow-band) * 7 - 3px),
+    #ff3b5c var(--rainbow-period)
+  );
+  transform: rotate(-24deg) translateX(0);
+  animation: rainbow-slide 5s linear infinite;
+  will-change: transform;
+}
+@keyframes rainbow-slide {
   to {
-    background-position-x: -100%;
+    transform: rotate(-24deg) translateX(calc(var(--rainbow-period) * -1));
   }
 }
+.rainbow-scroll::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.45) 50%, transparent 65%) no-repeat,
+    radial-gradient(ellipse at center, transparent 45%, rgb(0 0 0 / 0.35));
+  background-size: 250% 100%, 100% 100%;
+  background-position: 150% 0, center;
+  animation: rainbow-sheen 4.5s ease-in-out infinite;
+}
+@keyframes rainbow-sheen {
+  0%, 55% { background-position: 150% 0, center; }
+  100% { background-position: -50% 0, center; }
+}
 
-.rainbow-scroll {
-  background-image: repeating-linear-gradient(
-    90deg,
-    #ff0000 0%,
-    #ff0000 14.2857%,
-    #ff7f00 14.2857%,
-    #ff7f00 28.5714%,
-    #ffff00 28.5714%,
-    #ffff00 42.8571%,
-    #00ff00 42.8571%,
-    #00ff00 57.1428%,
-    #00bfff 57.1428%,
-    #00bfff 71.4285%,
-    #4b0082 71.4285%,
-    #4b0082 85.7142%,
-    #8f00ff 85.7142%,
-    #8f00ff 100%
-  );
+/* ---- Cooter easter egg production (EasterEggDialog.tsx) ---- */
+.egg-caret {
+  animation: egg-caret 0.6s steps(1) infinite;
+}
+@keyframes egg-caret {
+  50% { opacity: 0; }
+}
+
+/* Card bursts in on the sting: overshoot scale with a little spin. */
+@keyframes egg-burst {
+  0% { transform: scale(0.2) rotate(-12deg); opacity: 0; }
+  60% { transform: scale(1.08) rotate(2deg); opacity: 1; }
+  100% { transform: none; }
+}
+.egg-burst {
+  animation: egg-burst 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+/* A ring that blasts outward from behind the card. */
+@keyframes egg-shockwave {
+  0% { transform: scale(0.4); opacity: 0.9; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+.egg-shockwave {
+  border-radius: 50%;
+  border: 6px solid rgb(255 255 255 / 0.85);
+  box-shadow: 0 0 40px rgb(255 255 255 / 0.6);
+  animation: egg-shockwave 0.8s ease-out both;
+}
+
+/* Close: spin away into the distance. */
+@keyframes egg-exit {
+  to { transform: scale(0.1) rotate(540deg); opacity: 0; }
+}
+.egg-exit {
+  animation: egg-exit 0.45s cubic-bezier(0.5, 0, 0.8, 0.4) forwards;
+}
+
+/* Trading card: two faces in 3D, tilt follows the pointer (inline transform), flip via rotateY. */
+.egg-card {
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.egg-face {
+  position: absolute;
+  inset: 0;
+  padding: 6px;
+  border-radius: var(--radius-lg);
+  backface-visibility: hidden;
+  box-shadow: 0 25px 60px -15px rgb(0 0 0 / 0.8);
+}
+.egg-back {
+  transform: rotateY(180deg);
+}
+.egg-frame {
+  background: linear-gradient(135deg, #e5e7eb, #9ca3af 40%, #f3f4f6 60%, #6b7280);
+}
+.egg-frame-golden {
+  background: linear-gradient(135deg, #fde68a, #b45309 35%, #fef3c7 55%, #d97706 75%, #fde68a);
+  box-shadow: 0 0 40px rgb(251 191 36 / 0.55), 0 25px 60px -15px rgb(0 0 0 / 0.8);
+}
+
+/* Holographic foil: a rainbow sheen centred on the pointer, blended over the art. */
+.egg-foil {
+  background:
+    radial-gradient(circle at var(--foil-x, 50%) var(--foil-y, 50%), rgb(255 255 255 / 0.45), transparent 45%),
+    linear-gradient(
+      115deg,
+      transparent 20%,
+      rgb(255 0 128 / 0.25) 35%,
+      rgb(0 255 255 / 0.25) 50%,
+      rgb(255 255 0 / 0.25) 65%,
+      transparent 80%
+    );
+  background-size: 100% 100%, 250% 250%;
+  background-position: center, var(--foil-x, 50%) var(--foil-y, 50%);
+  mix-blend-mode: color-dodge;
+  opacity: 0.7;
+}
+.egg-foil-golden {
+  background:
+    radial-gradient(circle at var(--foil-x, 50%) var(--foil-y, 50%), rgb(255 236 170 / 0.6), transparent 45%),
+    linear-gradient(115deg, transparent 20%, rgb(255 200 60 / 0.35) 45%, rgb(255 255 200 / 0.3) 60%, transparent 80%);
+  background-size: 100% 100%, 250% 250%;
+  background-position: center, var(--foil-x, 50%) var(--foil-y, 50%);
+}
+
+@keyframes egg-sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1) rotate(90deg); }
+}
+.egg-sparkle {
+  animation: egg-sparkle 2.4s ease-in-out infinite;
+}
+
+.egg-golden-text {
+  background: linear-gradient(90deg, #fde68a, #f59e0b, #fef3c7, #d97706, #fde68a);
   background-size: 200% 100%;
-  animation: rainbow-scroll 6s linear infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: egg-shimmer 3s linear infinite;
+}
+
+/* Search box build-up while you're one or two letters from the magic word. */
+@keyframes egg-shimmer {
+  to { background-position: 200% 0; }
+}
+.egg-shimmer {
+  border-color: transparent !important;
+  background:
+    linear-gradient(rgb(var(--egg-shimmer-fill, var(--lt-surface))), rgb(var(--egg-shimmer-fill, var(--lt-surface)))) padding-box,
+    linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #00bfff, #4b0082, #8f00ff, #ff0000) border-box;
+  background-size: 100% 100%, 200% 100%;
+  animation: egg-shimmer 1.5s linear infinite;
+}
+/* Dark: same as the `dark:` variant - forced via data-theme, or the OS when no theme is forced. */
+[data-theme="dark"] .egg-shimmer {
+  --egg-shimmer-fill: var(--dk-surface);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .egg-shimmer {
+    --egg-shimmer-fill: var(--dk-surface);
+  }
 }

@@ -1,4 +1,9 @@
-import type { MascotMode } from "../state/settingsStore";
+import { SPICY_LINES } from "./mascotSpicy";
+import type { MascotMode, MascotTalk } from "../state/settingsStore";
+
+/** The raccoon's name - from monosodium **g**l**u**tamate. Used in Settings, the hide pill, the
+ *  easter egg card and his own lines. */
+export const MASCOT_NAME = "Gus";
 
 /** Everything the raccoon can react to. Fired via `useMascotStore.getState().react(kind)`. */
 export type ReactionKind =
@@ -72,7 +77,12 @@ export type ReactionKind =
   | "disco"
   // dashboard
   | "dashComment"
-  | "analysisDone";
+  | "analysisDone"
+  // the cooter easter egg - the card is Procione (the owner's character), Gus just reacts to it
+  | "eggSpotted"
+  | "eggClosed"
+  // first pet ever
+  | "intro";
 
 /** CSS motion (`.mascot-m-<name>` in index.css) - all whole-image transforms of mascot.png. */
 export type MascotMotion =
@@ -312,6 +322,20 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
     motion: "hop", emoji: ["📊", "✨", "🧮"], durationMs: 2600, cooldownMs: 0, minor: false, priority: 3, burst: 5,
     lines: ["{line}"], alwaysTalks: true, ignoreGap: true,
   },
+  eggSpotted: {
+    motion: "jitter", emoji: ["😳", "🫣", "🙈"], durationMs: 2200, cooldownMs: 0, minor: false, priority: 4, burst: 6,
+    lines: ["Whoa! Is that Procione?!", "Procione! Put some clothes on!", "Don't tell Procione I saw that.", "Cover your eyes! …Okay, peek."],
+    alwaysTalks: true, ignoreGap: true,
+  },
+  intro: {
+    motion: "hop", emoji: ["👋", "🦝"], durationMs: 2400, cooldownMs: 0, minor: false, priority: 3, burst: 3,
+    lines: ["Hi, I'm Gus! Nice to meet you."], alwaysTalks: true, ignoreGap: true,
+  },
+  eggClosed: {
+    motion: "droop", emoji: ["😶", "🤐"], durationMs: 2000, cooldownMs: 0, minor: false, priority: 4, burst: 3,
+    lines: ["We never speak of this.", "That never happened.", "Delete your browser history."],
+    alwaysTalks: true, ignoreGap: true,
+  },
 };
 
 /** Odds that a favorite is a ✨shiny✨ one. */
@@ -428,21 +452,26 @@ export function shouldPlay(
   return true;
 }
 
-/** A speech line for this reaction, or null to stay quiet. `rand` in [0,1). */
+/** A speech line for this reaction, or null to stay quiet. `rand` in [0,1).
+ *  "always" skips the gap and the chance roll entirely; "sometimes" is the rate-limited default. */
 export function pickLine(
   kind: ReactionKind,
-  speechOn: boolean,
+  talk: MascotTalk,
   now: number,
   lastSpokeAt: number | null,
   rand: number,
   vars: Record<string, string> = {},
+  /** Use Gus's cheeky pool for this kind, if it has one (caller decides - see mascotSpicy.ts). */
+  spicy = false,
 ): string | null {
   const def = REACTIONS[kind];
-  if (!speechOn || def.minor || def.lines.length === 0) return null;
-  if (!def.ignoreGap && lastSpokeAt != null && now - lastSpokeAt < SPEECH_GAP_MS) return null;
-  if (!def.alwaysTalks && rand >= SPEECH_CHANCE) return null;
-  const scaled = def.alwaysTalks ? rand : rand / SPEECH_CHANCE;
-  const line = def.lines[Math.floor(scaled * def.lines.length) % def.lines.length];
+  const lines = spicy && SPICY_LINES[kind]?.length ? SPICY_LINES[kind]! : def.lines;
+  if (talk === "never" || def.minor || lines.length === 0) return null;
+  const always = talk === "always" || def.alwaysTalks;
+  if (talk !== "always" && !def.ignoreGap && lastSpokeAt != null && now - lastSpokeAt < SPEECH_GAP_MS) return null;
+  if (!always && rand >= SPEECH_CHANCE) return null;
+  const scaled = always ? rand : rand / SPEECH_CHANCE;
+  const line = lines[Math.floor(scaled * lines.length) % lines.length];
   return line.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? "");
 }
 

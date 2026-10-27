@@ -31,6 +31,9 @@ export type SeenMode = "off" | "dim" | "hide";
  *  raccoon on empty/loading screens - it only disables reactions). */
 export type MascotMode = "companion" | "cameos" | "off";
 export type MascotCorner = "br" | "bl" | "tr" | "tl";
+/** How chatty Gus is: never (reactions only), sometimes (rate-limited, ~half the time), or always
+ *  (every reaction that has lines speaks, every time). */
+export type MascotTalk = "never" | "sometimes" | "always";
 export const MIN_THUMBNAIL_SIZE_PX = 120;
 export const MAX_THUMBNAIL_SIZE_PX = 420;
 export const MIN_VIDEO_SPEED = 0.25;
@@ -63,8 +66,10 @@ interface SettingsState {
   viewerAmbient: boolean;
   seenMode: SeenMode;
   mascotMode: MascotMode;
-  /** Occasional short speech bubbles on top of reactions. */
-  mascotSpeech: boolean;
+  /** Speech bubbles on top of reactions - see MascotTalk. */
+  mascotTalk: MascotTalk;
+  /** Gus's cheeky lines - only ever used while adult mode and the Explicit rating are on too. */
+  mascotSpicy: boolean;
   /** Which grid corner the companion sits in (drag to move). */
   mascotCorner: MascotCorner;
   gridThumbnailSizePx: number;
@@ -99,7 +104,8 @@ interface SettingsState {
   setViewerAmbient: (enabled: boolean) => void;
   setSeenMode: (mode: SeenMode) => void;
   setMascotMode: (mode: MascotMode) => void;
-  setMascotSpeech: (enabled: boolean) => void;
+  setMascotTalk: (talk: MascotTalk) => void;
+  setMascotSpicy: (enabled: boolean) => void;
   setMascotCorner: (corner: MascotCorner) => void;
   setGridThumbnailSizePx: (size: number) => void;
   setViewerSidebarWidthPx: (px: number) => void;
@@ -156,7 +162,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   viewerAmbient: true,
   seenMode: "dim",
   mascotMode: "companion",
-  mascotSpeech: true,
+  mascotTalk: "sometimes",
+  mascotSpicy: true,
   mascotCorner: "bl",
   gridThumbnailSizePx: DEFAULT_THUMBNAIL_SIZE_PX,
   viewerSidebarWidthPx: DEFAULT_VIEWER_SIDEBAR_PX,
@@ -220,9 +227,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ mascotMode });
     void persist("mascotMode", mascotMode);
   },
-  setMascotSpeech: (mascotSpeech) => {
-    set({ mascotSpeech });
-    void persist("mascotSpeech", mascotSpeech);
+  setMascotTalk: (mascotTalk) => {
+    set({ mascotTalk });
+    void persist("mascotTalk", mascotTalk);
+  },
+  setMascotSpicy: (mascotSpicy) => {
+    set({ mascotSpicy });
+    void persist("mascotSpicy", mascotSpicy);
   },
   setMascotCorner: (mascotCorner) => {
     set({ mascotCorner });
@@ -311,7 +322,11 @@ export async function loadSettings(): Promise<void> {
       viewerAmbient: (values.viewerAmbient as boolean) ?? state.viewerAmbient,
       seenMode: (values.seenMode as SeenMode) ?? state.seenMode,
       mascotMode: (values.mascotMode as MascotMode) ?? state.mascotMode,
-      mascotSpeech: (values.mascotSpeech as boolean) ?? state.mascotSpeech,
+      // Older builds stored an on/off `mascotSpeech` - off carries over as "never".
+      mascotTalk:
+        (values.mascotTalk as MascotTalk) ??
+        (values.mascotSpeech === false ? "never" : state.mascotTalk),
+      mascotSpicy: (values.mascotSpicy as boolean) ?? state.mascotSpicy,
       mascotCorner: (values.mascotCorner as MascotCorner) ?? state.mascotCorner,
       gridThumbnailSizePx: (values.gridThumbnailSizePx as number) ?? state.gridThumbnailSizePx,
       viewerSidebarWidthPx:

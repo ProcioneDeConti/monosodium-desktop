@@ -1,3 +1,4 @@
+import { spicyAllowed, spicyDashboardRemarks } from "../../lib/mascotSpicy";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
@@ -14,6 +15,7 @@ import {
   RotateCcw,
   Search,
   Upload,
+  Sparkles,
   X,
 } from "lucide-react";
 import type { Site } from "../../models/site";
@@ -34,7 +36,8 @@ import { Heatmap, SplitBar, StatTile } from "./charts";
 import { FavoritesAnalysisRunner } from "./FavoritesAnalysisRunner";
 import { OtherUserAnalysis } from "./OtherUserAnalysis";
 import { MascotLayer } from "../Mascot/MascotLayer";
-import { dashboardRemarks } from "../../lib/mascotDashboard";
+import { dashboardRemarks, shuffled } from "../../lib/mascotDashboard";
+import { getSummons, summonTitle } from "../../lib/easterEgg";
 import { mascotReact } from "../../state/mascotStore";
 
 interface DashboardPanelProps {
@@ -141,27 +144,42 @@ export function DashboardPanel({ site, onClose, onSearch }: DashboardPanelProps)
     onSearch(q);
   }
 
-  // Mascot commentary: remarks drawn from these same stats (lib/mascotDashboard.ts). One shortly
-  // after opening, then the next on each click of him - starting at a random one so reopening
-  // the dashboard doesn't always lead with the same line.
-  const remarks = useMemo(
-    () =>
-      dashboardRemarks({
+  // Mascot commentary: remarks drawn from these same stats (lib/mascotDashboard.ts), shuffled on
+  // open. One shortly after opening, then the next on each click of him.
+  const eggSummons = useMemo(getSummons, []);
+  const remarks = useMemo(() => {
+    // Heatmap-window facts: newest day first.
+    const keys = lastNDayKeys(119);
+    const active = (d: string) => (daily[d]?.activeMs ?? 0) > 0 || (daily[d]?.postsViewed ?? 0) > 0;
+    let streakDays = 0;
+    for (let i = active(keys[0]) ? 0 : 1; i < keys.length && active(keys[i]); i++) streakDays++;
+    const busiest = keys.reduce<string | null>(
+      (best, d) => ((daily[d]?.postsViewed ?? 0) > (best ? (daily[best]?.postsViewed ?? 0) : 0) ? d : best),
+      null,
+    );
+    const facts = {
+        eggSummons,
         ...lifetime,
         dataBytes: dataUsedEst,
         e621Viewed: perSite.e621.postsViewed,
         e6aiViewed: perSite.e6ai.postsViewed,
         daysUsing,
-        activeDays: lastNDayKeys(119).filter((d) => (daily[d]?.activeMs ?? 0) > 0).length,
-        topSearched: topSearched[0]?.[0] ?? null,
-        topArtist: topArtists[0]?.[0] ?? null,
-        topCharacter: topChars[0]?.[0] ?? null,
-      }),
+        activeDays: keys.filter(active).length,
+        streakDays,
+        postsToday: daily[keys[0]]?.postsViewed ?? 0,
+        busiestDay: busiest ? { label: prettyDay(busiest), posts: daily[busiest]!.postsViewed } : null,
+        topSearched: topSearched.slice(0, 3).map(([t]) => t),
+        topArtists: topArtists.slice(0, 3).map(([t]) => t),
+        topCharacters: topChars.slice(0, 3).map(([t]) => t),
+    };
+    // Cheeky Gus (adult mode + Explicit + the cheeky toggle) mixes his spicy takes in.
+    const spicy = spicyAllowed(useSettingsStore.getState());
+    return shuffled([...dashboardRemarks(facts), ...(spicy ? spicyDashboardRemarks(facts) : [])]);
     // Snapshot on open - stats ticking while it's up shouldn't reshuffle what he says.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-  const remarkIndex = useRef(Math.floor(Math.random() * remarks.length));
+  }, []);
+  // Shuffled once per open, then served in order - no repeats until the list runs out.
+  const remarkIndex = useRef(0);
   const nextRemark = useCallback(() => {
     const line = remarks[remarkIndex.current % remarks.length];
     remarkIndex.current += 1;
@@ -263,6 +281,15 @@ export function DashboardPanel({ site, onClose, onSearch }: DashboardPanelProps)
                 label="Slideshow"
                 value={formatDuration(lifetime.slideshowMs)}
               />
+              {/* Hidden until you've found it. */}
+              {eggSummons > 0 && (
+                <StatTile
+                  icon={<Sparkles size={13} />}
+                  label="Magic word"
+                  value={eggSummons.toLocaleString()}
+                  sub={summonTitle(eggSummons)}
+                />
+              )}
             </div>
           </Section>
 

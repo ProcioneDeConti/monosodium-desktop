@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Undo2 } from "lucide-react";
 import { Mascot } from "../ui/Mascot";
 import { ConfettiBurst } from "../Tagdle/Confetti";
-import { REACTIONS, type ReactionKind } from "../../lib/mascot";
+import { MASCOT_NAME, REACTIONS, type ReactionKind } from "../../lib/mascot";
 import { motionReduced } from "../../lib/theme";
 import { mascotReact, useMascotStore, type ActiveReaction } from "../../state/mascotStore";
 import { useSettingsStore, type MascotCorner } from "../../state/settingsStore";
@@ -270,8 +270,8 @@ function Companion({
     <div
       ref={ref}
       role="button"
-      aria-label="Mascot - click to pet, drag to move, right-click to hide"
-      title="Click to pet · drag to move · right-click to hide"
+      aria-label={`${MASCOT_NAME} - click to pet, drag to move, right-click to hide`}
+      title={`${MASCOT_NAME} · click to pet · drag to move · right-click to hide`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -360,7 +360,7 @@ export function MascotLayer({
   );
 }
 
-/** "Mascot hidden - Undo", shown in his corner for a few seconds after a right-click hide.
+/** "Gus hidden - Undo", shown in his corner for a few seconds after a right-click hide.
  *  Settings > Appearance > Mascot has a Restore for after it's gone. */
 function HiddenUndoPill() {
   const corner = useSettingsStore((s) => s.mascotCorner);
@@ -382,7 +382,7 @@ function HiddenUndoPill() {
                   text-xs shadow-lg backdrop-blur-md animate-[fade-in_160ms_ease-out]
                   dark:border-white/10 dark:bg-neutral-900/90 ${CORNER_CLASS[corner]}`}
     >
-      <span className="opacity-75">Mascot hidden</span>
+      <span className="opacity-75">{MASCOT_NAME} hidden</span>
       <button
         type="button"
         onClick={restore}

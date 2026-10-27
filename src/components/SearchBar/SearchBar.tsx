@@ -230,9 +230,9 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
     <div ref={containerRef} className="relative flex-1 min-w-0">
       <div
         ref={chipBoxRef}
-        className="flex flex-wrap items-center gap-1.5 rounded-[var(--radius-md)] border border-black/10 dark:border-white/10
+        className={`flex flex-wrap items-center gap-1.5 rounded-[var(--radius-md)] border border-black/10 dark:border-white/10
                    bg-white/70 dark:bg-black/30 px-2 py-1.5 min-h-9 max-h-[4.75rem] overflow-y-auto transition-shadow
-                   focus-within:ring-2 focus-within:ring-[rgb(var(--accent))]"
+                   focus-within:ring-2 focus-within:ring-[rgb(var(--accent))] ${almostThereEgg ? "egg-shimmer" : ""}`}
         onClick={() => inputRef.current?.focus()}
       >
         {tags.map((tag, i) => {
@@ -383,7 +383,7 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
                      dark:border-white/10 bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface-3))] px-3 py-2
                      text-sm italic opacity-70 shadow-lg"
         >
-          Almost there…
+          👀 keep going…
         </div>
       )}
       {open && !almostThereEgg && shownSuggestions.length > 0 && (

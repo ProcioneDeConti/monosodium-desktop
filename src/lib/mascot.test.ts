@@ -41,18 +41,23 @@ describe("shouldPlay", () => {
 
 describe("pickLine", () => {
   it("stays quiet when speech is off, for minor kinds, or inside the gap", () => {
-    expect(pickLine("endOfResults", false, 0, null, 0)).toBeNull();
-    expect(pickLine("favorite", true, 0, null, 0)).toBeNull();
-    expect(pickLine("endOfResults", true, SPEECH_GAP_MS - 1, 0, 0)).toBeNull();
+    expect(pickLine("endOfResults", "never", 0, null, 0)).toBeNull();
+    expect(pickLine("favorite", "sometimes", 0, null, 0)).toBeNull();
+    expect(pickLine("endOfResults", "sometimes", SPEECH_GAP_MS - 1, 0, 0)).toBeNull();
   });
 
   it("talks only on the lucky half, and picks from the kind's lines", () => {
-    expect(pickLine("endOfResults", true, 0, null, 0.9)).toBeNull();
-    expect(REACTIONS.endOfResults.lines).toContain(pickLine("endOfResults", true, 0, null, 0.1));
+    expect(pickLine("endOfResults", "sometimes", 0, null, 0.9)).toBeNull();
+    expect(REACTIONS.endOfResults.lines).toContain(pickLine("endOfResults", "sometimes", 0, null, 0.1));
+  });
+
+  it('"always" talks every time, ignoring the gap and the roll', () => {
+    expect(pickLine("endOfResults", "always", SPEECH_GAP_MS - 1, 0, 0.99)).not.toBeNull();
+    expect(pickLine("favorite", "always", 0, null, 0)).toBeNull(); // no lines to say
   });
 
   it("milestones always talk and fill in the count", () => {
-    expect(pickLine("milestone", true, 0, null, 0.99, { count: "1,000" })).toContain("1,000");
+    expect(pickLine("milestone", "sometimes", 0, null, 0.99, { count: "1,000" })).toContain("1,000");
   });
 });
 

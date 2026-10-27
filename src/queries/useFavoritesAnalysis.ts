@@ -1,3 +1,4 @@
+import { SPICY_SHARE, spicyAllowed, spicyAnalysisRemark } from "../lib/mascotSpicy";
 // Progressive, cancellable fetch of a user's favourites for the Dashboard analysis. Pages are
 // fetched one at a time through the normal rate-limited API path (src-tauri/src/api.rs's
 // `request()` -> the shared per-site governor, burst 2 then 1/sec), so this can never exceed
@@ -123,7 +124,11 @@ export function useFavoritesAnalysis(site: Site) {
     const result = state.result;
     if (state.phase !== "done" || !result || result.sampled === 0 || result.cancelled) return;
     const me = useAccountStore.getState().accounts[site]?.username?.toLowerCase();
-    const line = analysisRemark(result.analysis, result.name.toLowerCase() === me, result.name);
+    const isSelf = result.name.toLowerCase() === me;
+    const spicy = spicyAllowed(useSettingsStore.getState()) && Math.random() < SPICY_SHARE;
+    const line = spicy
+      ? spicyAnalysisRemark(result.analysis, isSelf, result.name)
+      : analysisRemark(result.analysis, isSelf, result.name);
     mascotReact("analysisDone", { line });
   }, [state.phase, state.result, site]);
 

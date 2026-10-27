@@ -1,3 +1,4 @@
+import { MASCOT_NAME } from "../../lib/mascot";
 import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -10,6 +11,7 @@ import {
   STEP_VIDEO_SPEED,
   useSettingsStore,
   type MascotMode,
+  type MascotTalk,
 } from "../../state/settingsStore";
 import { useMascotStore } from "../../state/mascotStore";
 import { useAccountStore } from "../../state/accountStore";
@@ -32,6 +34,12 @@ import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { MOTION_MODES, PALETTES } from "../../lib/theme";
 import { Section } from "../ui/Section";
+
+const MASCOT_TALK: { value: MascotTalk; label: string }[] = [
+  { value: "never", label: "Never" },
+  { value: "sometimes", label: "Sometimes" },
+  { value: "always", label: "Always" },
+];
 
 const MASCOT_MODES: { value: MascotMode; label: string }[] = [
   { value: "companion", label: "Companion" },
@@ -90,8 +98,11 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   const motionMode = useSettingsStore((s) => s.motionMode);
   const mascotMode = useSettingsStore((s) => s.mascotMode);
   const setMascotMode = useSettingsStore((s) => s.setMascotMode);
-  const mascotSpeech = useSettingsStore((s) => s.mascotSpeech);
-  const setMascotSpeech = useSettingsStore((s) => s.setMascotSpeech);
+  const mascotTalk = useSettingsStore((s) => s.mascotTalk);
+  const setMascotTalk = useSettingsStore((s) => s.setMascotTalk);
+  const mascotSpicy = useSettingsStore((s) => s.mascotSpicy);
+  const setMascotSpicy = useSettingsStore((s) => s.setMascotSpicy);
+  const explicitOn = useSettingsStore((s) => s.adultModeEnabled && s.enabledRatings.includes("e"));
   const mascotHidden = useMascotStore((s) => s.hiddenForSession);
   const restoreMascot = useMascotStore((s) => s.restore);
   const setMotionMode = useSettingsStore((s) => s.setMotionMode);
@@ -260,28 +271,41 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
             </label>
 
             <div className="mb-4 flex items-center gap-2">
-              <span className="text-sm w-36 shrink-0">Mascot</span>
+              <span className="text-sm w-36 shrink-0">Mascot ({MASCOT_NAME})</span>
               <Segmented value={mascotMode} options={MASCOT_MODES} onChange={setMascotMode} />
             </div>
             <p className="-mt-3 mb-2 pl-[9.5rem] text-xs opacity-60">
-              The raccoon reacts to favourites, votes, searches and more. Companion sits in a corner
+              {MASCOT_NAME} the raccoon reacts to favorites, votes, searches and more. Companion sits in a corner
               of the grid (drag it to move, right-click to hide); Cameos pops in briefly instead.
             </p>
-            <label
-              className={`mb-4 flex items-center gap-2 pl-[9.5rem] text-sm ${mascotMode === "off" ? "opacity-40" : ""}`}
-            >
-              <input
-                type="checkbox"
-                checked={mascotSpeech}
-                disabled={mascotMode === "off"}
-                onChange={(e) => setMascotSpeech(e.target.checked)}
-                className="accent-[rgb(var(--accent))]"
-              />
-              Let it talk now and then
-            </label>
+            <div className={`mb-4 flex items-center gap-2 ${mascotMode === "off" ? "pointer-events-none opacity-40" : ""}`}>
+              <span className="text-sm w-36 shrink-0">Talkativeness</span>
+              <Segmented value={mascotTalk} options={MASCOT_TALK} onChange={setMascotTalk} />
+            </div>
+            <p className="-mt-3 mb-3 pl-[9.5rem] text-xs opacity-60">
+              {mascotTalk === "always"
+                ? `Every reaction with something to say gets a line. ${MASCOT_NAME} will not shut up.`
+                : mascotTalk === "never"
+                  ? `${MASCOT_NAME} still reacts, but never says a word.`
+                  : `A line now and then - at most one every few minutes.`}
+            </p>
+            {explicitOn && (
+              <label
+                className={`-mt-2 mb-4 flex items-center gap-2 pl-[9.5rem] text-sm ${mascotMode === "off" || mascotTalk === "never" ? "opacity-40" : ""}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={mascotSpicy}
+                  disabled={mascotMode === "off" || mascotTalk === "never"}
+                  onChange={(e) => setMascotSpicy(e.target.checked)}
+                  className="accent-[rgb(var(--accent))]"
+                />
+                Let {MASCOT_NAME} get cheeky 😏
+              </label>
+            )}
             {mascotHidden && mascotMode !== "off" && (
               <div className="-mt-2 mb-4 flex items-center gap-2 pl-[9.5rem] text-xs">
-                <span className="opacity-60">Mascot hidden</span>
+                <span className="opacity-60">{MASCOT_NAME} hidden</span>
                 <span className="opacity-30">-</span>
                 <button
                   type="button"

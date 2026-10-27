@@ -1988,3 +1988,42 @@ live call before implementing (per user instruction - no more guessing).
     up), then remarks on the result (`analysisRemark`: wholesome / very explicit / many deleted /
     top artist / top tag; "you" vs the analyzed user's name). Dashboard lines ignore the speech
     gap (`ignoreGap`) but still respect the speech toggle.
+- [x] **Cooter easter egg glow-up** (unreleased) `EasterEggDialog.tsx` rewritten: screen dims, the
+  headline types out over a Web Audio drumroll (`lib/eggSound.ts`, synthesised - no files), then
+  the card bursts in with a shockwave ring, rainbow confetti and a major-chord sting (mute toggle,
+  remembered). The card is a holographic trading card: 3D tilt toward the pointer, colour-dodge
+  foil sheen + twinkling sparkles, click to flip to a stats back (rarity, "Trash Panda", summon
+  count, title). Summons counted in localStorage (`lib/easterEgg.ts`, deduped for dev double
+  renders): the headline escalates ("Again?", ...), golden frame/foil/text from the 10th
+  ("Cooter Connoisseur"). Closing spins it away. Mascot: `eggSpotted` (😳🫣 "Hey! That's
+  private!") on reveal, `eggClosed` ("We never speak of this.") on close; a MascotLayer lives in
+  the dialog. Search box gets a rainbow border shimmer one or two letters out, tease reads
+  "👀 keep going…". Dashboard shows a hidden "Magic word" tile once found, plus a remark from 2
+  summons. The art is explicit: with adult mode or the Explicit rating off it sits behind a 🙈
+  censor panel until clicked. Reduced motion skips typing/tilt/confetti/spin. Not live-tested.
+- [x] **Rainbow, dashboard variety, and a name: Gus** (unreleased) The egg card's rainbow
+  snapped back mid-cycle (it slid half a period per loop); now diagonal soft-edged candy stripes
+  on a tilted oversized `::before` that translates exactly one period (seamless, compositor-only),
+  plus a periodic glossy sheen + vignette; golden text uses the seamless shimmer keyframe too.
+  Dashboard remarks: a much bigger pool (top 3 artists / 2 searches / 2 characters, busiest day,
+  streak, posts today, session averages, favorite rate, vote balance, API calls, site split, a
+  few always-on lines about himself), shuffled per open and served without repeats; tag names
+  prettified (`prettyTag`: "weskers_(character)" -> "Weskers"). The mascot is named **Gus**
+  (monosodium **g**l**u**tamate; `MASCOT_NAME` in lib/mascot.ts): Settings "Mascot (Gus)", the
+  hide pill/restore, his tooltip, the egg card back ("Gus a.k.a. the magic word"), a first-ever
+  pet introduction ("Hi, I'm Gus!", once - localStorage), and Dashboard lines.
+- [x] **Cheeky Gus** (unreleased) `lib/mascotSpicy.ts`: innuendo line pools for ~45 reactions,
+  cheeky Dashboard remarks and favorites-analysis takes. Gated by `spicyAllowed` = adult mode +
+  Explicit rating + new `mascotSpicy` setting ("Let Gus get cheeky 😏", default on, only shown
+  when Explicit is on; in backups). When allowed, a talking reaction uses the spicy pool 70% of
+  the time (`SPICY_SHARE`, passed into `pickLine`); the Dashboard mixes both lists into its
+  shuffle. Speech-off still silences everything.
+- [x] **Spicier Gus + Procione** (unreleased) A hotter tier of cheeky lines appended to every
+  spicy pool (originals kept), plus more cheeky Dashboard remarks and a deleted-favorites
+  analysis take. The egg card is the owner's own character, **Procione** (not Gus): the card back
+  is named Procione (`EGG_CHARACTER`), and Gus's egg lines now react to Procione instead of
+  claiming the art is him.
+- [x] **Gus talkativeness** (unreleased) The speech checkbox became Settings > Talkativeness:
+  Never (reactions only) / Sometimes (the old rate-limited behaviour, default) / Always (every
+  reaction that has lines speaks every time - no gap, no 50% roll). `mascotTalk` replaces
+  `mascotSpeech`; an old `mascotSpeech: false` (settings file or backup) loads as "never".

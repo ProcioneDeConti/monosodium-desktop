@@ -19,7 +19,7 @@ import type { SlideshowTransition } from "./slideshow";
 import type { MotionMode, Palette, ThemeMode } from "./theme";
 import { useAccountStore } from "../state/accountStore";
 import { useSaucenaoStore } from "../state/saucenaoStore";
-import { DEFAULT_VIEWER_SIDEBAR_PX, useSettingsStore, type MascotCorner, type MascotMode, type SeenMode } from "../state/settingsStore";
+import { DEFAULT_VIEWER_SIDEBAR_PX, useSettingsStore, type MascotCorner, type MascotMode, type MascotTalk, type SeenMode } from "../state/settingsStore";
 import {
   applyStatsBackup,
   statsBackupAggregates,
@@ -54,7 +54,10 @@ export interface SettingsBackup {
   viewerAmbient?: boolean;
   seenMode?: SeenMode;
   mascotMode?: MascotMode;
+  mascotTalk?: MascotTalk;
+  /** Pre-talkativeness backups: false = "never". */
   mascotSpeech?: boolean;
+  mascotSpicy?: boolean;
   mascotCorner?: MascotCorner;
   gridThumbnailSizePx: number;
   /** Absent on a backup made before this field existed - `?? DEFAULT_VIEWER_SIDEBAR_PX` on read. */
@@ -101,7 +104,8 @@ export async function buildBackup(): Promise<SettingsBackup> {
     viewerAmbient: settings.viewerAmbient,
     seenMode: settings.seenMode,
     mascotMode: settings.mascotMode,
-    mascotSpeech: settings.mascotSpeech,
+    mascotTalk: settings.mascotTalk,
+    mascotSpicy: settings.mascotSpicy,
     mascotCorner: settings.mascotCorner,
     gridThumbnailSizePx: settings.gridThumbnailSizePx,
     viewerSidebarWidthPx: settings.viewerSidebarWidthPx,
@@ -144,7 +148,8 @@ export async function applyBackup(backup: SettingsBackup): Promise<void> {
   settings.setViewerAmbient(backup.viewerAmbient ?? true);
   settings.setSeenMode(backup.seenMode ?? "dim");
   settings.setMascotMode(backup.mascotMode ?? "companion");
-  settings.setMascotSpeech(backup.mascotSpeech ?? true);
+  settings.setMascotTalk(backup.mascotTalk ?? (backup.mascotSpeech === false ? "never" : "sometimes"));
+  settings.setMascotSpicy(backup.mascotSpicy ?? true);
   settings.setMascotCorner(backup.mascotCorner ?? "bl");
   settings.setGridThumbnailSizePx(backup.gridThumbnailSizePx);
   settings.setViewerSidebarWidthPx(backup.viewerSidebarWidthPx ?? DEFAULT_VIEWER_SIDEBAR_PX);
