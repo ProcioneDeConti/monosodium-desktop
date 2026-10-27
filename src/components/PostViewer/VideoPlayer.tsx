@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pause, Play, Repeat, Volume2, VolumeX } from "lucide-react";
 import { MAX_VIDEO_SPEED, MIN_VIDEO_SPEED, STEP_VIDEO_SPEED } from "../../state/settingsStore";
 import { Spinner } from "../ui/Spinner";
+import { useReleaseVideo } from "../../lib/useReleaseVideo";
 
 interface VideoPlayerProps {
   src: string;
@@ -40,6 +41,7 @@ export function VideoPlayer({ src, loopDefault, speedDefault, autoplayEnabled }:
   const [duration, setDuration] = useState(0);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [buffering, setBuffering] = useState(true);
+  useReleaseVideo(videoRef);
 
   useEffect(() => {
     setPlaying(autoplayEnabled);

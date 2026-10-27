@@ -98,6 +98,26 @@ pub struct PostSample {
     #[serde(default)]
     pub height: i64,
     pub url: Option<String>,
+    /// Video posts only: downscaled mp4 encodes ("480p", "720p", ...). Absent on images.
+    #[serde(default)]
+    pub alternates: Option<PostAlternates>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PostAlternates {
+    #[serde(default)]
+    pub samples: std::collections::HashMap<String, VideoSample>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct VideoSample {
+    #[serde(default)]
+    pub width: i64,
+    #[serde(default)]
+    pub height: i64,
+    #[serde(default)]
+    pub size: i64,
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

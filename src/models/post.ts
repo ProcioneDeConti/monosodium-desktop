@@ -22,6 +22,15 @@ export interface PostSample {
   width: number;
   height: number;
   url: string | null;
+  /** Video posts only: downscaled mp4 encodes keyed by label ("480p", "720p", ...). */
+  alternates?: { samples: Record<string, VideoSample> } | null;
+}
+
+export interface VideoSample {
+  width: number;
+  height: number;
+  size: number;
+  url: string | null;
 }
 
 export interface PostScore {
@@ -132,6 +141,16 @@ export function isDeleted(post: Post): boolean {
 /** Best URL for full playback/viewing; falls back to the sample when the original is null (deleted posts). */
 export function playableUrl(post: Post): string | null {
   return post.file.url ?? post.sample.url;
+}
+
+/** Smallest downscaled encode for grid hover previews - a cell is a few hundred px wide, so
+ *  streaming the original (often 50MB+) is pure memory/bandwidth waste. Falls back to the
+ *  original when e621 has no samples for this post. */
+export function previewVideoUrl(post: Post): string | null {
+  const samples = Object.values(post.sample.alternates?.samples ?? {}).filter((s) => s.url);
+  if (samples.length === 0) return post.file.url;
+  samples.sort((a, b) => a.height - b.height);
+  return samples[0].url;
 }
 
 /** Width/height ratio for the masonry grid's thumbnail box, clamped like the reference Android

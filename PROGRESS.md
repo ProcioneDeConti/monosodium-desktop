@@ -1919,3 +1919,10 @@ live call before implementing (per user instruction - no more guessing).
   at `MAX_SEEN_HOPS` (5) per search, then PostGrid shows a dedicated "already seen all" empty
   state. Pool/Popular nested viewers don't record (same as usage stats). Plaintext, like search
   history - not vault-encrypted.
+- [x] **Video memory audit** (unreleased) Unmounted `<video>` elements kept their decoder +
+  buffered media until Chromium GC'd them, so stepping through videos in the viewer or sweeping
+  across a grid of webms climbed steadily. `lib/useReleaseVideo.ts` pauses, drops `src`, and
+  calls `load()` on unmount; used by `VideoPlayer` and the grid's `HoverPreviewVideo`. Hover
+  previews also now stream the smallest `sample.alternates.samples` mp4 (480p, ~1/5 the size)
+  via `previewVideoUrl()` instead of the original - `PostSample` gained the `alternates` field
+  (Rust + TS). Viewer still plays the original. Not live-tested.

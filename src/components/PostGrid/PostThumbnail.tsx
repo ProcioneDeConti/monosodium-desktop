@@ -10,7 +10,8 @@ import {
   Star,
   ThumbsUp,
 } from "lucide-react";
-import { aspectRatio, isAnimated, isVideo, type Post } from "../../models/post";
+import { aspectRatio, isAnimated, isVideo, previewVideoUrl, type Post } from "../../models/post";
+import { useReleaseVideo } from "../../lib/useReleaseVideo";
 import { artistNames, formatArtists } from "../../lib/artistTags";
 import { formatCount } from "../../lib/formatCount";
 import { Spinner } from "../ui/Spinner";
@@ -85,6 +86,25 @@ const loadedThumbUrls = new Set<string>();
 /** Post ids whose entrance animation already played - same masonic remount reasoning as above,
  *  so scrolling back up doesn't ripple the grid in again. */
 const enteredIds = new Set<number>();
+
+/** Hover preview player - its own component so the release hook runs exactly when the preview
+ *  unmounts (pointer leaves), not when the whole cell does. */
+function HoverPreviewVideo({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useReleaseVideo(ref);
+  return (
+    <video
+      ref={ref}
+      src={src}
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="auto"
+      className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+    />
+  );
+}
 
 function PostThumbnailImpl({
   post,
@@ -201,14 +221,7 @@ function PostThumbnailImpl({
 
       {previewing &&
         (isVideo(post) ? (
-          <video
-            src={post.file.url!}
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          />
+          <HoverPreviewVideo src={previewVideoUrl(post)!} />
         ) : (
           <img
             src={post.file.url!}
