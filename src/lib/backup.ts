@@ -19,7 +19,7 @@ import type { SlideshowTransition } from "./slideshow";
 import type { MotionMode, Palette, ThemeMode } from "./theme";
 import { useAccountStore } from "../state/accountStore";
 import { useSaucenaoStore } from "../state/saucenaoStore";
-import { DEFAULT_VIEWER_SIDEBAR_PX, useSettingsStore } from "../state/settingsStore";
+import { DEFAULT_VIEWER_SIDEBAR_PX, useSettingsStore, type SeenMode } from "../state/settingsStore";
 import {
   applyStatsBackup,
   statsBackupAggregates,
@@ -52,6 +52,7 @@ export interface SettingsBackup {
   motionMode?: MotionMode;
   ambientHeader?: boolean;
   viewerAmbient?: boolean;
+  seenMode?: SeenMode;
   gridThumbnailSizePx: number;
   /** Absent on a backup made before this field existed - `?? DEFAULT_VIEWER_SIDEBAR_PX` on read. */
   viewerSidebarWidthPx?: number;
@@ -95,6 +96,7 @@ export async function buildBackup(): Promise<SettingsBackup> {
     motionMode: settings.motionMode,
     ambientHeader: settings.ambientHeader,
     viewerAmbient: settings.viewerAmbient,
+    seenMode: settings.seenMode,
     gridThumbnailSizePx: settings.gridThumbnailSizePx,
     viewerSidebarWidthPx: settings.viewerSidebarWidthPx,
     videoLoopEnabled: settings.videoLoopEnabled,
@@ -134,6 +136,7 @@ export async function applyBackup(backup: SettingsBackup): Promise<void> {
   settings.setMotionMode(backup.motionMode ?? "system");
   settings.setAmbientHeader(backup.ambientHeader ?? true);
   settings.setViewerAmbient(backup.viewerAmbient ?? true);
+  settings.setSeenMode(backup.seenMode ?? "dim");
   settings.setGridThumbnailSizePx(backup.gridThumbnailSizePx);
   settings.setViewerSidebarWidthPx(backup.viewerSidebarWidthPx ?? DEFAULT_VIEWER_SIDEBAR_PX);
   settings.setVideoLoopEnabled(backup.videoLoopEnabled);

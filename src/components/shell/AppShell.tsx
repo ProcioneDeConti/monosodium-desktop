@@ -40,6 +40,7 @@ import {
   MAX_THUMBNAIL_SIZE_PX,
   MIN_THUMBNAIL_SIZE_PX,
   useSettingsStore,
+  type SeenMode,
 } from "../../state/settingsStore";
 import {
   MAX_SLIDESHOW_INTERVAL_SEC,
@@ -92,6 +93,9 @@ interface AppShellProps {
   blacklistActive: boolean;
   blacklistDisabled: boolean;
   onToggleBlacklistDisabled: (disabled: boolean) => void;
+  /** Seen-post handling - the View menu's "Hide seen posts" flips between dim and hide. */
+  seenMode: SeenMode;
+  onSeenModeChange: (mode: SeenMode) => void;
   /** Signed-in account's avatar post id, for the account menu trigger. */
   accountAvatarId: number | null;
   isRefreshing: boolean;
@@ -135,6 +139,8 @@ export function AppShell({
   blacklistActive,
   blacklistDisabled,
   onToggleBlacklistDisabled,
+  seenMode,
+  onSeenModeChange,
   accountAvatarId,
   isRefreshing,
   isLoadingPosts,
@@ -272,6 +278,16 @@ export function AppShell({
               onClick={() => onToggleBlacklistDisabled(!blacklistDisabled)}
             >
               Show blacklisted posts
+            </MenuItem>
+          )}
+          {seenMode !== "off" && (
+            <MenuItem
+              keepOpen
+              icon={<CheckSquare size={15} className={seenMode === "hide" ? "" : "opacity-30"} />}
+              trailing={seenMode === "hide" ? "on" : ""}
+              onClick={() => onSeenModeChange(seenMode === "hide" ? "dim" : "hide")}
+            >
+              Hide seen posts
             </MenuItem>
           )}
 

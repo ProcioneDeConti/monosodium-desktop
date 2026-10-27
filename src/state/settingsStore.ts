@@ -25,6 +25,8 @@ const DEFAULT_RATINGS: Rating[] = ["s", "q", "e"];
 export const DEFAULT_THUMBNAIL_SIZE_PX = 220;
 /** "masonry" = each cell keeps its post's own aspect ratio; "uniform" = square-cropped cells. */
 export type GridMode = "masonry" | "uniform";
+/** Already-viewed posts in the grid: left alone, dimmed, or filtered out (state/seenStore.ts). */
+export type SeenMode = "off" | "dim" | "hide";
 export const MIN_THUMBNAIL_SIZE_PX = 120;
 export const MAX_THUMBNAIL_SIZE_PX = 420;
 export const MIN_VIDEO_SPEED = 0.25;
@@ -55,6 +57,7 @@ interface SettingsState {
   ambientHeader: boolean;
   /** Post viewer backdrop glows with the current post's dominant colour. */
   viewerAmbient: boolean;
+  seenMode: SeenMode;
   gridThumbnailSizePx: number;
   gridMode: GridMode;
   /** Width of the post viewer's info/tags sidebar, in px (drag the divider to resize). */
@@ -85,6 +88,7 @@ interface SettingsState {
   setMotionMode: (mode: MotionMode) => void;
   setAmbientHeader: (enabled: boolean) => void;
   setViewerAmbient: (enabled: boolean) => void;
+  setSeenMode: (mode: SeenMode) => void;
   setGridThumbnailSizePx: (size: number) => void;
   setViewerSidebarWidthPx: (px: number) => void;
   setVideoLoopEnabled: (enabled: boolean) => void;
@@ -138,6 +142,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   motionMode: "system",
   ambientHeader: true,
   viewerAmbient: true,
+  seenMode: "dim",
   gridThumbnailSizePx: DEFAULT_THUMBNAIL_SIZE_PX,
   viewerSidebarWidthPx: DEFAULT_VIEWER_SIDEBAR_PX,
   videoLoopEnabled: true,
@@ -191,6 +196,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setViewerAmbient: (viewerAmbient) => {
     set({ viewerAmbient });
     void persist("viewerAmbient", viewerAmbient);
+  },
+  setSeenMode: (seenMode) => {
+    set({ seenMode });
+    void persist("seenMode", seenMode);
   },
   setGridThumbnailSizePx: (size) => {
     const clamped = Math.min(MAX_THUMBNAIL_SIZE_PX, Math.max(MIN_THUMBNAIL_SIZE_PX, size));
@@ -273,6 +282,7 @@ export async function loadSettings(): Promise<void> {
       motionMode: (values.motionMode as MotionMode) ?? state.motionMode,
       ambientHeader: (values.ambientHeader as boolean) ?? state.ambientHeader,
       viewerAmbient: (values.viewerAmbient as boolean) ?? state.viewerAmbient,
+      seenMode: (values.seenMode as SeenMode) ?? state.seenMode,
       gridThumbnailSizePx: (values.gridThumbnailSizePx as number) ?? state.gridThumbnailSizePx,
       viewerSidebarWidthPx:
         values.viewerSidebarWidthPx != null

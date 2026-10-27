@@ -19,6 +19,8 @@ import { Burst, useReactionFx } from "../ui/Burst";
 interface PostThumbnailProps {
   post: Post;
   blacklisted: boolean;
+  /** Already opened in the viewer before - rendered dimmed (undimmed on hover/selection). */
+  seen?: boolean;
   /** Gets the raw event so PostGrid can branch on modifier keys (ctrl/shift = select). */
   onClick: (e: React.MouseEvent) => void;
   /** When false, the hover cluster shows only Download (favourite/vote need an account). */
@@ -87,6 +89,7 @@ const enteredIds = new Set<number>();
 function PostThumbnailImpl({
   post,
   blacklisted,
+  seen = false,
   onClick,
   canInteract,
   onToggleFavorite,
@@ -184,9 +187,10 @@ function PostThumbnailImpl({
               if (thumbUrl) loadedThumbUrls.add(thumbUrl);
             }}
             onError={() => setErrored(true)}
-            className={`h-full w-full object-cover transition-[opacity,transform] duration-[250ms] ease-out
+            className={`h-full w-full object-cover transition-[opacity,transform,filter] duration-[250ms] ease-out
                         group-hover:scale-[1.02] ${loaded ? "opacity-100" : "opacity-0"}
-                        ${selected ? "brightness-90" : ""}`}
+                        ${selected ? "brightness-90" : ""}
+                        ${seen && !selected ? "saturate-[.35] brightness-[.6] group-hover:saturate-100 group-hover:brightness-100" : ""}`}
           />
         </>
       ) : (

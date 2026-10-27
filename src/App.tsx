@@ -47,6 +47,7 @@ import { loadAllAccounts, useAccountStore } from "./state/accountStore";
 import { loadSavedSearches } from "./state/savedSearchesStore";
 import { loadCollections } from "./state/collectionsStore";
 import { loadSearchHistory, useSearchHistoryStore } from "./state/searchHistoryStore";
+import { flushSeen, loadSeen, useSeenIds, useSeenStore } from "./state/seenStore";
 import { loadFavoritesAnalysisCache } from "./state/favoritesAnalysisCache";
 import { loadStats, flushStats, useStatsStore } from "./state/statsStore";
 import { startUsageSession } from "./lib/usageSession";
@@ -110,6 +111,8 @@ const INITIAL_NAV: NavState = {
 };
 
 const MAX_NAV_HISTORY = 50;
+/** Pages "Hide seen posts" will auto-skip per search when a whole page is already seen. */
+const MAX_SEEN_HOPS = 5;
 
 function App() {
   const [booted, setBooted] = useState(false);
@@ -243,6 +246,7 @@ function App() {
       loadSavedSearches(),
       loadCollections(),
       loadSearchHistory(),
+      loadSeen(),
       loadStats(),
       loadFavoritesAnalysisCache(),
       useSaucenaoStore.getState().load(),
@@ -256,7 +260,10 @@ function App() {
   // the tail; usageSession.ts handles beforeunload + the periodic flush itself.
   useEffect(() => {
     function onHide() {
-      if (document.visibilityState === "hidden") void flushStats();
+      if (document.visibilityState === "hidden") {
+        void flushStats();
+        void flushSeen();
+      }
     }
     document.addEventListener("visibilitychange", onHide);
     return () => document.removeEventListener("visibilitychange", onHide);
@@ -269,7 +276,10 @@ function App() {
   useEffect(() => {
     const unlisten = listen<boolean>("main-window-visibility", ({ payload: visible }) => {
       focusManager.setFocused(visible ? undefined : false);
-      if (!visible) void flushStats();
+      if (!visible) {
+        void flushStats();
+        void flushSeen();
+      }
     });
     return () => void unlisten.then((f) => f());
   }, []);
@@ -293,6 +303,9 @@ function App() {
   const setBlacklist = useSettingsStore((s) => s.setBlacklist);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
   const gridMode = useSettingsStore((s) => s.gridMode);
+  const seenMode = useSettingsStore((s) => s.seenMode);
+  const setSeenMode = useSettingsStore((s) => s.setSeenMode);
+  const seenIds = useSeenIds(site);
   const downloadDir = useSettingsStore((s) => s.downloadDir);
   const accentColor = useSettingsStore((s) => s.accentColor);
   const themeMode = useSettingsStore((s) => s.themeMode);
@@ -412,10 +425,35 @@ function App() {
     cachedTagPostCount.current = posts.length;
   }, [posts]);
 
-  const shownPosts = useMemo(
-    () => visiblePosts(posts, blacklistEntries, blacklistDisabled),
-    [posts, blacklistEntries, blacklistDisabled],
+  // "Hide seen posts" filters against a snapshot taken when the search (or the mode) changes,
+  // not the live set - otherwise the post you just opened would vanish from under the viewer and
+  // shift every index after it. Posts seen during this search stay put until the next one.
+  const hiddenSeenSnapshot = useMemo(
+    () => (seenMode === "hide" ? new Set(useSeenStore.getState().seen[site]) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- effectiveTags re-snapshots per search
+    [seenMode, site, effectiveTags],
   );
+  const gridPosts = useMemo(
+    () => (hiddenSeenSnapshot ? posts.filter((p) => !hiddenSeenSnapshot.has(p.id)) : posts),
+    [posts, hiddenSeenSnapshot],
+  );
+  const shownPosts = useMemo(
+    () => visiblePosts(gridPosts, blacklistEntries, blacklistDisabled),
+    [gridPosts, blacklistEntries, blacklistDisabled],
+  );
+
+  // If every loaded post has been hidden as seen, pull the next page instead of showing an empty
+  // grid - capped per search so an all-seen tag doesn't walk its whole history unattended.
+  const seenHops = useRef(0);
+  useEffect(() => {
+    seenHops.current = 0;
+  }, [site, effectiveTags, seenMode]);
+  useEffect(() => {
+    if (!hiddenSeenSnapshot || gridPosts.length > 0 || posts.length === 0) return;
+    if (!hasNextPage || isFetchingNextPage || seenHops.current >= MAX_SEEN_HOPS) return;
+    seenHops.current++;
+    void fetchNextPage();
+  }, [hiddenSeenSnapshot, gridPosts.length, posts.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // --- Grid multi-select ---
   const [selectionActive, setSelectionActive] = useState(false);
@@ -632,7 +670,8 @@ function App() {
     if (!post || post.id === lastViewedIdRef.current) return;
     lastViewedIdRef.current = post.id;
     useStatsStore.getState().recordPostView(post, site);
-  }, [viewerIndex, shownPosts, site]);
+    if (seenMode !== "off") useSeenStore.getState().markSeen(site, post.id);
+  }, [viewerIndex, shownPosts, site, seenMode]);
 
   // Usage stats: bank slideshow watch time when it stops (or the viewer closes while running).
   const slideshowStartRef = useRef<number | null>(null);
@@ -771,6 +810,8 @@ function App() {
       blacklistActive={blacklistEntries.length > 0}
       blacklistDisabled={blacklistDisabled}
       onToggleBlacklistDisabled={setBlacklistDisabled}
+      seenMode={seenMode}
+      onSeenModeChange={setSeenMode}
       accountAvatarId={ownProfile?.avatar_id ?? null}
       tabBar={
         tabs.length >= 2 ? (
@@ -814,7 +855,9 @@ function App() {
             <PostGrid
               key={`${site}:${effectiveTags}`}
               site={site}
-              posts={posts}
+              posts={gridPosts}
+              hiddenSeenCount={posts.length - gridPosts.length}
+              dimIds={seenMode === "dim" ? seenIds : undefined}
               blacklistEntries={blacklistEntries}
               blacklistDisabled={blacklistDisabled}
               thumbnailSizePx={thumbnailSizePx}

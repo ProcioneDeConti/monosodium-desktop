@@ -18,6 +18,10 @@ import { useDownloadsStore } from "../../state/downloadsStore";
 interface PostGridProps {
   site: Site;
   posts: Post[];
+  /** Posts filtered out before reaching the grid by "Hide seen posts" (for the empty state). */
+  hiddenSeenCount?: number;
+  /** Already-viewed post ids to render dimmed; undefined = don't dim. */
+  dimIds?: Set<number>;
   blacklistEntries: BlacklistEntries;
   blacklistDisabled: boolean;
   thumbnailSizePx: number;
@@ -65,6 +69,8 @@ const SCROLL_IDLE_MS = 150;
 export function PostGrid({
   site,
   posts,
+  hiddenSeenCount = 0,
+  dimIds,
   blacklistEntries,
   blacklistDisabled,
   thumbnailSizePx,
@@ -263,6 +269,7 @@ export function PostGrid({
         <PostThumbnail
           post={data}
           blacklisted={blacklisted}
+          seen={!!dimIds?.has(data.id)}
           onClick={(e) => {
             if (onSelectToggle && (selectionActive || e.ctrlKey || e.metaKey || e.shiftKey)) {
               onSelectToggle(data, { range: e.shiftKey });
@@ -300,6 +307,7 @@ export function PostGrid({
       onSelectToggle,
       thumbnailSizePx,
       uniform,
+      dimIds,
     ],
   );
 
@@ -459,6 +467,7 @@ export function PostGrid({
   // Distinguish "the search genuinely returned nothing" from "results came back but the blacklist
   // hid every one of them" - the fix for each is different.
   const allHiddenByBlacklist = empty && posts.length > 0;
+  const allHiddenAsSeen = empty && posts.length === 0 && hiddenSeenCount > 0;
 
   const focusPos = focusIndex != null ? positioner.get(focusIndex) : undefined;
   const flashPos = flashIndex != null ? positioner.get(flashIndex) : undefined;
@@ -512,7 +521,17 @@ export function PostGrid({
       className="h-full overflow-y-auto px-3 py-3 focus:outline-none"
     >
       {empty ? (
-        allHiddenByBlacklist ? (
+        allHiddenAsSeen ? (
+          <EmptyState
+            icon={<EyeOff />}
+            title={`You've already seen all ${hiddenSeenCount} loaded post${hiddenSeenCount === 1 ? "" : "s"}`}
+            hint={
+              hasNextPage
+                ? "Scroll-skipping paused after a few pages. Turn off “Hide seen posts” in the View menu, or try a narrower search."
+                : "Nothing new here. Turn off “Hide seen posts” in the View menu to see them again."
+            }
+          />
+        ) : allHiddenByBlacklist ? (
           <EmptyState
             mascot="sad"
             icon={<EyeOff />}

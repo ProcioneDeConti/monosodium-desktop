@@ -1908,3 +1908,14 @@ live call before implementing (per user instruction - no more guessing).
         focus itself when nothing else holds it, so arrows / h-j-k-l work right after a search.
       - Title-bar lights reordered to close / maximize / minimize (on request). Colour and hover
         glyph are per-class (`.light-max`/`.light-min` in index.css), so they moved with the buttons.
+- [x] **Seen-post tracking** (unreleased) Every post opened in the main viewer is recorded per
+  site in `state/seenStore.ts` (own `seen-posts.json`, capped at 50k ids/site, 2s-debounced
+  writes, flushed on hide). New `seenMode` setting (`dim` default / `hide` / `off`) in
+  Settings > Seen posts (`SeenPostsSection.tsx`, with a count + clear button), plus a View-menu
+  "Hide seen posts" toggle. Dim = desaturated/darkened thumbnail, restored on hover. Hide filters
+  App's `gridPosts` (fed to both PostGrid and `visiblePosts()`, so viewer indices still line up)
+  against a *snapshot* taken per search/mode change - filtering the live set would yank the
+  just-opened post out from under the viewer. A fully-seen page auto-fetches the next one, capped
+  at `MAX_SEEN_HOPS` (5) per search, then PostGrid shows a dedicated "already seen all" empty
+  state. Pool/Popular nested viewers don't record (same as usage stats). Plaintext, like search
+  history - not vault-encrypted.

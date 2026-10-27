@@ -24,6 +24,7 @@ import { ResetSection } from "./ResetSection";
 import { EulaReadOnlyDialog } from "../Eula/EulaReadOnlyDialog";
 import { SaucenaoSection } from "./SaucenaoSection";
 import { SourceLoginsSection } from "./SourceLoginsSection";
+import { SeenPostsSection } from "./SeenPostsSection";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
@@ -179,6 +180,10 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
 
           <Section title="Blacklist">
             <BlacklistSection site={site} />
+          </Section>
+
+          <Section title="Seen posts">
+            <SeenPostsSection />
           </Section>
 
           <Section title="Appearance">
