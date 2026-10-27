@@ -53,7 +53,17 @@ describe("pickLine", () => {
 
   it('"always" talks every time, ignoring the gap and the roll', () => {
     expect(pickLine("endOfResults", "always", SPEECH_GAP_MS - 1, 0, 0.99)).not.toBeNull();
-    expect(pickLine("favorite", "always", 0, null, 0)).toBeNull(); // no lines to say
+    expect(pickLine("wake", "always", 0, null, 0)).toBeNull(); // no lines to say
+    expect(pickLine("favorite", "always", 0, null, 0.99)).not.toBeNull();
+  });
+
+  it('"chatty" talks more than "sometimes" but keeps a gap', () => {
+    expect(pickLine("endOfResults", "sometimes", 0, null, 0.9)).toBeNull();
+    expect(pickLine("endOfResults", "chatty", 0, null, 0.9)).not.toBeNull();
+    expect(pickLine("endOfResults", "chatty", 60_000, 0, 0.1)).toBeNull(); // inside the 90s gap
+    expect(pickLine("favorite", "sometimes", 0, null, 0)).toBeNull();
+    expect(pickLine("favorite", "chatty", 0, null, 0.1)).not.toBeNull();
+    expect(pickLine("favorite", "chatty", 0, null, 0.5)).toBeNull(); // over its 35% chance
   });
 
   it("milestones always talk and fill in the count", () => {
@@ -114,5 +124,19 @@ describe("launchGreeting", () => {
     expect(launchGreeting(at(8), null)?.kind).toBe("morning");
     expect(launchGreeting(at(14, 31 - 6), null)?.kind).toBe("weekend"); // Sun 25 Oct 2026
     expect(launchGreeting(at(14), null)).toBeNull(); // Tue afternoon
+  });
+});
+
+describe("queryReaction batch 4", () => {
+  it("spots searches for Gus, Procione, kinks, snooping and pickiness", () => {
+    expect(queryReaction("gus", null)).toBe("gusSearch");
+    expect(queryReaction("procione_(character)", null)).toBe("procioneSearch");
+    expect(queryReaction("muscular solo", null)).toBe("kinkMuscle");
+    expect(queryReaction("fav:someone", "me")).toBe("snoopFavs");
+    expect(queryReaction("fav:me", "me")).toBe("ownFavs");
+    expect(queryReaction("user:artist", null)).toBe("uploaderStalk");
+    expect(queryReaction("pool:123", null)).toBe("poolRead");
+    expect(queryReaction("wolf rating:e", null)).toBe("ratingExplicit");
+    expect(queryReaction("wolf -a -b -c", null)).toBe("picky");
   });
 });

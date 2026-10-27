@@ -1,3 +1,4 @@
+import { mascotReact } from "./mascotStore";
 // Seen-post tracking: every post opened in the main viewer is remembered (per site - e621 and
 // e6AI ids are separate spaces) so the grid can dim or hide it later. Local-only, its own
 // tauri-plugin-store file, same pattern as searchHistoryStore. Insertion-ordered and capped, so
@@ -62,6 +63,7 @@ export const useSeenStore = create<SeenState>((set, get) => ({
 
   clear: () => {
     set({ seen: {} });
+    mascotReact("wipeSeen");
     void getStore().then(async (store) => {
       await store.clear();
       await store.save();

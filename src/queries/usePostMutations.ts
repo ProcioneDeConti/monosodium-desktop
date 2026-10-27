@@ -22,9 +22,7 @@ export function usePostMutations(site: Site) {
       useStatsStore.getState().recordVote(direction);
       // A repeat click un-votes (our_score 0) - no reaction for that. Upvoting something the
       // crowd scored negative is a bold choice.
-      if (res.our_score !== 0) {
-        mascotReact(direction === 1 ? (res.score < 0 ? "boldChoice" : "upvote") : "downvote");
-      }
+      if (res.our_score !== 0) useMascotStore.getState().voted(direction, res.score);
     },
   });
 

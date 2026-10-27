@@ -1,3 +1,4 @@
+import { mascotReact } from "../../state/mascotStore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Clock, SlidersHorizontal, X } from "lucide-react";
 import type { Site } from "../../models/site";
@@ -82,6 +83,11 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
     EASTER_EGG_WORD.startsWith(eggPrefix) &&
     eggPrefix.length >= EASTER_EGG_WORD.length - 2 &&
     eggPrefix !== EASTER_EGG_WORD;
+
+  // Gus notices you closing in on the magic word.
+  useEffect(() => {
+    if (almostThereEgg) mascotReact("eggClose");
+  }, [almostThereEgg]);
 
   const searchHistory = useSearchHistoryStore((s) => s.history);
   const removeHistory = useSearchHistoryStore((s) => s.remove);

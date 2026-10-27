@@ -435,6 +435,7 @@ export function DashboardPanel({ site, onClose, onSearch }: DashboardPanelProps)
                   if (confirmReset) {
                     resetStats();
                     setConfirmReset(false);
+                    mascotReact("wipeStats");
                   } else {
                     setConfirmReset(true);
                   }

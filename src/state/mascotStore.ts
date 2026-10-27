@@ -15,6 +15,7 @@ import {
   shouldPlay,
   type Playing,
   type ReactionKind,
+  VOTE_STREAK,
 } from "../lib/mascot";
 
 export interface ActiveReaction {
@@ -63,6 +64,8 @@ interface MascotState {
   favorited: (score: number, favCount: number) => void;
   /** A download finished - several close together become one "batch" reaction. */
   downloaded: () => void;
+  /** A vote went through - a run of them becomes a streak; upvoting a negative post is bold. */
+  voted: (direction: 1 | -1, score: number) => void;
 }
 
 // Rolling timestamps for the combo reactions (not state - nothing renders from them).
@@ -72,6 +75,7 @@ let refusePetsUntil = 0;
 let dragStamps: number[] = [];
 let favStamps: number[] = [];
 let downloadStamps: number[] = [];
+let voteStamps: number[] = [];
 let batchFired = false;
 const trim = (stamps: number[], now: number, windowMs: number) => stamps.filter((t) => now - t < windowMs);
 
@@ -115,7 +119,7 @@ export const useMascotStore = create<MascotState>((set, get) => ({
       ? { kind: state.active.kind, startedAt: state.lastPlayed[state.active.kind] ?? 0 }
       : null;
     if (!shouldPlay(kind, mascotMode, now, state.lastPlayed, playing)) return;
-    const spicy = spicyAllowed(settings) && Math.random() < SPICY_SHARE;
+    const spicy = spicyAllowed(settings) && (kind === "eggClose" || Math.random() < SPICY_SHARE);
     const line = pickLine(kind, mascotTalk, now, state.lastSpokeAt, Math.random(), vars, spicy);
     // Speech stretches the reaction so there's time to read it.
     const duration = REACTIONS[kind].durationMs + (line ? 1800 : 0);
@@ -184,6 +188,17 @@ export const useMascotStore = create<MascotState>((set, get) => ({
     } else if (score < 0) react("boldChoice");
     else if (favCount >= POPULAR_FAV_COUNT) react("popularFav");
     else react("favorite");
+  },
+
+  voted: (direction, score) => {
+    const now = Date.now();
+    voteStamps = trim([...voteStamps, now], now, VOTE_STREAK.windowMs);
+    const react = get().react;
+    if (voteStamps.length >= VOTE_STREAK.count) {
+      voteStamps = [];
+      react("voteStreak");
+    } else if (direction === 1) react(score < 0 ? "boldChoice" : "upvote");
+    else react("downvote");
   },
 
   downloaded: () => {

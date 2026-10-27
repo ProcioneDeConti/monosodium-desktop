@@ -82,7 +82,33 @@ export type ReactionKind =
   | "eggSpotted"
   | "eggClosed"
   // first pet ever
-  | "intro";
+  | "intro"
+  // batch 4: searches
+  | "kinkMuscle"
+  | "kinkThicc"
+  | "kinkPaws"
+  | "kinkMacro"
+  | "kinkFeral"
+  | "kinkGroup"
+  | "ratingExplicit"
+  | "ratingSafe"
+  | "gusSearch"
+  | "procioneSearch"
+  | "snoopFavs"
+  | "uploaderStalk"
+  | "poolRead"
+  | "picky"
+  // batch 4: behaviour
+  | "voteStreak"
+  | "lingerHover"
+  | "lingered"
+  | "quickHide"
+  | "adultOn"
+  | "adultOff"
+  | "wipeSeen"
+  | "wipeStats"
+  // typing the magic word
+  | "eggClose";
 
 /** CSS motion (`.mascot-m-<name>` in index.css) - all whole-image transforms of mascot.png. */
 export type MascotMotion =
@@ -113,12 +139,12 @@ export interface ReactionDef {
 }
 
 export const REACTIONS: Record<ReactionKind, ReactionDef> = {
-  pet: { motion: "hop", emoji: ["❤️", "🥰"], durationMs: 900, cooldownMs: 0, minor: true, priority: 1, lines: [] },
-  favorite: { motion: "hop", emoji: ["❤️", "💖", "😍"], durationMs: 1000, cooldownMs: 4000, minor: true, priority: 1, lines: [] },
-  unfavorite: { motion: "droop", emoji: ["💔"], durationMs: 1000, cooldownMs: 4000, minor: true, priority: 1, burst: 2, lines: [] },
-  upvote: { motion: "nod", emoji: ["👍", "⬆️"], durationMs: 900, cooldownMs: 4000, minor: true, priority: 1, lines: [] },
-  downvote: { motion: "tilt", emoji: ["👎", "😒"], durationMs: 900, cooldownMs: 4000, minor: true, priority: 1, lines: [] },
-  download: { motion: "hop", emoji: ["📥", "✅"], durationMs: 1000, cooldownMs: 6000, minor: true, priority: 1, lines: [] },
+  pet: { motion: "hop", emoji: ["❤️", "🥰"], durationMs: 900, cooldownMs: 0, minor: true, priority: 1, lines: ["Hehe.", "Right behind the ears. Perfect.", "More of that, please."] },
+  favorite: { motion: "hop", emoji: ["❤️", "💖", "😍"], durationMs: 1000, cooldownMs: 4000, minor: true, priority: 1, lines: ["Ooh, good one.", "Saved! Good taste.", "Into the favorites it goes."] },
+  unfavorite: { motion: "droop", emoji: ["💔"], durationMs: 1000, cooldownMs: 4000, minor: true, priority: 1, burst: 2, lines: ["Changed your mind?", "Out it goes.", "Breaking up already?"] },
+  upvote: { motion: "nod", emoji: ["👍", "⬆️"], durationMs: 900, cooldownMs: 4000, minor: true, priority: 1, lines: ["Agreed!", "Good call.", "Deserved."] },
+  downvote: { motion: "tilt", emoji: ["👎", "😒"], durationMs: 900, cooldownMs: 4000, minor: true, priority: 1, lines: ["Harsh.", "Ouch.", "Not your thing, huh?"] },
+  download: { motion: "hop", emoji: ["📥", "✅"], durationMs: 1000, cooldownMs: 6000, minor: true, priority: 1, lines: ["Saved to disk!", "Got it.", "Downloaded."] },
   unknownTag: {
     motion: "tilt", emoji: ["❓", "🤔"], durationMs: 1800, cooldownMs: 10_000, minor: false, priority: 2,
     lines: ["Hmm, never heard of that one.", "Is that spelled right?", "That's not a tag I know."],
@@ -155,8 +181,8 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
 
   // Games: per-round right/wrong are minor (companion only, never talk); a finished run isn't.
   // No cooldown - every round should get its reaction.
-  gameRight: { motion: "hop", emoji: ["😄", "👏", "✨"], durationMs: 1000, cooldownMs: 0, minor: true, priority: 2, lines: [] },
-  gameWrong: { motion: "shake", emoji: ["😡", "💢"], durationMs: 1000, cooldownMs: 0, minor: true, priority: 2, lines: [] },
+  gameRight: { motion: "hop", emoji: ["😄", "👏", "✨"], durationMs: 1000, cooldownMs: 0, minor: true, priority: 2, lines: ["Correct!", "Nice!", "Got it!"] },
+  gameWrong: { motion: "shake", emoji: ["😡", "💢"], durationMs: 1000, cooldownMs: 0, minor: true, priority: 2, lines: ["Nope!", "Wrong!", "Argh!"] },
   gameWin: {
     motion: "hop", emoji: ["🎉", "🏆", "🥳"], durationMs: 2400, cooldownMs: 0, minor: false, priority: 4, burst: 7,
     lines: ["Nailed it!", "Champion!", "Look at you go!"],
@@ -171,12 +197,12 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
     motion: "wobble", emoji: ["🤮", "🤢"], durationMs: 1600, cooldownMs: 30_000, minor: false, priority: 2,
     lines: ["Ugh, I didn't need to see that.", "My stomach…", "You sure about this?"],
   },
-  peekaboo: { motion: "shrug", emoji: ["🙈"], durationMs: 1200, cooldownMs: 20_000, minor: true, priority: 1, burst: 3, lines: [] },
+  peekaboo: { motion: "shrug", emoji: ["🙈"], durationMs: 1200, cooldownMs: 20_000, minor: true, priority: 1, burst: 3, lines: ["Hiding what you've seen."] },
   robot: {
     motion: "jitter", emoji: ["🤖", "⚙️"], durationMs: 1400, cooldownMs: 30_000, minor: false, priority: 2,
     lines: ["Beep boop.", "Welcome to the machine."],
   },
-  homeSite: { motion: "nod", emoji: ["🦊", "🐺", "🐾"], durationMs: 1000, cooldownMs: 30_000, minor: true, priority: 1, lines: [] },
+  homeSite: { motion: "nod", emoji: ["🦊", "🐺", "🐾"], durationMs: 1000, cooldownMs: 30_000, minor: true, priority: 1, lines: ["Home sweet home."] },
   dice: {
     motion: "wobble", emoji: ["🎲"], durationMs: 1200, cooldownMs: 30_000, minor: false, priority: 2, burst: 3,
     lines: ["Feeling lucky?", "Let's roll!"],
@@ -185,10 +211,10 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
     motion: "hop", emoji: ["🦝", "😎", "💕"], durationMs: 2000, cooldownMs: 60_000, minor: false, priority: 3, burst: 6,
     lines: ["Hey, that's me!", "Raccoons? Excellent taste."], alwaysTalks: true,
   },
-  squint: { motion: "tilt", emoji: ["🧐", "🔍"], durationMs: 1200, cooldownMs: 30_000, minor: true, priority: 1, lines: [] },
-  bigThumbs: { motion: "stretch", emoji: ["😲", "🖼️"], durationMs: 1200, cooldownMs: 30_000, minor: true, priority: 1, lines: [] },
-  blacklistAdd: { motion: "shake", emoji: ["🚫", "👋"], durationMs: 1000, cooldownMs: 10_000, minor: true, priority: 1, lines: [] },
-  savedSearch: { motion: "nod", emoji: ["🔖", "⭐"], durationMs: 1000, cooldownMs: 5000, minor: true, priority: 1, lines: [] },
+  squint: { motion: "tilt", emoji: ["🧐", "🔍"], durationMs: 1200, cooldownMs: 30_000, minor: true, priority: 1, lines: ["Tiny! I can barely see them."] },
+  bigThumbs: { motion: "stretch", emoji: ["😲", "🖼️"], durationMs: 1200, cooldownMs: 30_000, minor: true, priority: 1, lines: ["Big pictures!"] },
+  blacklistAdd: { motion: "shake", emoji: ["🚫", "👋"], durationMs: 1000, cooldownMs: 10_000, minor: true, priority: 1, lines: ["Blacklisted. Begone!", "Never again."] },
+  savedSearch: { motion: "nod", emoji: ["🔖", "⭐"], durationMs: 1000, cooldownMs: 5000, minor: true, priority: 1, lines: ["Saved for later."] },
   holiday: {
     motion: "hop", emoji: ["🎉"], durationMs: 2000, cooldownMs: 6 * 3600_000, minor: false, priority: 2, burst: 6,
     lines: ["{greeting}"], alwaysTalks: true,
@@ -203,14 +229,14 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
     motion: "look", emoji: ["🗺️", "🧭"], durationMs: 1800, cooldownMs: 0, minor: false, priority: 2,
     lines: ["We're deep in now.", "Page twenty… where are we?"],
   },
-  rocket: { motion: "hop", emoji: ["🚀"], durationMs: 1000, cooldownMs: 8000, minor: true, priority: 1, burst: 3, lines: [] },
+  rocket: { motion: "hop", emoji: ["🚀"], durationMs: 1000, cooldownMs: 8000, minor: true, priority: 1, burst: 3, lines: ["Back to the top!", "Wheee!"] },
   juggle: {
     motion: "wobble", emoji: ["🤹", "🗂️"], durationMs: 1400, cooldownMs: 60_000, minor: false, priority: 2,
     lines: ["So many tabs…", "I can only juggle so much."],
   },
-  refresh: { motion: "spin", emoji: ["🔄"], durationMs: 900, cooldownMs: 10_000, minor: true, priority: 1, burst: 2, lines: [] },
-  layoutMasonry: { motion: "nod", emoji: ["🧱"], durationMs: 900, cooldownMs: 5000, minor: true, priority: 1, burst: 3, lines: [] },
-  layoutUniform: { motion: "nod", emoji: ["📐"], durationMs: 900, cooldownMs: 5000, minor: true, priority: 1, burst: 3, lines: [] },
+  refresh: { motion: "spin", emoji: ["🔄"], durationMs: 900, cooldownMs: 10_000, minor: true, priority: 1, burst: 2, lines: ["Fresh posts!", "Refreshing…"] },
+  layoutMasonry: { motion: "nod", emoji: ["🧱"], durationMs: 900, cooldownMs: 5000, minor: true, priority: 1, burst: 3, lines: ["Masonry mode. Classy."] },
+  layoutUniform: { motion: "nod", emoji: ["📐"], durationMs: 900, cooldownMs: 5000, minor: true, priority: 1, burst: 3, lines: ["Neat little squares."] },
 
   // --- What's searched ---
   hiss: {
@@ -261,7 +287,7 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
     motion: "hop", emoji: ["📦", "✨"], durationMs: 1400, cooldownMs: 60_000, minor: false, priority: 2, burst: 5,
     lines: ["All saved!", "That's a haul."],
   },
-  copy: { motion: "nod", emoji: ["📋"], durationMs: 800, cooldownMs: 5000, minor: true, priority: 1, burst: 2, lines: [] },
+  copy: { motion: "nod", emoji: ["📋"], durationMs: 800, cooldownMs: 5000, minor: true, priority: 1, burst: 2, lines: ["Copied!", "On the clipboard."] },
   shinyFav: {
     motion: "hop", emoji: ["✨", "🌟", "💛"], durationMs: 2200, cooldownMs: 0, minor: false, priority: 4, burst: 9,
     lines: ["✨ Shiny! ✨", "Ooh, a golden one!"], alwaysTalks: true,
@@ -288,7 +314,7 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
     motion: "hop", emoji: ["🎁", "✨"], durationMs: 1600, cooldownMs: 3600_000, minor: false, priority: 3,
     lines: ["Something new for you!", "Ooh, an update!"], alwaysTalks: true,
   },
-  perkUp: { motion: "look", emoji: ["👀"], durationMs: 1000, cooldownMs: 30 * 60_000, minor: true, priority: 1, burst: 2, lines: [] },
+  perkUp: { motion: "look", emoji: ["👀"], durationMs: 1000, cooldownMs: 30 * 60_000, minor: true, priority: 1, burst: 2, lines: ["Oh! You're back."] },
 
   // --- Him ---
   flustered: {
@@ -336,6 +362,102 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
     lines: ["We never speak of this.", "That never happened.", "Delete your browser history."],
     alwaysTalks: true, ignoreGap: true,
   },
+  // --- Batch 4: what's searched ---
+  kinkMuscle: {
+    motion: "hop", emoji: ["💪", "🔥"], durationMs: 1400, cooldownMs: 60_000, minor: false, priority: 2,
+    lines: ["Muscles! Somebody's been working out.", "Gains! Very impressive gains."],
+  },
+  kinkThicc: {
+    motion: "wobble", emoji: ["🍑", "😮"], durationMs: 1400, cooldownMs: 60_000, minor: false, priority: 2,
+    lines: ["Thicc. That's the technical term.", "Extra cushion for… comfort."],
+  },
+  kinkPaws: {
+    motion: "tilt", emoji: ["🐾", "👀"], durationMs: 1400, cooldownMs: 60_000, minor: false, priority: 2,
+    lines: ["Paws, huh? I have paws too, you know.", "Toe beans! Adorable."],
+  },
+  kinkMacro: {
+    motion: "stretch", emoji: ["🏙️", "😲"], durationMs: 1600, cooldownMs: 60_000, minor: false, priority: 2,
+    lines: ["Big ones! Like, building-sized.", "Size difference. A classic."],
+  },
+  kinkFeral: {
+    motion: "jitter", emoji: ["🐺", "🌲"], durationMs: 1400, cooldownMs: 60_000, minor: false, priority: 2,
+    lines: ["Going feral! Wild.", "Back to nature."],
+  },
+  kinkGroup: {
+    motion: "wobble", emoji: ["👥", "😳"], durationMs: 1600, cooldownMs: 60_000, minor: false, priority: 2,
+    lines: ["A crowd! The more the merrier, I guess.", "That's a lot of characters to keep track of."],
+  },
+  ratingExplicit: {
+    motion: "nod", emoji: ["🔞", "😏"], durationMs: 1200, cooldownMs: 120_000, minor: false, priority: 2,
+    lines: ["Explicit only. Straight to the point.", "No beating around the bush."],
+  },
+  ratingSafe: {
+    motion: "shrug", emoji: ["😇", "🧸"], durationMs: 1200, cooldownMs: 120_000, minor: false, priority: 2,
+    lines: ["Safe only? Wholesome browsing. Nice.", "Keeping it clean today."],
+  },
+  gusSearch: {
+    motion: "hop", emoji: ["🦝", "❓"], durationMs: 1800, cooldownMs: 60_000, minor: false, priority: 3,
+    lines: ["Searching for me? I'm right here!", "There's art of me?! …Wait, don't show me."],
+    alwaysTalks: true,
+  },
+  procioneSearch: {
+    motion: "hop", emoji: ["🦝", "💙"], durationMs: 1800, cooldownMs: 60_000, minor: false, priority: 3,
+    lines: ["Looking for Procione? Good taste.", "Ah, the boss's character."], alwaysTalks: true,
+  },
+  snoopFavs: {
+    motion: "look", emoji: ["👀", "🕵️"], durationMs: 1400, cooldownMs: 60_000, minor: false, priority: 2,
+    lines: ["Snooping through someone else's favorites? 👀", "Checking out their taste, huh?"],
+  },
+  uploaderStalk: {
+    motion: "look", emoji: ["🔍", "🕵️"], durationMs: 1400, cooldownMs: 60_000, minor: false, priority: 2,
+    lines: ["Everything one uploader posted? Big fan.", "Following an uploader. Dedicated."],
+  },
+  poolRead: {
+    motion: "nod", emoji: ["📖", "🍿"], durationMs: 1400, cooldownMs: 60_000, minor: false, priority: 2,
+    lines: ["A whole pool! Reading for the story?", "Comic time. Grab some snacks."],
+  },
+  picky: {
+    motion: "tilt", emoji: ["🙅", "🧐"], durationMs: 1400, cooldownMs: 60_000, minor: false, priority: 2,
+    lines: ["That's a lot of things you DON'T want.", "Picky! I respect a person with standards."],
+  },
+
+  // --- Batch 4: behaviour ---
+  voteStreak: {
+    motion: "nod", emoji: ["🗳️", "👍"], durationMs: 1400, cooldownMs: 120_000, minor: false, priority: 2,
+    lines: ["Voting spree! Civic duty.", "Judge, jury and upvoter."],
+  },
+  lingerHover: {
+    motion: "look", emoji: ["👀"], durationMs: 1200, cooldownMs: 90_000, minor: false, priority: 1, burst: 2,
+    lines: ["Just gonna stare at it? Click it!", "You've been hovering a while there."],
+  },
+  lingered: {
+    motion: "tilt", emoji: ["👀", "⏱️"], durationMs: 1600, cooldownMs: 120_000, minor: false, priority: 2,
+    lines: ["You stared at that one for a while.", "That post really held your attention."],
+  },
+  quickHide: {
+    motion: "jitter", emoji: ["😳", "🚪"], durationMs: 1600, cooldownMs: 10 * 60_000, minor: false, priority: 3,
+    lines: ["Someone walk in? 👀", "Coast clear?", "Phew. That was close."],
+  },
+  adultOn: {
+    motion: "hop", emoji: ["🔞", "😏"], durationMs: 1600, cooldownMs: 60_000, minor: false, priority: 3,
+    lines: ["Adult mode! Oh, it's THAT kind of night.", "Grown-up mode engaged."], alwaysTalks: true,
+  },
+  adultOff: {
+    motion: "shrug", emoji: ["😇"], durationMs: 1400, cooldownMs: 60_000, minor: false, priority: 2,
+    lines: ["Safe mode. Somebody's at work.", "Back to vanilla."],
+  },
+  wipeSeen: {
+    motion: "shake", emoji: ["🧹", "🫣"], durationMs: 1400, cooldownMs: 60_000, minor: false, priority: 2,
+    lines: ["Seen history wiped. Fresh start!", "Forgetting what you've seen? Lucky."],
+  },
+  eggClose: {
+    motion: "hop", emoji: ["👀", "🥵"], durationMs: 1800, cooldownMs: 20_000, minor: false, priority: 3, burst: 3,
+    lines: ["Ooh! You're getting close!"], alwaysTalks: true, ignoreGap: true,
+  },
+  wipeStats: {
+    motion: "droop", emoji: ["🗑️", "😶"], durationMs: 1600, cooldownMs: 60_000, minor: false, priority: 3,
+    lines: ["Stats reset. Destroying the evidence?", "All my hard counting… gone."], alwaysTalks: true,
+  },
 };
 
 /** Odds that a favorite is a ✨shiny✨ one. */
@@ -354,7 +476,25 @@ export const DRAG_SPREE = { count: 3, windowMs: 20_000 };
 /** Ambient fidget: after this long with no reaction (while awake), occasionally look around. */
 export const FIDGET_AFTER_MS = 20 * 60_000;
 export const ANNOYED_REFUSE_MS = 60_000;
+export const VOTE_STREAK = { count: 6, windowMs: 60_000 };
+/** Hovering one thumbnail this long without opening it. */
+export const LINGER_HOVER_MS = 6000;
+/** Spending this long on a single post in the viewer. */
+export const LINGER_VIEW_MS = 90_000;
+/** Window hidden then shown again within this range - minimised in a hurry. */
+export const QUICK_HIDE = { minMs: 2000, maxMs: 60_000 };
+export const PICKY_NEGATIONS = 3;
 export const KONAMI = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
+
+/** Kink-ish tags -> reaction (after species, before ordering). */
+export const KINK_REACTIONS: [Set<string>, ReactionKind][] = [
+  [new Set(["muscular", "muscular_male", "muscular_female", "muscular_anthro", "abs", "biceps"]), "kinkMuscle"],
+  [new Set(["overweight", "chubby", "thick_thighs", "big_butt", "wide_hips", "slightly_chubby"]), "kinkThicc"],
+  [new Set(["feet", "foot_focus", "paws", "pawpads", "foot_fetish", "soles"]), "kinkPaws"],
+  [new Set(["macro", "micro", "size_difference", "giant", "hyper"]), "kinkMacro"],
+  [new Set(["feral", "feral_on_feral", "feral_on_anthro"]), "kinkFeral"],
+  [new Set(["group_sex", "threesome", "orgy", "foursome", "group"]), "kinkGroup"],
+];
 
 /** Species tags -> reaction, checked against the query's plain terms. */
 export const SPECIES_REACTIONS: [Set<string>, ReactionKind][] = [
@@ -368,11 +508,21 @@ export const SPECIES_REACTIONS: [Set<string>, ReactionKind][] = [
 export function queryReaction(query: string, ownName: string | null): ReactionKind | null {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
   const plain = terms.map((t) => t.replace(/^~/, ""));
+  if (plain.includes("gus")) return "gusSearch";
+  if (plain.some((t) => t === "procione" || t.startsWith("procione_"))) return "procioneSearch";
   for (const [tags, kind] of SPECIES_REACTIONS) if (plain.some((t) => tags.has(t))) return kind;
-  if (ownName && plain.includes(`fav:${ownName.toLowerCase()}`)) return "ownFavs";
+  for (const [tags, kind] of KINK_REACTIONS) if (plain.some((t) => tags.has(t))) return kind;
+  const favOf = plain.find((t) => t.startsWith("fav:"))?.slice(4);
+  if (favOf && ownName && favOf === ownName.toLowerCase()) return "ownFavs";
+  if (favOf) return "snoopFavs";
+  if (plain.some((t) => t.startsWith("user:"))) return "uploaderStalk";
+  if (plain.some((t) => t.startsWith("pool:"))) return "poolRead";
+  if (plain.some((t) => t === "rating:e" || t === "rating:explicit")) return "ratingExplicit";
+  if (plain.some((t) => t === "rating:s" || t === "rating:safe")) return "ratingSafe";
   if (plain.includes("order:random")) return "dice";
   if (plain.includes("order:score")) return "topScore";
   if (plain.includes("order:id") || plain.includes("order:id_asc")) return "archive";
+  if (terms.filter((t) => t.startsWith("-")).length >= PICKY_NEGATIONS) return "picky";
   if (terms.length >= LONG_QUERY_TERMS) return "longQuery";
   return null;
 }
@@ -421,6 +571,13 @@ export function holidayFor(date: Date): { emoji: string; greeting: string } | nu
 }
 
 export const CAMEO_COOLDOWN_MS = 60_000;
+/** Per-talkativeness speech limits: the gap between lines and the chance a line is spoken, for
+ *  regular reactions and for the frequent "minor" ones (favorite, vote, pet…). */
+export const TALK_TUNING: Record<Exclude<MascotTalk, "never">, { gapMs: number; chance: number; minorGapMs: number; minorChance: number }> = {
+  sometimes: { gapMs: 3 * 60_000, chance: 0.5, minorGapMs: Infinity, minorChance: 0 },
+  chatty: { gapMs: 90_000, chance: 1, minorGapMs: 20_000, minorChance: 0.35 },
+  always: { gapMs: 0, chance: 1, minorGapMs: 0, minorChance: 1 },
+};
 /** Speech is rare: at most one line in this window, and only half the eligible times. */
 export const SPEECH_GAP_MS = 3 * 60_000;
 export const SPEECH_CHANCE = 0.5;
@@ -466,11 +623,16 @@ export function pickLine(
 ): string | null {
   const def = REACTIONS[kind];
   const lines = spicy && SPICY_LINES[kind]?.length ? SPICY_LINES[kind]! : def.lines;
-  if (talk === "never" || def.minor || lines.length === 0) return null;
-  const always = talk === "always" || def.alwaysTalks;
-  if (talk !== "always" && !def.ignoreGap && lastSpokeAt != null && now - lastSpokeAt < SPEECH_GAP_MS) return null;
-  if (!always && rand >= SPEECH_CHANCE) return null;
-  const scaled = always ? rand : rand / SPEECH_CHANCE;
+  if (talk === "never" || lines.length === 0) return null;
+  const tune = TALK_TUNING[talk];
+  // Frequent little reactions (favorite, vote, pet…) stay quiet on "sometimes", talk now and then
+  // on "chatty", every time on "always".
+  const gap = def.minor ? tune.minorGapMs : tune.gapMs;
+  const chance = def.alwaysTalks ? 1 : def.minor ? tune.minorChance : tune.chance;
+  if (chance <= 0) return null;
+  if (!def.ignoreGap && lastSpokeAt != null && now - lastSpokeAt < gap) return null;
+  if (rand >= chance) return null;
+  const scaled = rand / chance;
   const line = lines[Math.floor(scaled * lines.length) % lines.length];
   return line.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? "");
 }

@@ -38,6 +38,7 @@ import { Section } from "../ui/Section";
 const MASCOT_TALK: { value: MascotTalk; label: string }[] = [
   { value: "never", label: "Never" },
   { value: "sometimes", label: "Sometimes" },
+  { value: "chatty", label: "Chatty" },
   { value: "always", label: "Always" },
 ];
 
@@ -287,7 +288,9 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
                 ? `Every reaction with something to say gets a line. ${MASCOT_NAME} will not shut up.`
                 : mascotTalk === "never"
                   ? `${MASCOT_NAME} still reacts, but never says a word.`
-                  : `A line now and then - at most one every few minutes.`}
+                  : mascotTalk === "chatty"
+                    ? `About twice as talkative - most reactions get a line, with a short breather between.`
+                    : `A line now and then - at most one every few minutes.`}
             </p>
             {explicitOn && (
               <label

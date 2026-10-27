@@ -8,6 +8,7 @@ import { PostGrid } from "./components/PostGrid/PostGrid";
 import { MascotLayer } from "./components/Mascot/MascotLayer";
 import { useMascotTriggers } from "./components/Mascot/useMascotTriggers";
 import { mascotReact } from "./state/mascotStore";
+import { LINGER_VIEW_MS } from "./lib/mascot";
 import { SelectionBar } from "./components/PostGrid/SelectionBar";
 import { SetPickerDialog } from "./components/Sets/SetPickerDialog";
 import { PostViewer } from "./components/PostViewer/PostViewer";
@@ -664,8 +665,19 @@ function App() {
   // Usage stats: record a post view whenever the viewer lands on a new post (open, arrow-key nav,
   // slideshow auto-advance) - dedupes consecutive repeats. Pool/Popular panels have their own
   // nested viewers and aren't covered here.
+  const viewStart = useRef<{ id: number | null; at: number }>({ id: null, at: 0 });
   const lastViewedIdRef = useRef<number | null>(null);
   useEffect(() => {
+    // Time spent on the previous post, measured only when the shown post actually changes (this
+    // effect also re-runs when more pages load) - a long look gets a remark from Gus, held until
+    // the viewer closes like every reaction fired under it.
+    const currentId = viewerIndex === null ? null : (shownPosts[viewerIndex]?.id ?? null);
+    if (currentId !== viewStart.current.id) {
+      if (viewStart.current.id != null && Date.now() - viewStart.current.at >= LINGER_VIEW_MS) {
+        mascotReact("lingered");
+      }
+      viewStart.current = { id: currentId, at: Date.now() };
+    }
     if (viewerIndex === null) {
       lastViewedIdRef.current = null;
       return;

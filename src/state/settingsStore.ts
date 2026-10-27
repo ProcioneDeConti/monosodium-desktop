@@ -31,9 +31,10 @@ export type SeenMode = "off" | "dim" | "hide";
  *  raccoon on empty/loading screens - it only disables reactions). */
 export type MascotMode = "companion" | "cameos" | "off";
 export type MascotCorner = "br" | "bl" | "tr" | "tl";
-/** How chatty Gus is: never (reactions only), sometimes (rate-limited, ~half the time), or always
- *  (every reaction that has lines speaks, every time). */
-export type MascotTalk = "never" | "sometimes" | "always";
+/** How chatty Gus is: never (reactions only), sometimes (rate-limited, ~half the time), chatty
+ *  (~twice that), or always (every reaction that has lines speaks, every time). Tuning lives in
+ *  lib/mascot.ts TALK_TUNING. */
+export type MascotTalk = "never" | "sometimes" | "chatty" | "always";
 export const MIN_THUMBNAIL_SIZE_PX = 120;
 export const MAX_THUMBNAIL_SIZE_PX = 420;
 export const MIN_VIDEO_SPEED = 0.25;

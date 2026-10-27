@@ -79,6 +79,36 @@ function EmojiFeed({ trigger }: { trigger: { id: number; emoji: string[]; count:
   );
 }
 
+/** A comic speech bubble beside Gus, vertically centred on him, tail pointing back at him; pops
+ *  out from the tail end. A line can carry a smaller aside after "¦" ("Main line¦aside"). */
+function SpeechBubble({ line, side, reduced }: { line: string; side: "left" | "right"; reduced: boolean }) {
+  const [main, aside] = line.split("¦").map((t) => t.trim());
+  const right = side === "right";
+  return (
+    <div
+      className={`pointer-events-none absolute top-1/2 z-[1] w-max max-w-[230px] -translate-y-1/2
+                  ${right ? "left-full ml-3.5" : "right-full mr-3.5"}`}
+    >
+      <div
+        className={`relative rounded-2xl border-2 border-black/80 bg-white px-3 py-1.5 text-[13px] font-semibold
+                    leading-snug text-black shadow-[0_6px_16px_-6px_rgb(0_0_0/0.5)]
+                    dark:border-white/80 dark:bg-neutral-900 dark:text-white
+                    ${reduced ? "" : right ? "mascot-bubble origin-left" : "mascot-bubble origin-right"}`}
+      >
+        {main}
+        {aside && <span className="mt-0.5 block text-[10px] font-medium italic opacity-60">{aside}</span>}
+        {/* Tail: a bordered square turned 45deg, half tucked behind the bubble's edge. */}
+        <span
+          aria-hidden
+          className={`absolute top-1/2 h-3 w-3 border-2 border-black/80 bg-white dark:border-white/80 dark:bg-neutral-900
+                      ${right ? "-left-[7px] border-r-0 border-t-0" : "-right-[7px] border-b-0 border-l-0"}`}
+          style={{ transform: "translateY(-50%) rotate(45deg)" }}
+        />
+      </div>
+    </div>
+  );
+}
+
 /** The raccoon plus whatever it's doing: reaction motion, floating symbol, speech bubble, sleep.
  *  `bubbleSide` keeps the bubble on-screen (it opens away from the nearest edge). */
 function MascotStage({
@@ -86,7 +116,6 @@ function MascotStage({
   sleeping,
   size,
   bubbleSide,
-  bubbleAbove,
   backdrop = false,
   thinking = false,
 }: {
@@ -97,8 +126,8 @@ function MascotStage({
   active: ActiveReaction | null;
   sleeping: boolean;
   size: number;
+  /** Which side of him the speech bubble sits on - away from the nearest screen edge. */
   bubbleSide: "left" | "right";
-  bubbleAbove: boolean;
 }) {
   const reduced = motionReduced();
   const def = active ? REACTIONS[active.kind] : null;
@@ -170,19 +199,7 @@ function MascotStage({
         </div>
       )}
 
-      {active?.line && (
-        <div
-          key={`b${active.id}`}
-          className={`pointer-events-none absolute w-max max-w-[220px] rounded-[var(--radius-md)] border
-                      border-black/10 bg-white px-2.5 py-1.5 text-xs font-medium text-black shadow-lg
-                      dark:border-white/10 dark:bg-neutral-800 dark:text-white
-                      ${reduced ? "" : "animate-[fade-in_160ms_ease-out]"}
-                      ${bubbleAbove ? "bottom-full mb-1" : "top-full mt-1"}
-                      ${bubbleSide === "left" ? "right-1/2" : "left-1/2"}`}
-        >
-          {active.line}
-        </div>
-      )}
+      {active?.line && <SpeechBubble key={`b${active.id}`} line={active.line} side={bubbleSide} reduced={reduced} />}
     </div>
   );
 }
@@ -294,7 +311,6 @@ function Companion({
         sleeping={sleeping}
         size={COMPANION_PX}
         bubbleSide={corner.endsWith("r") ? "left" : "right"}
-        bubbleAbove={corner.startsWith("b")}
         backdrop
         thinking={thinking}
       />
@@ -324,7 +340,6 @@ function Cameo({ active }: { active: ActiveReaction | null }) {
           sleeping={false}
           size={CAMEO_PX}
           bubbleSide={right ? "left" : "right"}
-          bubbleAbove
         />
       </div>
     </div>

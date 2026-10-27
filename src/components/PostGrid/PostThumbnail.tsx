@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { aspectRatio, isAnimated, isVideo, previewVideoUrl, type Post } from "../../models/post";
 import { useReleaseVideo } from "../../lib/useReleaseVideo";
+import { LINGER_HOVER_MS } from "../../lib/mascot";
+import { mascotReact } from "../../state/mascotStore";
 import { artistNames, formatArtists } from "../../lib/artistTags";
 import { formatCount } from "../../lib/formatCount";
 import { Spinner } from "../ui/Spinner";
@@ -156,6 +158,11 @@ function PostThumbnailImpl({
     previewTimer.current = window.setTimeout(() => setPreviewing(true), HOVER_PREVIEW_DELAY_MS);
     return () => window.clearTimeout(previewTimer.current);
   }, [hovered, previewable, selectionActive]);
+  useEffect(() => {
+    if (!hovered || selectionActive) return;
+    const t = window.setTimeout(() => mascotReact("lingerHover"), LINGER_HOVER_MS);
+    return () => window.clearTimeout(t);
+  }, [hovered, selectionActive]);
   const [dl, setDl] = useState<"idle" | "saving" | "done" | "err">("idle");
   const [favBusy, setFavBusy] = useState(false);
   const [voteBusy, setVoteBusy] = useState(false);

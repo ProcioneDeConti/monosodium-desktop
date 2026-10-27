@@ -2027,3 +2027,18 @@ live call before implementing (per user instruction - no more guessing).
   Never (reactions only) / Sometimes (the old rate-limited behaviour, default) / Always (every
   reaction that has lines speaks every time - no gap, no 50% roll). `mascotTalk` replaces
   `mascotSpeech`; an old `mascotSpeech: false` (settings file or backup) loads as "never".
+- [x] **Gus batch 4 + Chatty** (unreleased) New reactions: searches for kink-ish tags
+  (`KINK_REACTIONS`: muscle/thicc/paws/macro/feral/group), rating:e / rating:s, "gus",
+  Procione, someone else's `fav:` (snoop), `user:` (uploader), `pool:`, 3+ negations (picky);
+  vote streaks (6/min, `mascotStore.voted`), hovering one thumbnail 6s+, 90s+ on one post in the
+  viewer (keyed to the post id changing), minimise-and-back within 2-60s (quick hide - visibility
+  only, not alt-tab), adult mode on/off, clearing seen history, resetting stats. Frequent
+  "minor" reactions now have lines too. Talkativeness gained **Chatty** between Sometimes and
+  Always (`TALK_TUNING`: 90s gap, every regular reaction; minor ones 35% with a 20s gap) and
+  Always now voices minor reactions every time. Cheeky pools: a third tier on existing kinds,
+  cheeky versions of every new reaction and the minor ones, and more cheeky Dashboard remarks.
+- [x] **Speech bubble + "getting close"** (unreleased) Gus's speech is now a comic `SpeechBubble`
+  (rounded, bold outline, tail pointing at him) beside him at his vertical centre - to his right,
+  or left when he's in a right-hand corner - popping out from the tail. Lines can carry a small
+  aside after "¦". Typing within two letters of the magic word fires `eggClose`: "Ooh! You're
+  getting close!" (cheeky mode always adds the aside "same!").

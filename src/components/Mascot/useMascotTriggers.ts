@@ -11,6 +11,7 @@ import {
   LONG_SCROLL_POSTS,
   LONG_SESSION_MS,
   queryReaction,
+  QUICK_HIDE,
   TAB_SPREE,
 } from "../../lib/mascot";
 import { mascotReact, useMascotStore } from "../../state/mascotStore";
@@ -106,12 +107,25 @@ export function useMascotTriggers({
   // Back after a while away (window hidden / unfocused 30+ min): he perks up.
   useEffect(() => {
     let awaySince: number | null = null;
+    let hiddenSince: number | null = null;
     const away = () => (awaySince ??= Date.now());
     const back = () => {
       if (awaySince != null && Date.now() - awaySince >= AWAY_PERK_MS) mascotReact("perkUp");
       awaySince = null;
     };
-    const onVisibility = () => (document.hidden ? away() : back());
+    // Minimised / hidden to tray and straight back = a panic hide. Only real hides count (not
+    // alt-tab), so this doesn't fire every time you glance at another window.
+    const onVisibility = () => {
+      if (document.hidden) {
+        hiddenSince = Date.now();
+        away();
+        return;
+      }
+      const hiddenFor = hiddenSince != null ? Date.now() - hiddenSince : 0;
+      hiddenSince = null;
+      if (hiddenFor >= QUICK_HIDE.minMs && hiddenFor <= QUICK_HIDE.maxMs) mascotReact("quickHide");
+      back();
+    };
     window.addEventListener("blur", away);
     window.addEventListener("focus", back);
     document.addEventListener("visibilitychange", onVisibility);
@@ -213,6 +227,15 @@ export function useMascotTriggers({
     if (thumbPx <= MIN_THUMBNAIL_SIZE_PX) mascotReact("squint");
     else if (thumbPx >= MAX_THUMBNAIL_SIZE_PX) mascotReact("bigThumbs");
   }, [thumbPx]);
+
+  // Adult mode switched on / off (from Settings - held until it closes).
+  const adult = useSettingsStore((s) => s.adultModeEnabled);
+  const prevAdult = useRef(adult);
+  useEffect(() => {
+    if (prevAdult.current === adult) return;
+    prevAdult.current = adult;
+    mascotReact(adult ? "adultOn" : "adultOff");
+  }, [adult]);
 
   // Grid layout toggle.
   const gridMode = useSettingsStore((s) => s.gridMode);
