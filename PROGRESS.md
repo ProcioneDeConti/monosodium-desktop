@@ -1934,3 +1934,7 @@ live call before implementing (per user instruction - no more guessing).
   "All results hidden by your blacklist" names the lines doing the hiding with per-line counts
   and has a "Show them anyway" button. Metatags/negations/wildcards aren't looked up, just
   offered as droppable. Not live-tested.
+- [x] **Fix: Parent chip searched unrelated posts** (unreleased) The viewer's "Parent #X" chip
+  ran `~id:X ~parent:X`; e621 drops `~` on id:/parent: metatags, so it matched everything (and
+  `parent:X` alone excludes X). Now fetches the parent (one id: lookup) for its children list and
+  searches `id:X,child,... order:id`. The "N children" chip likewise includes the current post.

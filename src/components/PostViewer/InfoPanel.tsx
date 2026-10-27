@@ -5,6 +5,7 @@ import type { Post } from "../../models/post";
 import type { Site } from "../../models/site";
 import { formatBytes } from "../../lib/formatBytes";
 import { DText } from "../ui/DText";
+import { e621Api } from "../../api/client";
 import { CopyableField } from "./CopyableField";
 
 interface InfoPanelProps {
@@ -14,6 +15,13 @@ interface InfoPanelProps {
   onOpenPool: (poolId: number) => void;
   /** Runs a new search (closes the viewer) - used by the Relationships row. */
   onSearch: (query: string) => void;
+}
+
+/** A parent and its children as one search. e621 ignores `~` on metatags (so the old
+ *  `~id:X ~parent:X` matched *everything*), and `parent:X` excludes X itself - but `id:` takes a
+ *  comma list, so the family is spelled out explicitly. */
+function familyQuery(parentId: number, children: number[]): string {
+  return `id:${[parentId, ...children].join(",")} order:id`;
 }
 
 const RATING_LABEL: Record<string, string> = {
@@ -47,6 +55,18 @@ function InfoChip({
 export function InfoPanel({ site, post, onOpenProfile, onOpenPool, onSearch }: InfoPanelProps) {
   const rel = post.relationships;
   const hasRelationships = rel.parent_id != null || rel.has_children;
+  // A child only knows its parent's id, not its siblings - one id: lookup on the parent gets
+  // the full children list. On failure, at least show the parent.
+  async function searchFamilyOf(parentId: number) {
+    let children: number[] = [];
+    try {
+      const res = await e621Api.getPosts(site, `id:${parentId}`, 1);
+      children = res.posts[0]?.relationships.children ?? [];
+    } catch {
+      /* fall through */
+    }
+    onSearch(familyQuery(parentId, children.length > 0 ? children : [post.id]));
+  }
   const status = post.flags.deleted
     ? "Deleted"
     : post.flags.pending
@@ -98,7 +118,7 @@ export function InfoPanel({ site, post, onOpenProfile, onOpenPool, onSearch }: I
           <div className="flex flex-wrap gap-1.5">
             {rel.parent_id != null && (
               <InfoChip
-                onClick={() => onSearch(`~id:${rel.parent_id} ~parent:${rel.parent_id}`)}
+                onClick={() => void searchFamilyOf(rel.parent_id!)}
                 title="Show the parent post and all its children"
               >
                 Parent #{rel.parent_id}
@@ -106,7 +126,11 @@ export function InfoPanel({ site, post, onOpenProfile, onOpenPool, onSearch }: I
             )}
             {rel.has_children && (
               <InfoChip
-                onClick={() => onSearch(`parent:${post.id}`)}
+                onClick={() =>
+                  onSearch(
+                    rel.children.length > 0 ? familyQuery(post.id, rel.children) : `parent:${post.id}`,
+                  )
+                }
                 title="Show this post's children"
               >
                 {rel.children.length > 0
