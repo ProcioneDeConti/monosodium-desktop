@@ -2047,7 +2047,9 @@ live call before implementing (per user instruction - no more guessing).
   frosted panels (`lib/wrappedFrame.ts`), Single (tall / square) vs. multi-slide story mode
   (`lib/wrappedSlides.ts`; PNG exports one file per slide, PDF one page per slide), SFW toggle.
   Pre-release review fixes: SFW also drops the avatar (it's a post image); image aspects measured
-  in one batch (was ~90 full rebuilds); each collage photo defined once and `<use>`d per tile;
+  in one batch (was ~90 full rebuilds); collage tiles enlarged (340px, 22px gap) so fewer
+  are inlined - a defined-once/`<use>`-per-tile dedupe was tried and dropped (random tiles
+  rendered blank in Chromium's SVG-as-image);
   multi-page PNG writes page 1 to the confirmed name and never overwrites for pages 2+
   (`save_export_file_new`).
 - [x] **Gus on Popular** (unreleased) Remarks about the ranked list (`lib/mascotPopular.ts`):
@@ -2061,3 +2063,13 @@ live call before implementing (per user instruction - no more guessing).
   pending id; malformed %-escapes rejected on both sides. Not live-tested.
 - [x] **useReleaseVideo StrictMode fix** (unreleased) Re-applies `src` on setup so a dev-mode
   remount doesn't leave the player sourceless. Tauri JS/CLI deps bumped.
+- [x] **About page theme + dancing Gus** (unreleased) The About header's ♪ button plays a random
+  original chiptune (`lib/chiptune.ts` - Web Audio "tracker", no audio files; 5 songs incl. the
+  swung dub "Bin Diving Dub" via per-song swing/stab chords/written bass/soft lead; never the
+  same twice running; `chiptune.test.ts` checks every song is well-formed). Gus bounces around
+  the panel DVD-style dancing on the beat, spins/twirls every 1-3 bars, and says shuffled
+  `ABOUT_QUIPS` in the shared `SpeechBubble` that follows him (silent on Talkativeness: Never).
+  Off by default; stops on close. Reduced motion: dances in place, no flourishes. An occasional
+  duplicated Gus was reported - moved him via translate3d + will-change as a likely WebView2
+  paint fix, not confirmed. Not live-tested beyond the user's first listen.
+- [x] **Wrapped collage tiles** (unreleased) Bigger tiles (340px, 22px gap) - fewer to load.

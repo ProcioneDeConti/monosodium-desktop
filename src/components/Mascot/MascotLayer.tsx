@@ -81,7 +81,7 @@ function EmojiFeed({ trigger }: { trigger: { id: number; emoji: string[]; count:
 
 /** A comic speech bubble beside Gus, vertically centred on him, tail pointing back at him; pops
  *  out from the tail end. A line can carry a smaller aside after "¦" ("Main line¦aside"). */
-function SpeechBubble({ line, side, reduced }: { line: string; side: "left" | "right"; reduced: boolean }) {
+export function SpeechBubble({ line, side, reduced }: { line: string; side: "left" | "right"; reduced: boolean }) {
   const [main, aside] = line.split("¦").map((t) => t.trim());
   const right = side === "right";
   return (

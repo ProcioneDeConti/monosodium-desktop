@@ -948,3 +948,18 @@ h3 {
     --egg-shimmer-fill: var(--dk-surface);
   }
 }
+
+/* About page dance moves (AboutPanel's DancingGus), layered over the disco bounce. */
+@keyframes about-spin {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.12); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+/* Turning around on the spot: squash to edge-on, face the other way, then back. */
+@keyframes about-twirl {
+  0% { transform: scaleX(1); }
+  25% { transform: scaleX(-1) translateY(-6%); }
+  50% { transform: scaleX(-1); }
+  75% { transform: scaleX(1) translateY(-6%); }
+  100% { transform: scaleX(1); }
+}

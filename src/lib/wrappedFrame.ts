@@ -131,8 +131,8 @@ export function cardFrame(w: number, h: number, theme: CardTheme, collage: Colla
     // [0.5, 2] like PostThumbnail) dropped into the shortest column. Laid out on a 30° tilt over a
     // square that spans the card's diagonal, so the rotation never exposes a bare corner. Each
     // photo is lifted off the background by a two-layer shadow plus a faint top-edge highlight.
-    const gap = 14;
-    const colW = 250;
+    const gap = 22;
+    const colW = 340;
     const span = Math.hypot(w, h);
     const cols = Math.ceil(span / (colW + gap)) + 1;
     const x0 = w / 2 - (cols * (colW + gap)) / 2;
@@ -148,14 +148,7 @@ export function cardFrame(w: number, h: number, theme: CardTheme, collage: Colla
       const j = Math.floor((seed / 233280) * (i + 1));
       [order[i], order[j]] = [order[j], order[i]];
     }
-    // Each photo is defined once and <use>d per tile - inlining the data URL per tile repeated
-    // the same base64 ~100x per page. A source's tile size is fixed (colW x its aspect), so the
-    // definition can carry it.
     const tileH = (item: (typeof order)[number]) => colW / Math.min(2, Math.max(0.5, item.aspect || 1));
-    const defs = order.map(
-      (item, i) =>
-        `<image id="cs${i}" href="${item.src}" width="${colW}" height="${tileH(item).toFixed(1)}" preserveAspectRatio="xMidYMid slice"/>`,
-    );
     let k = 0;
     while (Math.min(...heights) < span + colW * 2 && k < 400) {
       const c = heights.indexOf(Math.min(...heights));
@@ -166,7 +159,7 @@ export function cardFrame(w: number, h: number, theme: CardTheme, collage: Colla
       const y = (y0 + heights[c]).toFixed(1);
       tiles.push(
         `<clipPath id="ct${k}"><rect x="${x}" y="${y}" width="${colW}" height="${th.toFixed(1)}" rx="12"/></clipPath>` +
-          `<g filter="url(#tileLift)"><use href="#cs${k % order.length}" x="${x}" y="${y}" clip-path="url(#ct${k})"/></g>` +
+          `<g filter="url(#tileLift)"><image href="${item.src}" x="${x}" y="${y}" width="${colW}" height="${th.toFixed(1)}" preserveAspectRatio="xMidYMid slice" clip-path="url(#ct${k})"/></g>` +
           `<rect x="${x}" y="${y}" width="${colW}" height="${th.toFixed(1)}" rx="12" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="1.5"/>`,
       );
       heights[c] += th + gap;
@@ -175,7 +168,7 @@ export function cardFrame(w: number, h: number, theme: CardTheme, collage: Colla
     // Faded toward the middle (where the content sits) so the wall frames the card rather than
     // fighting the text. `#wall` itself is unfaded - the frosted panels re-use it (see finishFrost).
     out.push(
-      `<defs>${defs.join("")}</defs><g mask="url(#wallFade)"><g id="wall" opacity="0.8"><g transform="rotate(30 ${w / 2} ${h / 2})">${tiles.join("")}</g></g></g>`,
+      `<g mask="url(#wallFade)"><g id="wall" opacity="0.8"><g transform="rotate(30 ${w / 2} ${h / 2})">${tiles.join("")}</g></g></g>`,
     );
     out.push(`<rect width="${w}" height="${h}" fill="#0b0b11" fill-opacity="0.5"/>`);
   }
