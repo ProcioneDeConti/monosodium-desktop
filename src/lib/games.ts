@@ -15,7 +15,9 @@ export type GameId =
   | "sixDegrees"
   | "oddOneOut"
   | "yearGuess"
-  | "bingo";
+  | "bingo"
+  | "gusPet"
+  | "gusChat";
 
 /** Rounds in one run of the quiz-style games (Artist/Species/Zoom/Rating). */
 export const QUIZ_ROUNDS = 10;

@@ -1102,7 +1102,14 @@ function App() {
         />
       )}
 
-      {gamesOpen && <GamesPanel site={site} onClose={goBack} />}
+      {gamesOpen && (
+        <GamesPanel
+          site={site}
+          onClose={goBack}
+          onSearch={runNewSearch}
+          onOpenPopular={() => navigate({ popularOpen: true })}
+        />
+      )}
 
       {messagesOpen && (
         <MessagesPanel

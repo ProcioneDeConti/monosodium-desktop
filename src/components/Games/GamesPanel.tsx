@@ -12,6 +12,8 @@ import {
   Gamepad2,
   Grid3x3,
   Heart,
+  MessageCircleHeart,
+  PawPrint,
   Rabbit,
   ScanSearch,
   SearchX,
@@ -29,6 +31,8 @@ import { TagdleGame } from "../Tagdle/TagdlePanel";
 import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { GameMusic } from "./GameMusic";
+import { GusChat } from "./GusChat";
+import { GusPet } from "./GusPet";
 import { HigherLower } from "./HigherLower";
 import { OddOneOut } from "./OddOneOut";
 import { TagBingo } from "./TagBingo";
@@ -38,6 +42,14 @@ import { RatingJudge } from "./RatingJudge";
 import { SixDegrees } from "./SixDegrees";
 import { ZoomReveal } from "./ZoomReveal";
 import { CenteredSpinner } from "./common";
+
+/** A game to reopen the next time the panel mounts - set when a game leaves the panel for
+ *  something it means to come back from (Talk to Gus's searches), so Back lands in the game
+ *  instead of the launcher. Consumed on mount. */
+let resumeGame: GameId | null = null;
+export function resumeGameOnReturn(id: GameId) {
+  resumeGame = id;
+}
 
 /** Horny Jail or Sunday School: a police siren and a church sharing one tile, split diagonally. */
 function JailOrChurch() {
@@ -60,6 +72,20 @@ interface GameInfo {
 }
 
 const GAMES: GameInfo[] = [
+  {
+    id: "gusPet",
+    name: "Pocket Gus",
+    blurb: "Feed him, groom him, clean up after him. He gets hungry even while the app is closed.",
+    icon: <PawPrint size={22} />,
+    tint: "from-amber-500/30 to-stone-500/20",
+  },
+  {
+    id: "gusChat",
+    name: "Talk to Gus",
+    blurb: "Chat, flirt, ask him things. He remembers you - and can fetch posts if you ask nicely.",
+    icon: <MessageCircleHeart size={22} />,
+    tint: "from-pink-500/30 to-violet-500/20",
+  },
   {
     id: "tagdle",
     name: "Tagdle",
@@ -139,15 +165,24 @@ const GAMES: GameInfo[] = [
 interface GamesPanelProps {
   site: Site;
   onClose: () => void;
+  /** Talk to Gus's "show me…" / "what's popular" intents. */
+  onSearch?: (query: string) => void;
+  onOpenPopular?: () => void;
 }
 
 /** The Games launcher: a grid of game cards, then the chosen game in the same sheet. Esc (and
  *  the back arrow) return from a game to the launcher; Esc on the launcher closes the panel. */
-export function GamesPanel({ site, onClose }: GamesPanelProps) {
+export function GamesPanel({ site, onClose, onSearch, onOpenPopular }: GamesPanelProps) {
   const overlay = useRef<OverlayHandle>(null);
-  const [selected, setSelected] = useState<GameId | null>(null);
+  const [selected, setSelected] = useState<GameId | null>(() => {
+    const id = resumeGame;
+    resumeGame = null;
+    return id;
+  });
   const isLoaded = useGamesStore((s) => s.isLoaded);
   const game = GAMES.find((g) => g.id === selected);
+  /** Gus's own games show the big Gus - no corner double, no post-source toggles. */
+  const isGus = selected === "gusPet" || selected === "gusChat";
 
   useEffect(() => {
     void loadGames();
@@ -176,8 +211,8 @@ export function GamesPanel({ site, onClose }: GamesPanelProps) {
         {/* Every game but Tagdle (whose site-wide tag counts don't narrow to a favorites list). */}
         <div className="ml-auto flex items-center gap-1.5">
           <GameMusic />
-          <BlacklistToggle />
-          {selected !== "tagdle" && <FavoritesToggle site={site} />}
+          {!isGus && <BlacklistToggle />}
+          {selected !== "tagdle" && !isGus && <FavoritesToggle site={site} />}
         </div>
         <IconButton onClick={() => overlay.current?.close()} title="Close">
           <X size={18} />
@@ -187,7 +222,7 @@ export function GamesPanel({ site, onClose }: GamesPanelProps) {
       {/* Positioned wrapper so the mascot can sit in a corner of the game area - the sheet
           covers the grid's own companion. */}
       <div className="relative flex min-h-0 flex-1 flex-col">
-      <MascotLayer inOverlay />
+      <MascotLayer inOverlay suppressed={isGus} />
       {selected === "tagdle" ? (
         <TagdleGame site={site} />
       ) : (
@@ -207,7 +242,7 @@ export function GamesPanel({ site, onClose }: GamesPanelProps) {
             ) : !isLoaded ? (
               <CenteredSpinner label="Loading…" />
             ) : (
-              <GameBody id={game.id} site={site} />
+              <GameBody id={game.id} site={site} onSearch={onSearch} onOpenPopular={onOpenPopular} />
             )}
           </div>
         </div>
@@ -267,7 +302,17 @@ function BlacklistToggle() {
   );
 }
 
-function GameBody({ id, site }: { id: GameId; site: Site }) {
+function GameBody({
+  id,
+  site,
+  onSearch,
+  onOpenPopular,
+}: {
+  id: GameId;
+  site: Site;
+  onSearch?: (query: string) => void;
+  onOpenPopular?: () => void;
+}) {
   switch (id) {
     case "higherLower":
       return <HigherLower key={site} site={site} />;
@@ -287,6 +332,10 @@ function GameBody({ id, site }: { id: GameId; site: Site }) {
       return <YearGuesser key={site} site={site} />;
     case "bingo":
       return <TagBingo key={site} site={site} />;
+    case "gusPet":
+      return <GusPet />;
+    case "gusChat":
+      return <GusChat onSearch={onSearch} onOpenPopular={onOpenPopular} />;
     case "tagdle":
       return null; // rendered full-bleed by GamesPanel itself
   }

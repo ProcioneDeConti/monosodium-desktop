@@ -5,6 +5,8 @@
 import { create } from "zustand";
 import { load, type Store } from "@tauri-apps/plugin-store";
 import { e621Api } from "../api/client";
+import { EMPTY_MEMORY, type ChatMemory } from "../lib/gusChat";
+import type { PetState } from "../lib/gusPet";
 import { GAME_SPECIES, isRealArtist, leafSpecies, MIN_SPECIES_POSTS } from "../lib/games";
 import type { Site } from "../models/site";
 import { loadPool } from "./tagdleStore";
@@ -28,7 +30,28 @@ interface GamesState {
   /** Background music while the Games panel is open. */
   musicOn: boolean;
   setMusicOn: (on: boolean) => void;
+  /** The Gus pet game's state (null until first opened - he "hatches" then). */
+  pet: PetState | null;
+  setPet: (pet: PetState | null) => void;
+  /** Talk to Gus: what he remembers about you, and how much he likes you. */
+  chat: ChatMemory;
+  setChat: (chat: ChatMemory) => void;
+  /** Opt-in "nasty" tier - only takes effect while adult mode + Explicit are on. */
+  chatNasty: boolean;
+  setChatNasty: (on: boolean) => void;
+  /** Opt-in: what you type trains his babbler (used only while adult mode + Explicit are on). */
+  chatLearn: boolean;
+  setChatLearn: (on: boolean) => void;
+  learned: string[];
+  addLearned: (line: string) => void;
+  clearLearned: () => void;
+  /** Read his replies aloud with a Windows voice. */
+  chatVoice: boolean;
+  setChatVoice: (on: boolean) => void;
 }
+
+/** Cap on remembered training lines. */
+const MAX_LEARNED = 2000;
 
 let storePromise: Promise<Store> | null = null;
 function getStore(): Promise<Store> {
@@ -49,6 +72,43 @@ export const useGamesStore = create<GamesState>((set, get) => ({
   sixDaily: {},
   favoritesOnly: false,
   musicOn: true,
+  pet: null,
+  chat: EMPTY_MEMORY,
+  chatNasty: false,
+  chatLearn: false,
+  learned: [],
+  chatVoice: false,
+
+  setChat: (chat) => {
+    set({ chat });
+    void persist("chat", chat);
+  },
+  setChatNasty: (chatNasty) => {
+    set({ chatNasty });
+    void persist("chatNasty", chatNasty);
+  },
+  setChatLearn: (chatLearn) => {
+    set({ chatLearn });
+    void persist("chatLearn", chatLearn);
+  },
+  addLearned: (line) => {
+    const learned = [...get().learned, line].slice(-MAX_LEARNED);
+    set({ learned });
+    void persist("learned", learned);
+  },
+  clearLearned: () => {
+    set({ learned: [] });
+    void persist("learned", []);
+  },
+  setChatVoice: (chatVoice) => {
+    set({ chatVoice });
+    void persist("chatVoice", chatVoice);
+  },
+
+  setPet: (pet) => {
+    set({ pet });
+    void persist("pet", pet);
+  },
 
   setMusicOn: (musicOn) => {
     set({ musicOn });
@@ -89,7 +149,25 @@ export async function loadGames(): Promise<void> {
   const sixDaily = (await store.get<Record<string, number | null>>("sixDaily")) ?? {};
   const favoritesOnly = (await store.get<boolean>("favoritesOnly")) ?? false;
   const musicOn = (await store.get<boolean>("musicOn")) ?? true;
-  useGamesStore.setState({ best, sixDaily, favoritesOnly, musicOn, isLoaded: true });
+  const pet = (await store.get<PetState>("pet")) ?? null;
+  const chat = { ...EMPTY_MEMORY, ...((await store.get<ChatMemory>("chat")) ?? {}) };
+  const chatNasty = (await store.get<boolean>("chatNasty")) ?? false;
+  const chatLearn = (await store.get<boolean>("chatLearn")) ?? false;
+  const learned = (await store.get<string[]>("learned")) ?? [];
+  const chatVoice = (await store.get<boolean>("chatVoice")) ?? false;
+  useGamesStore.setState({
+    best,
+    sixDaily,
+    favoritesOnly,
+    musicOn,
+    pet,
+    chat,
+    chatNasty,
+    chatLearn,
+    learned,
+    chatVoice,
+    isLoaded: true,
+  });
 }
 
 const SPECIES_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
