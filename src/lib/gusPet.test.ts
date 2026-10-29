@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { act, advance, DIGEST_MS, mood, newPet, SICK_MESSES, sickCause } from "./gusPet";
+import { act, advance, DIGEST_MS, idleLine, mood, newPet, SICK_MESSES, sickCause } from "./gusPet";
 
 const HOUR = 3600_000;
 const T0 = 1_700_000_000_000;
@@ -16,7 +16,7 @@ describe("advance", () => {
   });
 
   it("restores energy while asleep and wakes him when full", () => {
-    const s = advance({ ...newPet(T0), energy: 50, asleep: true }, T0 + 3 * HOUR);
+    const s = advance({ ...newPet(T0), energy: 50, asleep: true }, T0 + 0.5 * HOUR);
     expect(s.energy).toBeGreaterThan(95);
     expect(s.asleep).toBe(false);
   });
@@ -64,5 +64,25 @@ describe("mood", () => {
     expect(mood(newPet(T0))).toBe("happy");
     expect(mood({ ...newPet(T0), fun: 5 })).toBe("miserable");
     expect(mood({ ...newPet(T0), asleep: true })).toBe("sleeping");
+  });
+});
+
+describe("horniness", () => {
+  it("rises over time, from zero on older saves", () => {
+    const s = advance({ ...newPet(T0), horny: undefined }, T0 + 2 * HOUR);
+    expect(s.horny).toBeCloseTo(10);
+  });
+
+  it("private time needs some build-up, then resets it", () => {
+    expect(act({ ...newPet(T0), horny: 10 }, { type: "relieve" }, T0, first).ok).toBe(false);
+    const r = act({ ...newPet(T0), horny: 80 }, { type: "relieve" }, T0, first);
+    expect(r.ok).toBe(true);
+    expect(r.state.horny).toBe(0);
+  });
+
+  it("only comes up in idle chatter in adult mode", () => {
+    const s = { ...newPet(T0), horny: 90 };
+    expect(idleLine(s, first, false)).not.toMatch(/attention|warm in here|Needs/);
+    expect(idleLine(s, first, true)).toMatch(/warm in here/);
   });
 });

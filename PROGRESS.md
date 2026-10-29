@@ -2087,3 +2087,19 @@ live call before implementing (per user instruction - no more guessing).
   bubbles, time dividers after 10min gaps, bouncing typing dots + header status, quick-reply
   chips (`quickReplies()`: starters early on, Truth/Dare, WYR options, joke/vent answers), Up
   recalls your last message, toggles grouped. Not live-tested.
+- [x] **Share-with-Gus chatter + Pocket Gus room pass** (unreleased) Shared posts
+  (`lib/gusShare.ts`): a "let me look" lead-up (video/comic aware, notices share streaks), ~20
+  more headline reactions, ~30 scene remark groups, up to three detail remarks and a follow-up
+  question. Foxes (his favorite) get their own path, ahead of the rating check: gushing headline, kind-specific
+  lines (fennec/arctic/kitsune/gray/red) or fox facts, and a fox+raccoon combo line. Fixed: a
+  share left him "typing" forever under StrictMode (remount cleared the reply timers after the
+  post was already taken) - the one-time part now lives in a ref. Pocket Gus: energy rebalanced
+  (awake 3/h, play 8, sleep +150/h); Horniness meter + Flirt / "Yiff break" in adult+explicit
+  mode only (`horny` optional for old saves); sad Gus is an anime gloom face (blue striped
+  overlay masked to his silhouette) instead of semi-transparent; sleep mask in bed. Room:
+  lighting overlay `isolate`d (it was dimming Gus twice), real bed, trinket shelf, wall plant,
+  floor lamp with a night glow, desk + laptop (real e621 screenshot `assets/laptop-e621.jpg` in
+  adult+explicit, a drawn content-free page otherwise), 4:5 portrait with a mountain backdrop,
+  header shows status centred + Day N · clock. Easter egg: the neighbour's German Shepherd, a fox
+  or (nights only) an owl peeks through the window now and then; clicking one gets a line from
+  Gus. Not live-tested.

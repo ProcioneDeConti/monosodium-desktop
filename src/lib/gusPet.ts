@@ -20,6 +20,9 @@ export interface PetState {
   digestMs: number;
   sick: boolean;
   asleep: boolean;
+  /** 0-100, rises over time - higher = hornier. Only shown/actionable in adult+explicit mode, but
+   *  always ticks so it doesn't jump when that's toggled. Optional: older saves lack it. */
+  horny?: number;
   bornAt: number;
   updatedAt: number;
 }
@@ -40,8 +43,12 @@ const DECAY_PER_HOUR: Record<PetNeed, { awake: number; asleep: number }> = {
   hunger: { awake: 7, asleep: 3 },
   hygiene: { awake: 3, asleep: 1.5 },
   fun: { awake: 6, asleep: 0 },
-  energy: { awake: 5, asleep: -25 },
+  energy: { awake: 3, asleep: -150 },
 };
+/** Horniness gained per hour, awake / asleep (dreams). */
+const HORNY_PER_HOUR = { awake: 5, asleep: 2 };
+/** Horniness at or above this is worth bringing up (idle lines, the meter turning red). */
+export const HORNY_HIGH = 75;
 /** Extra hygiene lost per hour per mess on the floor. */
 const MESS_GRIME_PER_HOUR = 3;
 
@@ -82,6 +89,7 @@ export function advance(state: PetState, now: number): PetState {
     s.hygiene = clamp(s.hygiene - (DECAY_PER_HOUR.hygiene[mode] + s.messes * MESS_GRIME_PER_HOUR) * hours);
     s.fun = clamp(s.fun - DECAY_PER_HOUR.fun[mode] * (s.sick ? 2 : 1) * hours);
     s.energy = clamp(s.energy - DECAY_PER_HOUR.energy[mode] * hours);
+    s.horny = clamp((s.horny ?? 0) + HORNY_PER_HOUR[mode] * hours);
     if (s.gut > 0) {
       s.digestMs += dt;
       if (s.digestMs >= DIGEST_MS) {
@@ -108,7 +116,10 @@ export type PetAction =
   | { type: "pet" }
   | { type: "sleep" }
   | { type: "wake" }
-  | { type: "medicine" };
+  | { type: "medicine" }
+  // Adult + explicit mode only (the UI hides them otherwise).
+  | { type: "flirt" }
+  | { type: "relieve" };
 
 export type FoodId = "trash" | "grapes" | "fish" | "cheesePuffs";
 
@@ -210,7 +221,7 @@ export function act(prev: PetState, action: PetAction, now: number, rnd: () => n
       if (s.energy < 15) return refuse(["Too… sleepy… to play.", "Five more minutes. Or hours."], "droop");
       if (s.sick) return refuse(["Not feeling up to it…¦he's sick"], "droop");
       return done(
-        { ...s, fun: clamp(s.fun + 25), energy: clamp(s.energy - 12), hunger: clamp(s.hunger - 5) },
+        { ...s, fun: clamp(s.fun + 25), energy: clamp(s.energy - 8), hunger: clamp(s.hunger - 5) },
         ["Again! Again!", "Wheee!", "I win. I always win.", "Best. Game. Ever."],
         "spin",
         ["🎾", "🎉", "😆"],
@@ -232,6 +243,32 @@ export function act(prev: PetState, action: PetAction, now: number, rnd: () => n
         s.energy < 60 ? ["Hey! I was sleeping!", "Ugh. Five more minutes…"] : ["Morning! Breakfast?", "*big stretch* Rested!"],
         s.energy < 60 ? "shake" : "stretch",
         s.energy < 60 ? ["😾"] : ["☀️"],
+      );
+    case "flirt":
+      return done(
+        { ...s, horny: clamp((s.horny ?? 0) + 15), fun: clamp(s.fun + 5) },
+        (s.horny ?? 0) >= HORNY_HIGH
+          ? ["You're doing this on PURPOSE.", "Keep that up and see what happens.", "*tail flicks* …Careful, human."]
+          : ["Oh? Flirting with a raccoon? Bold.", "*bats eyelashes back*", "Smooth. Very smooth.", "You're making my mask blush."],
+        "wobble",
+        ["😏", "💕"],
+      );
+    case "relieve":
+      if ((s.horny ?? 0) < 30) return refuse(["Not in the mood right now.", "Maybe later, tiger."], "shrug");
+      if (s.sick) return refuse(["Not feeling up to it…¦he's sick"], "droop");
+      if (s.energy < 15) return refuse(["Too tired… rain check?", "I'd fall asleep halfway through."], "droop");
+      return done(
+        { ...s, horny: 0, fun: clamp(s.fun + 15), energy: clamp(s.energy - 10), hygiene: clamp(s.hygiene - 10) },
+        [
+          "*shuts the curtains, opens e621* …Ahh. Much better.",
+          "Sorted by score, rating:explicit, fox. Don't judge me.",
+          "Phew. Clear my browser history, would you?",
+          "*closes 47 tabs* That's the stuff. I need a nap. And a bath.",
+          "Mmm. Favorited. ALL of them.",
+          "You know just what I need. Fresh uploads, hot off the CDN.",
+        ],
+        "stretch",
+        ["😮‍💨", "💦"],
       );
     case "medicine":
       if (!s.sick) return refuse(["I'm not sick! Yuck.", "Nope. Healthy as a raccoon."]);
@@ -280,9 +317,13 @@ export function mood(s: PetState): PetMood {
 }
 
 /** Something he says unprompted now and then, from his state. */
-export function idleLine(s: PetState, rnd: () => number = Math.random): string {
-  if (s.asleep) return pick(["Zzz…", "*snore*", "Mmm… shiny… trash…"], rnd);
+export function idleLine(s: PetState, rnd: () => number = Math.random, adult = false): string {
+  const horny = adult && (s.horny ?? 0) >= HORNY_HIGH;
+  if (s.asleep) return pick(horny ? ["Zzz… mmh… *mumbles something about foxes*", "*snore*… *wriggles*"] : ["Zzz…", "*snore*", "Mmm… shiny… trash…"], rnd);
   if (s.sick) return pick(["I don't feel so good…", "*cough*… medicine?"], rnd);
+  if (horny && rnd() < 0.6) {
+    return pick(["So… uh… is it warm in here, or is it me?", "*fidgets* I have, um. Needs. Other needs.", "You busy? I could use some… attention.", "Can't stop thinking about that fox picture."], rnd);
+  }
   if (s.messes > 0 && rnd() < 0.5) return pick(["Something smells… not great.", "Uh, the floor. Just saying."], rnd);
   const worst = worstNeed(s);
   if (worst) {

@@ -103,6 +103,7 @@ export function GusChat({
   const recent = useRef<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const timers = useRef<number[]>([]);
+  const sharedReplies = useRef<GusReply[] | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const reduced = motionReduced();
 
@@ -149,15 +150,21 @@ export function GusChat({
   }
 
   // A post shared from the viewer ("Share with Gus"): show it, and let him react.
+  // The take/post/remember part runs once (kept in a ref); delivery runs on every effect pass, because
+  // StrictMode's mount-unmount-mount clears the timers from the first pass, which left him "typing"
+  // forever with the post already taken.
   useEffect(() => {
-    const post = takeSharedPost();
-    if (!post) return;
-    setMessages((m) => [...m, { id: nextId.current++, at: Date.now(), from: "you", text: "", image: sharedThumb(post) ?? undefined }]);
-    const state = useGamesStore.getState();
-    const { replies, topic } = commentOnPost(post, { tier, likes: state.chat.likes, dislikes: state.chat.dislikes });
-    setConv((sessionConv = { ...sessionConv, expect: null, subject: undefined, topic }));
-    state.setChat({ ...state.chat, affection: Math.min(100, state.chat.affection + 1) });
-    deliver(replies);
+    if (!sharedReplies.current) {
+      const post = takeSharedPost();
+      if (!post) return;
+      setMessages((m) => [...m, { id: nextId.current++, at: Date.now(), from: "you", text: "", image: sharedThumb(post) ?? undefined }]);
+      const state = useGamesStore.getState();
+      const { replies, topic } = commentOnPost(post, { tier, likes: state.chat.likes, dislikes: state.chat.dislikes });
+      setConv((sessionConv = { ...sessionConv, expect: null, subject: undefined, topic }));
+      state.setChat({ ...state.chat, affection: Math.min(100, state.chat.affection + 1) });
+      sharedReplies.current = replies;
+    }
+    deliver(sharedReplies.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
