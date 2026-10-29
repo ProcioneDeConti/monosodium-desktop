@@ -48,6 +48,15 @@ interface GamesState {
   /** Read his replies aloud with a Windows voice. */
   chatVoice: boolean;
   setChatVoice: (on: boolean) => void;
+  /** Opt-in "smart brain": the local embedding model (lib/gusSemantic.ts), downloaded on first use. */
+  chatSmart: boolean;
+  setChatSmart: (on: boolean) => void;
+  /** His last lines, kept across sessions so he doesn't open with the same thing every time. */
+  chatRecent: string[];
+  setChatRecent: (lines: string[]) => void;
+  /** Opt-in: at five hearts he sometimes sends a "thinking about you" notification (lib/gusPings.ts). */
+  chatPings: boolean;
+  setChatPings: (on: boolean) => void;
 }
 
 /** Cap on remembered training lines. */
@@ -78,6 +87,9 @@ export const useGamesStore = create<GamesState>((set, get) => ({
   chatLearn: false,
   learned: [],
   chatVoice: false,
+  chatSmart: false,
+  chatRecent: [],
+  chatPings: false,
 
   setChat: (chat) => {
     set({ chat });
@@ -99,6 +111,18 @@ export const useGamesStore = create<GamesState>((set, get) => ({
   clearLearned: () => {
     set({ learned: [] });
     void persist("learned", []);
+  },
+  setChatSmart: (chatSmart) => {
+    set({ chatSmart });
+    void persist("chatSmart", chatSmart);
+  },
+  setChatPings: (chatPings) => {
+    set({ chatPings });
+    void persist("chatPings", chatPings);
+  },
+  setChatRecent: (chatRecent) => {
+    set({ chatRecent });
+    void persist("chatRecent", chatRecent);
   },
   setChatVoice: (chatVoice) => {
     set({ chatVoice });
@@ -155,6 +179,9 @@ export async function loadGames(): Promise<void> {
   const chatLearn = (await store.get<boolean>("chatLearn")) ?? false;
   const learned = (await store.get<string[]>("learned")) ?? [];
   const chatVoice = (await store.get<boolean>("chatVoice")) ?? false;
+  const chatSmart = (await store.get<boolean>("chatSmart")) ?? false;
+  const chatRecent = (await store.get<string[]>("chatRecent")) ?? [];
+  const chatPings = (await store.get<boolean>("chatPings")) ?? false;
   useGamesStore.setState({
     best,
     sixDaily,
@@ -166,6 +193,9 @@ export async function loadGames(): Promise<void> {
     chatLearn,
     learned,
     chatVoice,
+    chatSmart,
+    chatRecent,
+    chatPings,
     isLoaded: true,
   });
 }

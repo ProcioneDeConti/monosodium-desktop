@@ -14,6 +14,8 @@ import {
   type PetAction,
   type PetMood,
 } from "../../lib/gusPet";
+import { EMPTY_BOND, GIFTS, hasFiveHearts, isPartner, satisfied, speciesEmoji } from "../../lib/gusBond";
+import { fursonaSpecies } from "../../lib/gusBrain";
 import { MASCOT_NAME, type MascotMotion } from "../../lib/mascot";
 import { motionReduced } from "../../lib/theme";
 import { useGamesStore } from "../../state/gamesStore";
@@ -81,6 +83,11 @@ const FLOOR_AT = 62;
 export function GusPet() {
   const stored = useGamesStore((s) => s.pet);
   const setPet = useGamesStore((s) => s.setPet);
+  // Keepsakes from Talk to Gus (lib/gusBond.ts) show up in his room.
+  const chat = useGamesStore((s) => s.chat);
+  const bond = { ...EMPTY_BOND, ...chat.bond };
+  const chatAffection = chat.affection;
+  const chatFursona = chat.facts.fursona ?? fursonaSpecies(chat.name);
   const [now, setNow] = useState(() => Date.now());
   const [say, setSay] = useState<{ id: number; line: string; motion: MascotMotion | null; emoji: string[] } | null>(null);
   const [feeding, setFeeding] = useState(false);
@@ -142,6 +149,7 @@ export function GusPet() {
 
   if (!pet) return null;
   const m = mood(pet);
+  const isSatisfied = satisfied(bond, now);
   const cause = pet.sick ? sickCause(pet) : null;
   const asleep = pet.asleep;
 
@@ -150,7 +158,7 @@ export function GusPet() {
       <div className="grid grid-cols-3 items-center rounded-full bg-neutral-900/85 px-4 py-1.5 text-sm">
         <span className="font-bold">{MASCOT_NAME}</span>
         <span className="text-center">
-          <MoodBadge mood={m} />
+          {adult && isSatisfied ? <span className="rounded-full bg-pink-500/25 px-2 py-0.5 text-xs font-semibold text-pink-200">😌 Satisfied</span> : <MoodBadge mood={m} />}
         </span>
         <span className="text-right tabular-nums opacity-80">
           Day {ageDays(pet, now) + 1} · {new Date(now).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
@@ -174,6 +182,12 @@ export function GusPet() {
         onClean={() => run({ type: "clean" })}
         onBed={() => run({ type: asleep ? "wake" : "sleep" })}
         explicit={adult}
+        keepsakes={{
+          gift: bond.gift ? GIFTS[bond.gift] : null,
+          doodle: bond.maxedAt && hasFiveHearts(chatAffection) ? speciesEmoji(chatFursona) : null,
+          partner: isPartner(bond, chatAffection) && adult,
+          satisfied: isSatisfied && adult,
+        }}
         onFood={() => !asleep && setFeeding(true)}
         onVisitor={(kind) => {
           const v = VISITOR_LINES[kind];
@@ -298,9 +312,12 @@ function Room({
   onBed,
   onFood,
   explicit,
+  keepsakes,
   onVisitor,
   children,
 }: {
+  /** What Talk to Gus's bond has put in his room (lib/gusBond.ts). */
+  keepsakes: { gift: { emoji: string; name: string } | null; doodle: string | null; partner: boolean; satisfied: boolean };
   hour: number;
   asleep: boolean;
   messes: number;
@@ -466,6 +483,17 @@ function Room({
             <path d="M5 7 V22" stroke="#fff" strokeWidth="0.8" opacity="0.5" />
           </svg>
           <Figurine emoji="🦊" title="Fox figurine. Prized possession." />
+          {keepsakes.gift && <Figurine emoji={keepsakes.gift.emoji} title={`${keepsakes.gift.name} - a gift for you, kept safe`} />}
+          {keepsakes.doodle && (
+            <span
+              title="A crayon doodle of you two. He drew it himself."
+              className="mb-px rotate-[5deg] rounded-[2px] border-2 border-[#c9a36b] bg-[#fffaf0] px-0.5 text-[10px] leading-tight shadow-[0_1px_3px_rgb(0_0_0/0.5)]"
+            >
+              🦝<span className="text-[7px]">💕</span>
+              {keepsakes.doodle}
+            </span>
+          )}
+          {keepsakes.partner && <Figurine emoji="🏷️" title="Matching collar tags. Official partners." />}
         </div>
         {/* Plank with a lit top edge, and two brackets. */}
         <div className="h-2 rounded-[2px] border-t-2 border-[#8f5a30] bg-[#5a3a22] shadow-[0_3px_4px_rgb(0_0_0/0.45)]" />
@@ -540,7 +568,22 @@ function Room({
           <path d="M50 44 Q76 40 106 44 L106 64 Q78 68 50 64 Z" fill="#be4b5c" stroke="#8e2f3e" strokeWidth="1.5" />
           <path d="M50 44 Q76 40 106 44 L106 49 Q78 46 50 49 Z" fill="#f1d3d8" />
           <path d="M68 47 V65 M87 46 V66 M50 56 Q78 59 106 56" stroke="#8e2f3e" strokeWidth="1" strokeDasharray="2 2" fill="none" opacity="0.7" />
+          {/* Afterwards: rumpled sheets and a squashed pillow. */}
+          {keepsakes.satisfied && (
+            <g fill="none" stroke="#8e2f3e" strokeWidth="1.6" strokeLinecap="round">
+              <path d="M56 52 Q62 47 68 53 T80 51" />
+              <path d="M74 60 Q82 55 90 60 T102 57" />
+              <path d="M30 41 Q38 44 46 40" stroke="#bfb4a2" />
+            </g>
+          )}
         </svg>
+        {keepsakes.satisfied && (
+          <span className="pointer-events-none absolute left-[1%] top-[22%] rotate-[-8deg] rounded-sm border border-red-900 bg-red-600 px-1 text-[7px] font-extrabold leading-tight text-white shadow">
+            DO NOT
+            <br />
+            DISTURB
+          </span>
+        )}
       </button>
       {/* Floor lamp in the back corner - lit (see the glow layer below) at dusk/night while he's up. */}
       <svg aria-hidden viewBox="0 0 30 160" className="pointer-events-none absolute bottom-[32%] right-[1.5%] h-[52%] drop-shadow-[0_3px_4px_rgb(0_0_0/0.4)]">

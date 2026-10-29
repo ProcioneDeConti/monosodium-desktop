@@ -21,6 +21,10 @@ const LONG_CONTEXT_ODDS = 0.75;
 /** The reply is drawn (score-weighted) from this many best distinct candidates, not just the
  *  top one - otherwise the same question always gets the same answer. */
 const TOP_K = 6;
+/** Score bonus per extra input keyword a reply manages to use - "fox" AND "bins" beats either. */
+const COVERAGE_BONUS = 0.6;
+/** Answering a question with another question reads as dodging - scored down. */
+const QUESTION_ECHO = 0.6;
 
 /** Words never worth building a reply around. */
 const STOPWORDS = new Set(
@@ -135,22 +139,43 @@ export class Babbler {
     return this.seeds.has(word);
   }
 
+  /** The form of `word` this babbler knows - itself, or a plural/verb-ending variant ("foxes" ->
+   *  "fox", "snacking" -> "snack", "bin" -> "bins"). */
+  private known(word: string): string | null {
+    if (this.knows(word)) return word;
+    for (const v of variants(word)) if (v.length >= 3 && this.knows(v)) return v;
+    return null;
+  }
+
   /** Keywords from the input this babbler can build around, pronouns swapped. */
   keywords(input: string): string[] {
     const out = new Set<string>();
     for (const w of tokenize(input)) {
       const swapped = SWAP[w] ?? w;
       if (/^[.!?,…]$/.test(swapped) || STOPWORDS.has(swapped) || swapped.length < 3) continue;
-      if (this.knows(swapped)) out.add(swapped);
+      const k = this.known(swapped);
+      if (k && !STOPWORDS.has(k)) out.add(k);
     }
     return [...out];
   }
 
+  /** Rare keywords are the topical ones ("raccoon" over "night") - seed from them more often. */
+  private pickKeyword(keys: string[], rnd: () => number): string {
+    const weights = keys.map((k) => 1 / Math.sqrt(this.seeds.get(k)?.length ?? 1));
+    let r = rnd() * weights.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < keys.length; i++) if ((r -= weights[i]) < 0) return keys[i];
+    return keys[keys.length - 1];
+  }
+
+  /** Null if the chain ran out of room before reaching a natural start and end - a reply cut off
+   *  mid-thought ("I love the way you") is worse than none. */
   private grow(keyword: string, rnd: () => number): string[] | null {
     const seeds = this.seeds.get(keyword);
     if (!seeds?.length) return null;
     const [a, b] = seeds[Math.floor(rnd() * seeds.length)].split(" ");
     const words = [a, b];
+    let ended = b === END;
+    let started = a === START;
     // Forward from the seed pair.
     while (words.length < MAX_LEN) {
       const n = words.length;
@@ -158,7 +183,10 @@ export class Babbler {
       const row = row3 && rnd() < LONG_CONTEXT_ODDS ? row3 : this.fwd.get(`${words[n - 2]} ${words[n - 1]}`);
       if (!row) break;
       const next = choose(row, rnd);
-      if (next === END) break;
+      if (next === END) {
+        ended = true;
+        break;
+      }
       words.push(next);
     }
     // Backward from the seed pair.
@@ -167,9 +195,13 @@ export class Babbler {
       const row = row3 && rnd() < LONG_CONTEXT_ODDS ? row3 : this.bwd.get(`${words[0]} ${words[1]}`);
       if (!row) break;
       const prev = choose(row, rnd);
-      if (prev === START) break;
+      if (prev === START) {
+        started = true;
+        break;
+      }
       words.unshift(prev);
     }
+    if (!ended || !started) return null;
     return words.filter((w) => w !== START && w !== END);
   }
 
@@ -205,9 +237,10 @@ export class Babbler {
     if (!keys.length) return null;
     const keySet = new Set(keys);
     const inputNorm = tokenize(input).join(" ");
+    const asked = /\?\s*$/.test(input);
     const scored = new Map<string, number>();
     for (let i = 0; i < tries; i++) {
-      const words = this.grow(keys[Math.floor(rnd() * keys.length)], rnd);
+      const words = this.grow(this.pickKeyword(keys, rnd), rnd);
       if (!words || words.length < 3) continue;
       if (words.join(" ") === inputNorm) continue; // never just parrot
       if (stutters(words)) continue;
@@ -216,7 +249,9 @@ export class Babbler {
         this.surprise(words, keySet) *
         SEAM_WEIGHT[Math.min(seams, SEAM_WEIGHT.length - 1)] *
         Math.min(1, COMFY_LEN / words.length) *
-        (words.length < MIN_COMFY ? 0.3 : 1);
+        (words.length < MIN_COMFY ? 0.3 : 1) *
+        (1 + COVERAGE_BONUS * (keys.filter((k) => words.includes(k)).length - 1)) *
+        (asked && words[words.length - 1] === "?" ? QUESTION_ECHO : 1);
       if (!(s > 0)) continue;
       const text = detokenize(words.map((w) => (this.lowerSeen.has(w) ? w : (this.casing.get(w) ?? w))));
       if (avoid.has(text)) continue;
@@ -231,6 +266,22 @@ export class Babbler {
     }
     return top[0][0];
   }
+}
+
+/** Plural and verb-ending variants of a word, for matching "foxes" to a corpus that says "fox". */
+function variants(w: string): string[] {
+  const out: string[] = [];
+  if (w.endsWith("ies")) out.push(`${w.slice(0, -3)}y`);
+  if (w.endsWith("es")) out.push(w.slice(0, -2));
+  if (w.endsWith("s")) out.push(w.slice(0, -1));
+  else out.push(`${w}s`);
+  for (const suf of ["ing", "ed"]) {
+    if (!w.endsWith(suf)) continue;
+    const stem = w.slice(0, -suf.length);
+    out.push(stem, `${stem}e`);
+    if (/(.)\1$/.test(stem)) out.push(stem.slice(0, -1));
+  }
+  return out;
 }
 
 /** A content word said twice ("the best snacks are the best") - chains loop on short cycles. */

@@ -83,10 +83,10 @@ describe("chat games", () => {
 
 describe("nudes", () => {
   it("sends a raccoon, rated to the tier", () => {
-    expect(chatGame("send nudes", ctx({ tier: "nasty" }), first)?.sendPic?.query).toBe(NUDE_QUERY);
+    expect(chatGame("send nudes", ctx({ tier: "nasty" }), () => 0.9)?.sendPic?.query).toBe(NUDE_QUERY);
     expect(chatGame("can you send me a nude?", ctx({ tier: "cheeky" }), first)?.sendPic?.query).toMatch(/rating:q$/);
     expect(chatGame("show me your dick", ctx(), first)?.sendPic?.query).toMatch(/rating:s$/);
-    const r = respond("gimme nudes", EMPTY_MEMORY, { tier: "nasty", pet: null, ageDays: 0, now: NOW.getTime(), babbler: null, recent: new Set() }, first)!;
+    const r = respond("gimme nudes", EMPTY_MEMORY, { tier: "nasty", pet: null, ageDays: 0, now: NOW.getTime(), babbler: null, recent: new Set() }, () => 0.9)!;
     expect(r.search).toBeUndefined();
     expect(r.sendPic?.query).toBe(NUDE_QUERY);
   });
@@ -166,5 +166,46 @@ describe("review fixes", () => {
   });
   it("doesn't treat 'what else do you like' as a favorite", () => {
     expect(favorite("what else do you like?", ctx())).toBeNull();
+  });
+});
+
+describe("asking for a pic", () => {
+  const ctx = { tier: "nasty" as const, stage: "friend" as const, heat: 0, name: null, now: new Date(), topSearches: [] };
+  it("understands lots of phrasings", () => {
+    for (const t of ["hey, can you send me a pic", "send me a selfie", "can i see a pic of you", "pic?", "what do you look like", "drop a photo", "gimme nudes", "send nudes", "got any pics?"])
+      expect(chatGame(t, ctx, () => 0)?.sendPic, t).toBeTruthy();
+  });
+  it("leaves pics of other things alone", () => {
+    for (const t of ["send me a pic of foxes", "can i see a picture of a dragon", "i took a photo today", "nice pic", "show me your tail"]) expect(chatGame(t, ctx, () => 0)?.sendPic, t).toBeFalsy();
+  });
+});
+
+describe("more pics", () => {
+  const ctx = { tier: "nasty" as const, stage: "friend" as const, heat: 90, name: null, now: new Date(), topSearches: [] };
+  it("sends another on 'more' / 'another' after a pic", () => {
+    for (const t of ["more", "another one", "yes more please", "send more", "one more", "keep em coming", "again!"])
+      expect(answerGame({ kind: "pic" }, t, ctx, () => 0)?.sendPic, t).toBeTruthy();
+  });
+  it("a plain yes only counts when he offered more", () => {
+    expect(answerGame({ kind: "pic", offered: true }, "yes", ctx, () => 0)?.sendPic).toBeTruthy();
+    expect(answerGame({ kind: "pic" }, "yes", ctx, () => 0)?.sendPic).toBeFalsy();
+  });
+  it("'Want more?' sets up the offer", () => {
+    const outs = Array.from({ length: 20 }, (_, i) => answerGame({ kind: "pic" }, "i love it", ctx, () => i / 20));
+    const offer = outs.find((o) => /want more\?/i.test(o?.replies[0].text ?? ""));
+    expect(offer?.expect).toEqual({ kind: "pic", offered: true });
+  });
+});
+
+describe("pics vs videos", () => {
+  const ctx = { tier: "nasty" as const, stage: "friend" as const, heat: 0, name: null, now: new Date(), topSearches: [] };
+  it("a video comes with a video line and falls back to a still", () => {
+    const v = chatGame("send nudes", ctx, () => 0.05)!; // under VIDEO_CHANCE
+    expect(v.sendPic!.query).toMatch(/ animated/);
+    expect(v.sendPic!.fallback!.query).toMatch(/-animated/);
+    expect(v.replies[0].text).toMatch(/video|film|record|movie/i);
+    const s = chatGame("send nudes", ctx, () => 0.9)!;
+    expect(s.sendPic!.query).toMatch(/-animated/);
+    expect(s.sendPic!.fallback).toBeUndefined();
   });
 });

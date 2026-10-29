@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_MEMORY, respond, type ChatEnv, type ChatMemory } from "./gusChat";
-import { answerName, EMPTY_CONV, introName, quickReplies, mathAnswer, normalize, parseCountQuestion, parseFact, parseFactQuestion, statsAnswer, type ConvState } from "./gusSmarts";
+import { answerName, EMPTY_CONV, introName, quickReplies, mathAnswer, normalize, parseCountQuestion, parseDefineQuestion, parseFact, wikiSummary, wikiReply, parseFactQuestion, statsAnswer, type ConvState } from "./gusSmarts";
 
 const NOW = 1_700_000_000_000;
 const first = () => 0;
@@ -137,5 +137,61 @@ describe("introName edge cases", () => {
     expect(introName("this is gus", none)).toBeNull();
     expect(introName("i'm hard", none)).toBeNull();
     expect(introName("i'm married", none)).toBeNull();
+  });
+});
+
+describe("wiki questions", () => {
+  it("spots what-is questions but not small talk", () => {
+    expect(parseDefineQuestion("what's a protogen?")).toBe("protogen");
+    expect(parseDefineQuestion("who is spyro")).toBe("spyro");
+    expect(parseDefineQuestion("define yiff")).toBe("yiff");
+    for (const t of ["what's up?", "what is your name?", "what's the date?", "what is 2 + 2", "what is love", "who are you?", "what's my dog's name?"])
+      expect(parseDefineQuestion(t)).toBeNull();
+  });
+
+  it("routes a what-is question to a wiki lookup", () => {
+    const r = respond("what's a protogen?", EMPTY_MEMORY, env(), first)!;
+    expect(r.lookup).toEqual({ tag: "protogen", kind: "wiki" });
+  });
+
+  it("summarises a wiki body as plain prose", () => {
+    const body = "h4. Protogen\n\nA [[protogen]] is a [[species|fictional species]] created by Malice-risu. They have visors.\n\n* See also [[primagen]]";
+    expect(wikiSummary(body)).toBe("A protogen is a fictional species created by Malice-risu. They have visors.");
+    expect(wikiReply("protogen", null)).toMatch(/never heard/i);
+  });
+});
+
+describe("asking him back", () => {
+  it("remembers your answer and gives his own", () => {
+    const fact = { kind: "fact" as const, key: "favorite color" };
+    const r = respond("blue, you?", EMPTY_MEMORY, env({ conv: { ...EMPTY_CONV, expect: fact } }), first)!;
+    expect(r.memory.facts["favorite color"]).toBe("blue");
+    expect(r.replies.map((x) => x.text).join(" ")).toMatch(/Gold/);
+  });
+
+  it("answers a bare 'what about you?' and waits for yours", () => {
+    const fact = { kind: "fact" as const, key: "pet" };
+    const r = respond("what about you?", EMPTY_MEMORY, env({ conv: { ...EMPTY_CONV, expect: fact } }), first)!;
+    expect(r.replies[0].text).toMatch(/I'm the pet/);
+    expect(r.conv.expect).toEqual(fact);
+  });
+});
+
+describe("reacting to his pics", () => {
+  const pic = { kind: "pic" as const };
+  it("takes 'I love what I see' as a compliment, not a like to remember", () => {
+    const r = respond("I love what I see", EMPTY_MEMORY, env({ tier: "nasty", conv: { ...EMPTY_CONV, expect: pic } }), first)!;
+    expect(r.memory.likes).toEqual([]);
+    expect(r.replies[0].text).not.toMatch(/remember/i);
+  });
+
+  it("sulks if you're rude about it", () => {
+    const r = respond("ew", EMPTY_MEMORY, env({ conv: { ...EMPTY_CONV, expect: pic } }), first)!;
+    expect(r.replies[0].text).toMatch(/Rude/);
+  });
+
+  it("doesn't store vague likes like 'I like that'", () => {
+    const r = respond("I like that", EMPTY_MEMORY, env(), first)!;
+    expect(r.memory.likes).toEqual([]);
   });
 });

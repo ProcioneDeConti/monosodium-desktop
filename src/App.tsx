@@ -70,6 +70,7 @@ import { applyMotion, applyPalette, applyTheme } from "./lib/theme";
 import { cacheTagCategory } from "./lib/tagCategoryCache";
 import { CURRENT_EULA_HASH } from "./lib/eula";
 import { notify } from "./lib/notifications";
+import { useGusPings } from "./lib/gusPings";
 import { errorMessage } from "./lib/errors";
 import { categorizedTags, type Post } from "./models/post";
 
@@ -334,6 +335,8 @@ function App() {
   const { data: ownProfile } = useUserProfileQuery(site, "me", !!account?.username, 60_000);
   const unreadMessageCount = ownProfile?.unread_dmail_count ?? 0;
   const forumUnread = ownProfile?.forum_notification_dot ?? false;
+
+  useGusPings(booted);
 
   // Native notifications for new dmail/forum activity while the window is unfocused (e.g.
   // minimized to the tray) - see lib/notifications.ts.

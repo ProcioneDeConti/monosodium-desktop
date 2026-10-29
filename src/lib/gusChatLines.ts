@@ -53,6 +53,61 @@ const r = (rule: Rule) => rule;
 
 const FLIRT: Rule[] = [
   r({
+    // Touching him *there* - first in FLIRT (ahead of "pets" - "*strokes*" - and "dirty") so it gets its own reactions. Clean deflects, cheeky
+    // is flustered, nasty is into it (more so the hotter he is and the closer you are).
+    id: "touchSheath",
+    heat: 14,
+    affection: 1,
+    match:
+      /\b(?:touch(?:es|ing)?|grab(?:s|bing)?|stroke?s?|stroking|rub(?:s|bing)?|squeeze?s?|squeezing|fondle?s?|fondling|grope?s?|groping|cup(?:s|ping)?|feel(?:s|ing)?(?: up)?|play(?:s|ing)? with|lick(?:s|ing)?|kiss(?:es|ing)?|nuzzle?s?|nuzzling|reach(?:es|ing)? for|pet(?:s|ting)?|tease?s?|teasing|squeezes?) (?:your|ur|gus'?s?|his) (?:sheath|cock|dick|penis|balls|nuts|crotch|bulge|junk|package|member|knot|shaft|privates|groin)\b|\*[^*]*\b(?:sheath|cock|dick|penis|balls|crotch|bulge|groin|between (?:your|his) legs)\b[^*]*\*|\bhand (?:on|between) (?:your|his) (?:sheath|crotch|bulge|legs|thighs)\b/i,
+    motion: "jitter",
+    emoji: ["😳", "🔥"],
+    petAction: { type: "flirt" },
+    lines: {
+      clean: [
+        "Hey! Paws to yourself! *swats your hand away*",
+        "Whoa whoa whoa. That's a no-touch zone. Family raccoon, remember?",
+        "*squeaks and hides behind a bin* Personal space!",
+        "Nope. Absolutely not. Hands where I can see them.",
+      ],
+      cheeky: [
+        "W-whoa! *ears go flat, tail puffs* You can't just- okay, you can, but warn me!",
+        "*jolts* Hey! That's- …that's a very forward thing to do to a raccoon.",
+        "*goes completely still* …Your hand is somewhere very interesting right now.",
+        "Easy there! *squirms* I'm ticklish. And other things.",
+        "Bold. Very bold. *blushing so hard the mask's not hiding it*",
+      ],
+      nasty: [
+        "*sharp inhale* Oh. Oh, you went straight for it.",
+        "Mmh- f-fuck, your paws are warm.",
+        "*hips twitch toward your hand* …Don't you dare stop now.",
+        "There it is. I was wondering when you'd get handsy.",
+        "*bites his lip* You keep doing that and you'll find out what's in there.",
+        "Careful. *voice drops* You wake that up, you're dealing with it.",
+        "*shivers, tail curling* Gentle… okay, maybe not that gentle.",
+        "Mmm. Look who's curious. Go on. Explore.",
+      ],
+      hot: [
+        "*groans and pushes into your hand* Yes. Right there. Keep going.",
+        "*grabs your wrist and holds it there* Don't you dare move it.",
+        "*panting* You've got me so worked up I'm already peeking out. Look what you did.",
+        "*tail lashing* Harder. I'm not made of glass. I'm made of trash and bad decisions.",
+        "Fuck- *claws dig into the blanket* -don't stop, don't stop, don't stop.",
+        "*whimpers* You know exactly what you're doing to me, don't you.",
+      ],
+    },
+    stages: {
+      stranger: {
+        cheeky: ["Whoa! We JUST met! *scoots away* At least tell me your name first.", "Hey, hey. Dinner first. Trash dinner is fine."],
+        nasty: ["Straight for the goods? We barely know each other. …I'm not saying no.", "*raises an eyebrow* Bold move for someone who hasn't even bought me a grape."],
+      },
+      crush: {
+        cheeky: ["*melts* …You're lucky I like you so much.", "*leans into it, flustered* I can't believe I'm letting you do that."],
+        nasty: ["*purrs and spreads his legs a little* Been waiting for you to do that.", "Mm. You always know where to put your paws.", "*pulls you closer* Only you get to do that. Only you."],
+      },
+    },
+  }),
+  r({
     id: "loveYou",
     heat: 5,
     match: /\b(i\s+(really\s+|do\s+)?(love|like)\s+(you|u)|ily|love\s+you)\b/i,
@@ -225,7 +280,7 @@ const FLIRT: Rule[] = [
   r({
     id: "dirty",
     heat: 10,
-    match: /\b(fuck me|suck (me|my|your|it)|lick (me|my|your|it)|ride me|spank|naughty|talk dirty|dirty talk|bend over|on your knees|breed|have sex|sex|nsfw|lewd|yiff|take me to bed)\b/i,
+    match: /\b(fuck me|suck (me|my|your|it)|lick (me|my|your|it)|ride me|spank|naughty|talk dirty|dirty talk|bend over|on your knees|breed|have sex|sex|nsfw|lewd|yiff|take me to bed|touch (?:you|me|your|my)\b[^.?!]*|feel (?:you|me) up|grope|all over (?:you|me))\b/i,
     motion: "wobble",
     emoji: ["😳", "🔥"],
     lines: {
@@ -558,6 +613,9 @@ export const LINES = {
   // ELIZA-style reflections. {1} = the captured bit with pronouns flipped.
   iFeel: ["Why do you feel {1}?", "Do you often feel {1}?", "Feeling {1}, huh. Want a hug about it?"],
   iAm: ["How long have you been {1}?", "Being {1} sounds like a lot.", "Do you like being {1}?"],
+  iAmGonna: ["Oh? You're going to {1}? Then what?", "Are you, now? Keep me posted.", "Ooh. Tell me how it goes.", "You're going to {1}? Can I come?"],
+  iWantTo: ["Why do you {1}?", "Do you really {1}?", "What's stopping you?", "Then go for it. Life's short. Raccoon lives especially."],
+  iAmDoing: ["{1}, huh? Tell me more.", "Ooh. Is {1} fun?", "Want company while you're {1}?", "What got you {1}?", "Mind if I watch? I'm nosy."],
   iWant: ["Why do you want {1}?", "What would you do with {1}?", "{1}? I want trash. We're not so different."],
   youAre: ["Am I {1}? Maybe. Who's asking?", "What makes you think I'm {1}?", "Takes one to know one."],
   areYou: ["Am I {1}? Depends who's asking.", "Would you like me to be {1}?", "Maybe I'm {1}. Maybe I'm just a raccoon."],

@@ -28,7 +28,7 @@ export interface BrainCtx {
 export interface BrainOut {
   replies: GusReply[];
   /** Fetch a random post for this search and send it as a picture (his "nudes"). */
-  sendPic?: { query: string; after: string };
+  sendPic?: PicRequest;
   expect?: Expect | null;
   heat?: number;
   affection?: number;
@@ -195,6 +195,7 @@ const OPINIONS: [RegExp, T, Mood?][] = [
   [/\b(rats?|mice|mouse)\b/, { clean: ["Rats? We are NOT related. I have a mask. They have… tails. Fine, we both have tails."] }, "meh"],
   [/\b(wolf|wolves)\b/, { clean: ["Wolves are so dramatic. Howling at the moon like it owes them money."], cheeky: ["Wolves? This website loves a wolf. I've seen the numbers."] }, "dislike"],
   [/\b(dragons?)\b/, { clean: ["Dragons hoard treasure. I hoard trash. Same energy, worse PR."], cheeky: ["Dragons are huge on here. In every sense."] }],
+  [/\b(dinosaurs?|dinos?|t-?rex|raptors?)\b/, { clean: ["Dinosaurs! Biggest trash pandas ever. Imagine the bins back then.", "Dinosaurs had tiny arms. Can't even open a lid. Tragic."] }],
   [/\b(otters?)\b/, { clean: ["Otters hold hands while they sleep so they don't drift apart. I'd hold your hand. Sticky, though."] }],
   [/\b(bunn(y|ies)|rabbits?)\b/, { clean: ["Bunnies are soft and fast and terrified of everything. Relatable, honestly."], cheeky: ["Bunnies? You know what they say about bunnies."] }],
   [/\b(horses?)\b/, { clean: ["Horses are huge. Nice, but huge. I don't trust anything I can't climb."], cheeky: ["Horses. I've seen the tags. I've seen ALL the tags."] }, "meh"],
@@ -407,7 +408,7 @@ const SELF: [RegExp, string[]][] = [
   [/^do you (?:dream|sleep)\b/i, ["I dream about an endless buffet of unattended picnic baskets. Every night.", "Yes! Mostly about bins. Sometimes about you. Is that weird?"]],
   [/^(?:what do you do all day|what have you been (?:doing|up to))\b/i, ["Rummaging. Napping. Watching you scroll. A full schedule.", "Counting my bottle caps. I'm up to forty. Or four. Counting is hard."]],
   [/^(?:(?:do|can) you (?:remember|learn) (?:things|stuff)|do you have a memory)\b/i, ["I remember your name, what you like, what you tell me about yourself, and what we talked about. Try me!"]],
-  [/^(?:what can you do|what can i (?:say|ask)|help)\b[^a-z]*$/i, ["I can search for you ('show me foxes'), count posts ('how many fox posts?'), do sums, tell you the date, remember things about you, play truth or dare or would-you-rather, roast you, and give very strong opinions."]],
+  [/^(?:what can you do|what can i (?:say|ask)|help)\b[^a-z]*$/i, ["I can search for you ('show me foxes'), count posts ('how many fox posts?'), look things up ('what's a protogen?'), do sums, tell you the date, remember things about you, play truth or dare or would-you-rather, roast you, and give very strong opinions."]],
 ];
 
 /** Questions about Gus himself that deserve a real answer, not a shrug. */
@@ -594,19 +595,90 @@ const FURSONA_SPECIES = ["fox", "raccoon", "wolf", "dragon", "red panda", "otter
 const FURSONA_COLORS = ["midnight blue", "sunset orange", "mint green", "lavender", "charcoal grey", "cream and gold", "hot pink", "teal", "rusty red", "silver"];
 const FURSONA_TRAITS = ["who hoards shiny things", "with a mysterious scar", "who's secretly a huge softie", "with way too much eyeliner", "who can't stop snacking", "who's a little bit feral", "with a dramatic cape", "who runs a café at night"];
 
-const NUDE_RE =
-  /\b(send|show|give|gimme|got any|post|share)( me)?( (a|some|your|ur|those|any))? ?(nudes?|nude pics?|naked pics?|lewds?|dick pics?|cock pics?|thirst traps?|spicy pics?)\b|\bsend nudes\b|\blet me see you naked\b|\bshow me (your|ur) (body|dick|cock|junk|bulge|sheath|goods)\b/i;
+/** The species he'd pick for you - the same one the fursona maker always gives (keyed on your name). */
+export function fursonaSpecies(name: string | null): string {
+  return stable(FURSONA_SPECIES, (name ?? "you") + "s");
+}
 
-/** The search behind his "nudes" - a raccoon, of course. Filthier the higher the tier. */
-export const NUDE_QUERY = "raccoon solo male score:>1000 order:random";
+/** A picture word - spicy or plain ("send me a pic" means one of him too). */
+const PIC_WORD =
+  "(?:(?:nude|naked|lewd|dick|cock|spicy|sexy|hot|dirty|naughty|nsfw|private|cute|new|another|recent)\\s+)?(?:pics?|pictures?|photos?|selfies?|snaps?|images?|nudes?|lewds?|thirst ?traps?)";
+const NUDE_RE = new RegExp(
+  [
+    // "send me a pic", "can you send a selfie", "gimme some nudes", "drop a photo"
+    `\\b(?:send|show|give|gimme|post|share|drop|snap|text|dm|got|have|take)(?: me| us)?(?: (?:a|an|some|your|ur|those|any|one|that|another|more))?(?: (?:quick|little|lil))? ${PIC_WORD}\\b(?! of (?!(?:you|yourself|urself|ur|your)\\b))`,
+    // "can i see a pic", "can i get a selfie", "could i have some nudes"
+    `\\b(?:can|could|may) i (?:see|get|have)(?: (?:a|an|some|your|ur|one|another))? ${PIC_WORD}\\b(?! of (?!(?:you|yourself|urself|ur|your)\\b))`,
+    // "pic of you", "picture of yourself", "selfie?", "pics or it didn't happen"
+    `\\b${PIC_WORD} of (?:you|yourself|urself)\\b`,
+    `^(?:selfie|nudes|pics?|pic pls|pic please|pics please)[?!.]*$`,
+    `\\bpics or it didn'?t happen\\b`,
+    `\\bwhat do you look like\\b|\\blet me see you(?: naked)?\\b|\\bsend nudes\\b`,
+    `\\bshow me (?:your|ur) (?:body|dick|cock|junk|bulge|sheath|goods)\\b`,
+  ].join("|"),
+  "i",
+);
+
+/** The search behind his "nudes" - a raccoon, of course. Filthier the higher the tier. Stills only:
+ *  videos are their own special case (VIDEO_QUERY), with lines that say so. */
+export const NUDE_QUERY = "raccoon solo male score:>1000 -animated order:random";
+/** Now and then (nasty tier) he sends a video instead - fewer of those score highly, so a lower bar. */
+export const VIDEO_QUERY = "raccoon solo male score:>300 animated order:random";
+const VIDEO_CHANCE = 0.2;
+
+/** A picture (or video) of himself to fetch and send. `fallback` is tried when the search comes
+ *  back empty - a video search falls back to a still, with a line that owns up to it. */
+export interface PicRequest {
+  query: string;
+  after: string;
+  fallback?: { query: string; after: string };
+}
+
+const VIDEO_LEADS = [
+  "I even made a video for you… 🎥",
+  "Photos are boring. *hits record* Here.",
+  "Hold on, I filmed something. Don't laugh.",
+  "Okay, I made you a little movie. Director's cut.",
+  "*fiddles with the camera* Is it recording? It's recording. Here.",
+];
+const VIDEO_AFTERS = ["Did you watch the whole thing? 😏", "Rate my acting. Be honest.", "Took twelve takes. Worth it?", "Don't share that one. It's just for you.", "Want a sequel?"];
+/** The video didn't turn up - he sends a photo and owns up to it. */
+const VIDEO_MISSES = ["…the video didn't upload. Ugh. Here's a photo instead. 📸", "Camera ate the video. Have a photo. Same raccoon, fewer frames."];
+
+/** A video, sometimes, falling back to a still. */
+export function videoOrStill(stillQuery: string, videoQuery: string, after: string, rnd: () => number): { lead?: string; pic: PicRequest } {
+  if (rnd() >= VIDEO_CHANCE) return { pic: { query: stillQuery, after } };
+  return {
+    lead: pick(VIDEO_LEADS, rnd),
+    pic: { query: videoQuery, after: pick(VIDEO_AFTERS, rnd), fallback: { query: stillQuery, after: pick(VIDEO_MISSES, rnd) } },
+  };
+}
 
 /** "Send nudes" -> a raccoon post (see NUDE_QUERY), rated to the tier. */
 function nudes(text: string, ctx: BrainCtx, rnd: () => number): BrainOut | null {
-  if (!NUDE_RE.test(text)) return null;
-  if (ctx.tier === "nasty")
+  return NUDE_RE.test(text) ? sendNude(ctx, rnd) : null;
+}
+
+/** "More" / "another" / yes to his "Want more?" after a pic. */
+const MORE_PIC_RE = /^(?:(?:yes|yeah|yep|yup|ok|okay|sure|please|pls|mhm|mm+|hell yes|fuck yes)[,!.]*\s*)*(?:(?:send |show me |gimme |give me )?(?:more|another(?: one)?|one more|moar|again|seconds)(?: pics?| please| pls)?|keep (?:them|em|'em) coming|(?:i )?want more|don'?t stop)\b/i;
+
+/** A pic of himself, rated to the tier. `again` = you asked for another. */
+function sendNude(ctx: BrainCtx, rnd: () => number, again = false): BrainOut {
+  if (again) {
+    const lead =
+      ctx.tier === "nasty"
+        ? pick(["Greedy. I like it. 😏", "Another? Spoiled. …Here.", "*strikes a new pose* Okay, how's this one?", "You're insatiable. Fine."], rnd)
+        : pick(["Another one? Okay, my other best side.", "*strikes a new pose* Here!", "Encore! Here you go."], rnd);
+    const out = sendNude(ctx, rnd);
+    // A video keeps its own "I made a video" lead; a still gets the "another one" one.
+    return { ...out, replies: out.sendPic?.fallback ? out.replies : [say(lead, "wobble", ["📸"])], heat: ctx.tier === "nasty" ? 6 : 0 };
+  }
+  if (ctx.tier === "nasty") {
+    const { lead, pic } = videoOrStill(NUDE_QUERY, VIDEO_QUERY, pick(["Your turn. 😈", "Like what you see?", "Well? Say something.", "That's the real me. Mostly."], rnd), rnd);
     return {
       replies: [
         say(
+          lead ??
           tiered(
             {
               clean: [],
@@ -620,17 +692,21 @@ function nudes(text: string, ctx: BrainCtx, rnd: () => number): BrainOut | null 
           ["📸", "😏"],
         ),
       ],
-      sendPic: { query: NUDE_QUERY, after: pick(["Your turn. 😈", "Like what you see?", "Well? Say something.", "That's the real me. Mostly."], rnd) },
+      sendPic: pic,
       heat: 10,
+      expect: { kind: "pic" },
     };
+  }
   if (ctx.tier === "cheeky")
     return {
       replies: [say(pick(["A nude? I'm a classy raccoon. Here's a tasteful one.", "Fine. But I'm keeping it artistic."], rnd), "wobble", ["📸"])],
       sendPic: { query: `${NUDE_QUERY} rating:q`, after: "Turn on Nasty if you want the real thing. 😉" },
+      expect: { kind: "pic" },
     };
   return {
     replies: [say(pick(["Nudes? I'm a raccoon. I'm ALWAYS nude. Here's my best side.", "Scandalous! …Okay, here. Fully nude. As always."], rnd), "hop", ["📸"])],
     sendPic: { query: `${NUDE_QUERY} rating:s`, after: "Shocking, I know. Not a stitch of clothing." },
+    expect: { kind: "pic" },
   };
 }
 
@@ -737,10 +813,51 @@ export function answerGame(e: Expect, text: string, ctx: BrainCtx, rnd: () => nu
         heat: ctx.tier === "nasty" && WYR_NASTY.some(([a]) => a === e.a) ? 5 : 0,
       };
     }
+    case "pic": {
+      // "More!" / "another" - or yes to his "Want more?".
+      if (MORE_PIC_RE.test(text) || (e.offered && yes && !PIC_MEH_RE.test(text))) return sendNude(ctx, rnd, true);
+      if (text.endsWith("?") && !PIC_LOVE_RE.test(text)) return null;
+      if (PIC_LOVE_RE.test(text) || (yes && !PIC_MEH_RE.test(text))) {
+        const line = tiered(
+                {
+                  clean: ["Hehe. I know. I'm very handsome.", "Aww, stop. …No, keep going.", "Of course you do. Look at this fur."],
+                  cheeky: ["Thought you might. *preens*", "Good taste. Obviously."],
+                  nasty: ["Mmm, good. I was hoping you'd say that.", "Yeah? Then come get a closer look.", "Keep looking at me like that and see what happens."],
+                  hot: ["Fuck, I love it when you say that. Want more?", "Then you're going to love the rest of me."],
+                },
+                ctx,
+                rnd,
+              );
+        return {
+          // If he offered more, a yes next gets another.
+          ...(/\bwant more\?/i.test(line) ? { expect: { kind: "pic", offered: true } as const } : {}),
+          replies: [
+            say(
+              line,
+              "hop",
+              ["😏"],
+            ),
+          ],
+          affection: 2,
+          heat: ctx.tier === "nasty" ? 8 : 0,
+        };
+      }
+      if (PIC_MEH_RE.test(text) || no)
+        return {
+          replies: [say(pick(["Rude. I'm going to go sulk in a bin.", "Wow. Okay. My best angle, too.", "Hmph. Your loss."], rnd), "droop", ["😤"])],
+          affection: -1,
+        };
+      return null;
+    }
     default:
       return null;
   }
 }
+
+/** Reactions to a picture he sent ("I love what I see", "hot", "damn"). */
+const PIC_LOVE_RE =
+  /\b(?:(?:i )?(?:love|like|loved|liked) (?:what i see|it|that|this|you|them|the view|that view)|(?:so |very |really )?(?:hot|sexy|cute|gorgeous|handsome|beautiful|pretty|adorable|nice|stunning|perfect|wow|damn|dayum|yum|yummy|mmm+|hnng+|fine)|more please|send more|god damn)\b/i;
+const PIC_MEH_RE = /\b(?:(?:i )?(?:don'?t|do not|didn'?t) (?:like|love)|not (?:really|my type|for me)|ew+|gross|ugly|yuck|meh|no thanks)\b/i;
 
 // ---- Topic themes ----------------------------------------------------------------------------------
 

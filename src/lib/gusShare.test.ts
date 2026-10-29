@@ -50,3 +50,35 @@ describe("hand-off", () => {
     expect(takeSharedPost()).toBeNull();
   });
 });
+
+describe("the bigger reaction pool", () => {
+  it("prefers a specific species over its family", () => {
+    const post = makePost(50, { tags: { species: ["husky", "domestic_dog", "canid", "mammal"] }, rating: "s" });
+    expect(commentOnPost(post, ctx, first).replies[1].text).toMatch(/[Hh]usky/);
+  });
+
+  it("has lots of different things to say", () => {
+    const posts = [
+      makePost(60, { tags: { species: ["raccoon"] }, rating: "s" }),
+      makePost(61, { tags: { species: ["wolf"] }, rating: "s" }),
+      makePost(62, { tags: { species: ["red_fox"] }, rating: "s" }),
+      makePost(63, { rating: "e" }),
+    ];
+    const seen = new Set<string>();
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+    for (let i = 0; i < 400; i++) for (const p of posts) for (const r of commentOnPost(p, { ...ctx, tier: "cheeky" }, rnd).replies) seen.add(r.text);
+    expect(seen.size).toBeGreaterThan(120);
+  });
+});
+
+describe("cut / uncut", () => {
+  it("notices which, in nasty mode", () => {
+    let seed = 3;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+    const said = (tag: string) =>
+      Array.from({ length: 60 }, () => commentOnPost(makePost(70, { tags: { general: [tag, "penis"] }, rating: "e" }), { ...ctx, tier: "nasty" }, rnd).replies.map((r) => r.text)).flat().join(" ");
+    expect(said("circumcised")).toMatch(/\b[Cc]ut\b|[Cc]ircumcised/);
+    expect(said("uncut")).toMatch(/[Uu]ncut|[Ff]oreskin/);
+  });
+});

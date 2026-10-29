@@ -2103,3 +2103,29 @@ live call before implementing (per user instruction - no more guessing).
   header shows status centred + Day N · clock. Easter egg: the neighbour's German Shepherd, a fox
   or (nights only) an owl peeks through the window now and then; clicking one gets a line from
   Gus. Not live-tested.
+- [x] **Smarter, more natural Gus** (unreleased) Fuzzy intents (`lib/gusIntents.ts`: example
+  phrasings per rule, word + char-trigram cosine, one-letter spell-fix, stray-word penalty; rude
+  rules excluded so near-misses never make him sulk) catch what the regexes miss. A small
+  sentiment lexicon routes clear moods to the sad/happy rules and judges "how did it go?"
+  answers. `lib/gusLife.ts`: episodes ("exam tomorrow" -> asked about after it's due, once, in
+  the opener or mid-chat; `ChatMemory.episodes`), his own day (date-seeded, stable all day,
+  asked or volunteered once a session), browsing remarks from local stats, catchphrases (Learn
+  gate, `ChatMemory.phrases`), idle double-text after 75s, and a well-formedness filter on
+  Markov output. Recent lines persist across sessions (`chatRecent`) and he notices when he's out
+  of fresh lines. Delivery: read pause, variable typing speed, long replies split into two
+  bubbles, rare typo + "*word" correction. Optional "Smart" toggle (`lib/gusSemantic.ts`):
+  all-MiniLM-L6-v2 q8 via transformers.js as a lazy chunk; model + ONNX wasm fetched from
+  HF/jsDelivr on first use (a Vite plugin drops the bundled 27 MB wasm), used for intent, emotion
+  and retrieval of his own lines; 600ms budget per message. Still not an LLM. Not live-tested.
+- [x] **Max-out rewards** (unreleased) `lib/gusBond.ts`, state in `ChatMemory.bond`. Five hearts
+  (affection >= 90, when the 5th heart lights): one-time confession with hesitant typing
+  (`GusReply.hesitate`), a gift for his trinket shelf, a pet name (asked once, used ~40% of the
+  time while at five hearts), "missed you" greetings, gold-ringed hearts with "since <date>",
+  floating hearts, "online 💕", a doodle of you two on the shelf (your `fursona` fact, else the
+  fursona maker's species), and opt-in "thinking about you" notifications (`lib/gusPings.ts`:
+  unfocused, 9am-11pm, 3h+ since you talked, 8h+ between pings, always clean). Full fire bar
+  (nasty tier): overheat scene, bar flashes and resets to 15, 10 min clingy afterglow, 🔥×N
+  tally with milestone lines (1/10/50/100), sometimes an unprompted pic, Pocket Gus `overheat`
+  action (horny 0) plus 45 min "Satisfied" badge, rumpled bed and DO NOT DISTURB sign. Both at
+  once: Partner stage label, partner greetings/pings, matching collar tags on the shelf. Not
+  live-tested.

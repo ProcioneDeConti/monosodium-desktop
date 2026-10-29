@@ -69,7 +69,13 @@ export type Expect =
   | { kind: "tod" }
   | { kind: "truth" }
   | { kind: "dare" }
-  | { kind: "wyr"; a: string; b: string };
+  | { kind: "wyr"; a: string; b: string }
+  /** He just sent you a picture of himself - your next message is a reaction to it. */
+  | { kind: "pic"; offered?: boolean }
+  /** He just asked how something you told him about went (gusLife's episodes). */
+  | { kind: "followup"; what: string }
+  /** He's just asked what to call you (gusBond, at five hearts). */
+  | { kind: "petName" };
 
 /** Per-session, not persisted. */
 export interface ConvState {
@@ -83,6 +89,8 @@ export interface ConvState {
   subject?: { x: string; mood: Mood };
   /** Subjects talked about this session, oldest first - for "what did we talk about?". */
   topics?: string[];
+  /** Asides he's already brought up unprompted this session ("day", "browse"). */
+  volunteered?: string[];
 }
 
 export const EMPTY_CONV: ConvState = { expect: null, topic: "" };
@@ -245,6 +253,80 @@ export function tagCountReply(tag: string, count: number | null, tier: Tier): st
   return `Only ${n} ${pretty} posts. Rare stuff!`;
 }
 
+// ---- "What is a protogen?" - answered from the site's wiki -------------------------------------
+
+const DEFINE_RE = [
+  /^(?:(?:hey\s+)?gus[,!]?\s+)?(?:what(?:'s| is| are)|whats) (?:an? |the )?(.+?)\??$/i,
+  /^(?:(?:hey\s+)?gus[,!]?\s+)?who(?:'s| is| are) (.+?)\??$/i,
+  /^(?:define|explain|tell me about) (?:an? |the )?(.+?)[.!?]*$/i,
+  /^what does (.+?) mean\??$/i,
+];
+/** Things after "what is" that are small talk or handled elsewhere, not a wiki subject. */
+const NOT_DEFINE =
+  /^(?:gus|up|new|good|wrong|happening|going on|it|this|that|those|these|there|he|she|they|you|your|yours|yourself|ur|u|my|me|i|we|our|love|life|the point|the meaning|the date|date|today|the time|time|the weather|weather|popular|hot|trending|for dinner|next|happening|left|best|worse|worst|better|so funny|cooking)\b/i;
+
+/** "what's a protogen?" / "who is spyro?" / "define yiff" -> the phrase to look up. */
+export function parseDefineQuestion(text: string): string | null {
+  for (const re of DEFINE_RE) {
+    const m = text.trim().match(re);
+    if (!m) continue;
+    const phrase = m[1].trim();
+    if (NOT_DEFINE.test(phrase) || /\d/.test(phrase) || phrase.split(/\s+/).length > 3) return null;
+    return phrase;
+  }
+  return null;
+}
+
+/** DText -> plain prose: links to their labels, tags and headers dropped. */
+function plainWiki(body: string): string {
+  return body
+    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")
+    .replace(/\[\[([^\]]+)\]\]/g, "$1")
+    .replace(/"([^"]+)":\S+/g, "$1")
+    .replace(/\[\/?[a-z]+(?:=[^\]]*)?\]/gi, "")
+    .replace(/\{\{[^}]*\}\}/g, "")
+    .replace(/_/g, " ");
+}
+
+/** First real sentence or two of a wiki page, short enough for a chat bubble. */
+export function wikiSummary(body: string): string | null {
+  const para = plainWiki(body)
+    .split(/\r?\n\s*\r?\n|\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l.length > 20 && !/^(?:h\d\.|\*|#|see also|related|thumb #)/i.test(l));
+  if (!para) return null;
+  const sentences = para.match(/[^.!?]+[.!?]+(?=\s|$)/g) ?? [para];
+  let out = sentences[0].trim();
+  if (sentences[1] && out.length + sentences[1].length < 200) out += ` ${sentences[1].trim()}`;
+  return out.length > 240 ? `${out.slice(0, 237).trimEnd()}…` : out;
+}
+
+/** Gus's line once the wiki page comes back (null body = no page). */
+export function wikiReply(tag: string, body: string | null, rnd: () => number = Math.random): string {
+  const pretty = tag.replace(/_/g, " ");
+  const summary = body ? wikiSummary(body) : null;
+  if (!summary) return `Hmm, "${pretty}"? Never heard of it, and the wiki hasn't either. Want me to search for it instead?`;
+  const lead = ["Ooh, I know this one!", "Okay, so -", "I looked it up!", "Raccoon fact:"];
+  return `${lead[Math.floor(rnd() * lead.length)]} ${summary}`;
+}
+
+// ---- "And you?" - his own answers to the things he asks you -----------------------------------
+
+/** Gus's answers to his own CURIOUS questions (gusBrain), for when you turn them back on him. */
+export const GUS_ANSWERS: Record<string, string> = {
+  "favorite color": "Gold. Shiny things, always.",
+  "favorite food": "Anything from the bin behind the bakery. Day-old croissants are a delicacy.",
+  "favorite animal": "Foxes. Obviously. Don't tell the other raccoons.",
+  pet: "I'm the pet. Technically. Don't make it weird.",
+  job: "Professional bin inspector. Night shift. Excellent benefits.",
+  "favorite game": "Hide and seek with the porch light. I always win.",
+  "favorite song": "Anything with a good beat to rummage to.",
+  hometown: "Behind the 24-hour diner. Best bins in town.",
+};
+
+/** "you?" / "what about you?" / "and yours?" - turning his question back on him. */
+export const ASK_BACK_RE = /(?:^|[,.!\s])(?:and |what about |how about |wbu |hbu )?(?:you|u|yours|urs)\s*\?+$/i;
+
 // ---- Quick replies ------------------------------------------------------------------------------
 
 const STARTERS = ["What can you do?", "Tell me a joke", "Truth or dare", "Would you rather", "Roast me", "What's popular?"];
@@ -261,6 +343,8 @@ export function quickReplies(expect: Expect | null, youSaid: number): string[] {
       return ["Another one!", "No more jokes"];
     case "talk":
       return ["Yeah, I need to vent", "No, I'm okay"];
+    case "petName":
+      return ["You pick"];
   }
   return youSaid < 3 && !expect ? STARTERS : [];
 }

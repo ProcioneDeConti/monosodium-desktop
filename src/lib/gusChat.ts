@@ -5,9 +5,33 @@
 //                    shaded by how much he likes you (affection)
 //   4. reflections - ELIZA-style "I feel X" -> "Why do you feel X?"
 //   5. babble      - MegaHAL-style Markov remix around your keywords (gusMarkov.ts)
+// Under the rules sits a fuzzy matcher (gusIntents.ts, or the optional embedding model in
+// gusSemantic.ts) for wordings the regexes miss, and gusLife.ts gives him a memory for upcoming
+// events, a day of his own, and an eye on what you've been browsing.
 // Plus his Pocket Gus needs leak into the conversation, and talking to him affects them.
 
 import { Babbler } from "./gusMarkov";
+import { feeling, fuzzyIntent } from "./gusIntents";
+import { afterglow, afterglowAside, bondStep, EMPTY_BOND, hasFiveHearts, petNameAck, petNameAnswer, type Bond } from "./gusBond";
+import {
+  browseQuip,
+  catchphrase,
+  countPhrases,
+  dueEpisode,
+  echoPhrase,
+  episodeAck,
+  episodeAsk,
+  episodeOutcome,
+  GUS_DAY_RE,
+  gusDayAside,
+  gusDayReply,
+  parseEpisode,
+  rememberEpisode,
+  wellFormed,
+  type BrowseStats,
+  type Episode,
+} from "./gusLife";
+import type { SemanticHint } from "./gusSemantic";
 import {
   aboutSelf,
   answerGame,
@@ -26,6 +50,7 @@ import {
   type BrainCtx,
   type BrainOut,
   type Known,
+  type PicRequest,
 } from "./gusBrain";
 import { CORPUS, LINES, RULES, type Line, type Lines, type Stage, type Tier } from "./gusChatLines";
 import type { PetAction, PetState } from "./gusPet";
@@ -40,7 +65,10 @@ import {
   mathAnswer,
   normalize,
   NO_RE,
+  ASK_BACK_RE,
+  GUS_ANSWERS,
   parseCountQuestion,
+  parseDefineQuestion,
   parseFact,
   parseFactQuestion,
   statsAnswer,
@@ -68,6 +96,12 @@ export interface ChatMemory {
   heatAt: number;
   /** When you last said anything - his greeting depends on how long you've been gone. */
   lastSeen: number;
+  /** Things coming up for you that he'll ask about afterwards (gusLife). */
+  episodes: Episode[];
+  /** Phrase -> times you've used it; only counted while Learn is on (gusLife's catchphrases). */
+  phrases: Record<string, number>;
+  /** What maxing him out has unlocked (gusBond). */
+  bond: Bond;
 }
 
 export const EMPTY_MEMORY: ChatMemory = {
@@ -80,6 +114,9 @@ export const EMPTY_MEMORY: ChatMemory = {
   heat: 0,
   heatAt: 0,
   lastSeen: 0,
+  episodes: [],
+  phrases: {},
+  bond: EMPTY_BOND,
 };
 const MAX_FACTS = 40;
 
@@ -98,6 +135,8 @@ export interface GusReply {
   text: string;
   motion?: MascotMotion;
   emoji?: string[];
+  /** He types, stops, and types again before this one (a nervous moment). */
+  hesitate?: boolean;
 }
 
 export interface ChatResult {
@@ -108,10 +147,12 @@ export interface ChatResult {
   search?: string;
   openPopular?: boolean;
   /** Look up this tag's post count and say it (see gusSmarts' tagCountReply). */
-  lookup?: { tag: string };
-  /** Fetch a random post for this search and send it as a picture, then say `after`. */
-  sendPic?: { query: string; after: string };
+  lookup?: { tag: string; kind?: "count" | "wiki" };
+  /** Fetch a random post for this search and send it as a picture (or video), then say `after`. */
+  sendPic?: PicRequest;
   conv: ConvState;
+  /** The fire bar just maxed out (gusBond) - the chat flashes it. */
+  overheat?: boolean;
 }
 
 export interface ChatEnv {
@@ -124,7 +165,18 @@ export interface ChatEnv {
   recent: ReadonlySet<string>;
   conv?: ConvState;
   stats?: ChatStats;
+  /** Today's browsing, for remarks about it. */
+  browse?: BrowseStats;
+  /** What the embedding model made of the message, when it's loaded (gusSemantic). */
+  semantic?: SemanticHint | null;
+  /** Learn is on: count your phrases, and he may echo them (same gate as learned babble). */
+  learn?: boolean;
 }
+
+/** An embedding-model intent match needs at least this similarity to count. */
+const SEMANTIC_MIN = 0.6;
+/** When the alternative is echoing your sentence back, a weaker intent match is still preferred. */
+const SEMANTIC_ECHO_MIN = 0.5;
 
 const MAX_LIST = 20;
 const HUFFY_MS = 90_000;
@@ -163,6 +215,30 @@ export function reflect(text: string): string {
     .replace(/[.!?]+$/, "");
 }
 
+/** A line you said, retold from Gus's side so the babbler can reuse it: "I love you, are you
+ *  mine?" -> "you love me, am I yours?". Grammar-aware where reflect() isn't - "you are" becomes
+ *  "I am", not "me am". */
+export function ownVoice(text: string): string {
+  return text
+    .replace(/\b(I am|I'm|Im|you are|you're|youre|are you|am I)\b/gi, (m) => {
+      const k = m.toLowerCase();
+      // \0 marks a word as already flipped, so the word-by-word pass below leaves it alone.
+      return k === "are you" ? "am\0 I\0" : k === "am i" ? "are\0 you\0" : /^(i am|i'm|im)$/.test(k) ? "you're\0" : "I'm\0";
+    })
+    // "You" as a subject (sentence/clause start) becomes "I"; elsewhere reflect() makes it "me".
+    .replace(/(^|[.!?,]\s*|\b(?:and|but|so|because|if|when|that)\s+)you\b(?!'re)/gi, "$1I\0")
+    .split(/(\s+)/)
+    .map((w) => {
+      if (w.includes("\0")) return w;
+      const m = w.match(/^([A-Za-z']+)(.*)$/);
+      if (!m || /^(am|are)$/i.test(m[1])) return w;
+      const r = REFLECT[m[1].toLowerCase()];
+      return r ? r + m[2] : w;
+    })
+    .join("")
+    .replace(/\0/g, "");
+}
+
 const pick = <T>(xs: T[], rnd: () => number): T => xs[Math.floor(rnd() * xs.length) % xs.length];
 
 function render(line: Line, ctx: ChatCtx, cap: string): string | null {
@@ -177,8 +253,12 @@ function choose(lines: Line[], ctx: ChatCtx, env: ChatEnv, rnd: () => number, ca
   const rendered = lines.map((l) => render(l, ctx, cap)).filter((t): t is string => !!t);
   if (!rendered.length) return null;
   const fresh = rendered.filter((t) => !env.recent.has(t));
-  return capitalise(pick(fresh.length ? fresh : rendered, rnd));
+  const line = capitalise(pick(fresh.length ? fresh : rendered, rnd));
+  // Out of fresh lines: sometimes he notices he's repeating himself.
+  return !fresh.length && rnd() < 0.3 ? `${line} ${pick(REPEAT_ASIDES, rnd)}` : line;
 }
+
+const REPEAT_ASIDES = ["…I keep saying that, huh.", "(Déjà vu? Yeah, I said that before.)", "…okay, I need new material."];
 
 /** Which tier's lines to use: nasty most of the time when allowed, cheeky often, clean otherwise. */
 function tierLines(lines: Lines, tier: Tier, rnd: () => number, heat = 50): Line[] {
@@ -245,6 +325,8 @@ const POPULAR_RE = /\b(?:what'?s|whats|what is|show me what'?s)\s+(?:popular|hot
 const NAME_RE = /\b(?:my name is|my name's|call me|i'?m called|you can call me|name'?s)\s+([a-z][\w'-]{1,20})/i;
 const NOT_NAMES = new Set(["not", "a", "an", "the", "just", "your", "so", "very", "really", "gonna", "going"]);
 const LIKE_RE = /\bi (?:really |also |totally |do )?(?:like|love|adore|enjoy|am into|'m into|m into)\s+(.{2,40}?)[.!?]*$/i;
+/** "I love what I see" / "I like that" - no real subject to remember. */
+const VAGUE_LIKE = /^(?:you|u|it|that|this|them|those|these|what|how|when|the way|everything|anything|nothing|all of it|so much|a lot|lots)\b/i;
 const DISLIKE_RE = /\bi (?:really |also |totally )?(?:hate|dislike|can'?t stand|don'?t like|do not like)\s+(.{2,40}?)[.!?]*$/i;
 
 function remember(list: string[], item: string): string[] {
@@ -254,15 +336,40 @@ function remember(list: string[], item: string): string[] {
 
 // ---- ELIZA reflections --------------------------------------------------------------------------
 
-const ELIZA: [RegExp, keyof typeof LINES][] = [
-  [/^i (?:feel|am feeling|'m feeling|m feeling) (.+)/i, "iFeel"],
-  [/^i (?:want|need|wish for|would like|'d like) (.+)/i, "iWant"],
-  [/^i(?:'m| am|m) (.+)/i, "iAm"],
+// Each line set only gets the kind of phrase it reads right with - "Being {1}" needs something you
+// ARE ("a student", "tired"), not something you're doing ("looking at me") or about to do ("gonna
+// touch me"). Contractions are spelled out first (elizaForm), so "gonna"/"wanna"/"I'd like to"
+// land on the right pattern.
+export const ELIZA: [RegExp, keyof typeof LINES][] = [
+  [/^i (?:feel|am feeling) (.+)/i, "iFeel"],
+  // "I want/need to go home", "I want you to kiss me" - the verb is kept: "Why do you need to go home?"
+  [/^i ((?:want|need) (?:\w+ )?to .+)/i, "iWantTo"],
+  [/^i (?:want|need|wish for) (.+)/i, "iWant"],
+  [/^i am (?:going to|about to|planning to|fixing to) (.+)/i, "iAmGonna"],
+  [/^i am ((?:just |still |currently |really |kinda |busy |out |off )?[a-z]+ing\b.*)/i, "iAmDoing"],
+  // Anything else that isn't a state ("from Texas", "like whatever", "with friends") is left to the babbler.
+  // Not "not sure" ("Being not sure…") or a whole clause ("sorry you feel that way" -> "sorry me feel…").
+  [/^i am (?!(?:from|like|with|for|to|about|into|by|so that|that|because|not|gonna|gotta)\b)(?!.*\b(?:i|you|he|she|they|we|it)\s+\w)(.+)/i, "iAm"],
   [/^(?:you(?:'re| are)|ur|youre|u r) (.+)/i, "youAre"],
   [/^are you (.+?)\??$/i, "areYou"],
   [/^do you (.+?)\??$/i, "doYou"],
   [/^can you (.+?)\??$/i, "canYou"],
 ];
+
+/** Spelled-out form for the ELIZA patterns: "im gonna" -> "i am going to", "i'd like to" -> "i want to". */
+export function elizaForm(text: string): string {
+  return text
+    .replace(/\s+(?:lol|lmao|lmfao|haha+|hehe+|xd|tbh|ngl|fr|rn)$/i, "")
+    .replace(/^i(?:'m|m| am)\b/i, "i am")
+    .replace(/^i am feeling\b/i, "i feel")
+    .replace(/^i(?:'d| would) (?:like|love) to\b/i, "i want to")
+    .replace(/^i(?:'d| would) like\b/i, "i want")
+    .replace(/\bgonna\b/gi, "going to")
+    .replace(/\bfinna\b/gi, "going to")
+    .replace(/\bwanna\b/gi, "want to")
+    .replace(/\bgotta\b/gi, "have to")
+    .replace(/\bi am (?:bout|about) to\b/i, "i am about to");
+}
 
 // ---- The babbler's training text -----------------------------------------------------------------
 
@@ -283,13 +390,88 @@ export function buildBabbler(tier: Tier, learned: string[] = []): Babbler {
   for (const t of tiers) lines.push(...CORPUS[t], ...ruleLines(t));
   for (const def of Object.values(REACTIONS)) lines.push(...def.lines.filter((l) => !l.includes("{")));
   if (tier !== "clean") for (const ls of Object.values(SPICY_LINES)) lines.push(...(ls ?? []).filter((l) => !l.includes("{")));
-  lines.push(...learned);
+  lines.push(...learned.map(ownVoice));
   return new Babbler(lines.map((l) => l.replace(/¦/g, " ")));
+}
+
+/** His plain, standalone lines at this tier and below, for the embedding model to search by
+ *  meaning (gusSemantic's indexLines). Short asides and actions are left out. */
+export function retrievalLines(tier: Tier): string[] {
+  const tiers: Tier[] = tier === "nasty" ? ["clean", "cheeky", "nasty"] : tier === "cheeky" ? ["clean", "cheeky"] : ["clean"];
+  const out = new Set<string>();
+  for (const t of tiers) for (const l of CORPUS[t]) if (!l.includes("{") && !l.includes("¦") && l.split(" ").length >= 4) out.add(l);
+  return [...out];
 }
 
 // ---- The main entry point ------------------------------------------------------------------------
 
 export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: () => number = Math.random): ChatResult | null {
+  const before = { ...EMPTY_MEMORY, ...memory };
+  const inner = respondInner(input, memory, env, rnd);
+  if (!inner) return null;
+  let result = inner;
+  let mem = { ...result.memory, bond: { ...EMPTY_BOND, ...result.memory.bond } };
+  if (env.learn) mem = { ...mem, phrases: countPhrases(mem.phrases ?? {}, input) };
+
+  // Five hearts / a full fire bar / both: the moments they unlock.
+  const moment = bondStep(
+    { affection: before.affection, heat: cooledHeat(before.heat, before.heatAt, env.now) },
+    { affection: mem.affection, heat: mem.heat },
+    mem.bond,
+    env.tier,
+    mem.name,
+    env.now,
+    rnd,
+  );
+  if (moment) {
+    mem = {
+      ...mem,
+      bond: moment.bond,
+      heat: Math.max(0, Math.min(100, mem.heat + (moment.heat ?? 0))),
+      affection: Math.max(0, Math.min(100, mem.affection + (moment.affection ?? 0))),
+    };
+    result = {
+      ...result,
+      replies: [...result.replies, ...moment.replies],
+      petActions: moment.overheat ? [...result.petActions, { type: "overheat" }] : result.petActions,
+      sendPic: result.sendPic ?? moment.sendPic,
+      overheat: moment.overheat,
+      conv: moment.askPetName ? { ...result.conv, expect: { kind: "petName" } } : result.conv,
+    };
+    return { ...result, memory: mem };
+  }
+  // Afterglow: clingy, and every message counts a little more.
+  if (afterglow(mem.bond, env.now) && env.tier === "nasty") {
+    mem = { ...mem, affection: Math.min(100, mem.affection + 1) };
+    if (rnd() < 0.35 && result.replies.length < 3) result = { ...result, replies: [...result.replies, { text: afterglowAside(rnd), motion: "droop" }] };
+  }
+  // Something you told him about has happened since: he asks, unless he's busy with something.
+  const due = dueEpisode(mem.episodes ?? [], env.now);
+  const busy = result.conv.expect || result.search || result.lookup || result.sendPic || result.openPopular || env.now < mem.huffyUntil;
+  if (due && !busy) {
+    mem = { ...mem, episodes: mem.episodes.map((e) => (e === due ? { ...e, asked: true } : e)) };
+    return {
+      ...result,
+      memory: mem,
+      replies: [...result.replies, { text: episodeAsk(due, mem.name, rnd), motion: "hop" }],
+      conv: { ...result.conv, expect: { kind: "followup", what: due.what } },
+    };
+  }
+  return { ...result, memory: mem };
+}
+
+/** The opener for a new chat: his greeting, plus a question about anything that's happened since. */
+export function openingFollowUp(memory: ChatMemory, now: number, rnd: () => number = Math.random): { text: string; memory: ChatMemory; expect: Expect } | null {
+  const due = dueEpisode(memory.episodes ?? [], now);
+  if (!due) return null;
+  return {
+    text: episodeAsk(due, memory.name, rnd),
+    memory: { ...memory, episodes: memory.episodes.map((e) => (e === due ? { ...e, asked: true } : e)) },
+    expect: { kind: "followup", what: due.what },
+  };
+}
+
+function respondInner(input: string, memory: ChatMemory, env: ChatEnv, rnd: () => number): ChatResult | null {
   const text = normalize(input);
   if (!text) return null;
   let mem: ChatMemory = { ...EMPTY_MEMORY, ...memory };
@@ -331,7 +513,8 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
   const ctx = (): ChatCtx => ({
     tier: env.tier,
     stage: stageFor(mem.affection),
-    name: mem.name,
+    // At five hearts he often uses his pet name for you instead.
+    name: mem.bond?.petName && hasFiveHearts(mem.affection) && rnd() < 0.4 ? mem.bond.petName : mem.name,
     likes: mem.likes,
     dislikes: mem.dislikes,
     pet: env.pet,
@@ -404,6 +587,13 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
     say(LINES.popular, undefined, "hop", ["🔥"]);
     return done({ openPopular: true });
   }
+  const define = parseDefineQuestion(text);
+  const defineTag = define ? phraseToTag(define) : null;
+  if (defineTag) {
+    say(["Ooh, let me check the wiki…", "Hang on, looking it up…", "*flips through a very sticky encyclopedia*"], undefined, "tilt", ["📖"]);
+    mention(defineTag.replace(/_/g, " "));
+    return done({ lookup: { tag: defineTag, kind: "wiki" } });
+  }
 
   // 2. Memory: being told his name for you.
   const named = text.match(NAME_RE)?.[1];
@@ -446,6 +636,22 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
     return done();
   }
 
+  // 2. Memory: something coming up ("i have an exam tomorrow") - he'll ask how it went.
+  const ep = parseEpisode(text, env.now);
+  if (ep) {
+    mem = { ...mem, episodes: rememberEpisode(mem.episodes ?? [], ep) };
+    replies.push({ text: episodeAck(ep, env.now, rnd), motion: "nod", emoji: ["📝"] });
+    mention(ep.what);
+    return done();
+  }
+
+  // 2. His own day - the same story all day if you ask twice.
+  if (GUS_DAY_RE.test(text)) {
+    replies.push({ text: gusDayReply(new Date(env.now), rnd), motion: "hop" });
+    conv = { ...conv, volunteered: [...(conv.volunteered ?? []), "day"] };
+    return done();
+  }
+
   // 2c. Chat games: truth or dare, would you rather, roasts, pickup lines…
   const game = chatGame(text, brain(), rnd);
   if (game) return use(game);
@@ -457,36 +663,26 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
   // 3. Personality rules.
   for (const rule of RULES) {
     const m = text.match(rule.match);
-    if (!m) continue;
-    const cap = [...m].slice(1).filter(Boolean).pop() ?? "that";
-    const stage = stageFor(mem.affection);
-    const over = rule.stages?.[stage];
-    const lines: Required<Lines> = {
-      clean: over?.clean ?? rule.lines.clean,
-      cheeky: over?.cheeky ?? rule.lines.cheeky ?? [],
-      nasty: over?.nasty ?? rule.lines.nasty ?? [],
-      hot: over?.hot ?? rule.lines.hot ?? rule.hot ?? [],
-    };
-    if (rule.affection) mem = { ...mem, affection: Math.max(0, Math.min(100, mem.affection + rule.affection)) };
-    if (rule.huffy) mem = { ...mem, huffyUntil: env.now + HUFFY_MS, heat: 0 };
-    if (rule.heat) warm(rule.heat);
-    if (rule.apology) mem = { ...mem, huffyUntil: 0 };
-    if (rule.petAction) petActions.push(rule.petAction);
-    if (rule.expects) expect(typeof rule.expects === "function" ? rule.expects(ctx()) : rule.expects);
-    if (!say(tierLines(lines, env.tier, rnd, mem.heat), cap.toLowerCase(), rule.motion, rule.emoji)) say(lines.clean, cap.toLowerCase(), rule.motion, rule.emoji);
-    interject(replies, petActions, env, rnd);
-    return done();
+    if (m) return applyRule(rule, [...m].slice(1).filter(Boolean).pop() ?? "that")!;
   }
+
+  // 3'. Nothing matched word for word - the rule it most likely meant, by meaning (embedding
+  // model) or by wording (typos, slang, rephrasings).
+  const sem = env.semantic?.intent;
+  const fuzzy = sem && sem.score >= SEMANTIC_MIN && text.split(/\s+/).length <= 12 ? sem : fuzzyIntent(text);
+  const fuzzyRule = fuzzy ? RULES.find((r) => r.id === fuzzy.id && !r.huffy) : undefined;
+  const fuzzyHit = fuzzyRule ? applyRule(fuzzyRule, null) : null;
+  if (fuzzyHit) return fuzzyHit;
 
   // 2b. Memory: likes and dislikes.
   const dislike = text.match(DISLIKE_RE)?.[1];
-  if (dislike && !/^(you|u)\b/i.test(dislike)) {
+  if (dislike && !VAGUE_LIKE.test(dislike)) {
     mem = { ...mem, dislikes: remember(mem.dislikes, reflect(dislike)) };
     say(LINES.learnedDislike, reflect(dislike), "nod");
     return done();
   }
   const like = text.match(LIKE_RE)?.[1];
-  if (like && !/^(you|u)\b/i.test(like)) {
+  if (like && !VAGUE_LIKE.test(like)) {
     mem = { ...mem, likes: remember(mem.likes, reflect(like)) };
     say(env.tier !== "clean" && rnd() < 0.4 ? LINES.learnedLikeCheeky : LINES.learnedLike, reflect(like), "nod", ["📝"]);
     return done();
@@ -499,26 +695,64 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
     return use(out);
   }
 
+  // 3a'. No rule, but clearly a mood ("everything is going wrong", "best day ever").
+  const feel = feeling(text);
+  const semFeel = env.semantic?.emotion && env.semantic.emotion.score >= 0.55 ? env.semantic.emotion.name : null;
+  const moodRule =
+    !text.endsWith("?") && (feel.score <= -0.45 || (feel.score <= 0 && (semFeel === "sad" || semFeel === "anxious")))
+      ? "sad"
+      : !text.endsWith("?") && (feel.score >= 0.55 || (feel.score >= 0 && semFeel === "joy"))
+        ? "happy"
+        : null;
+  const moodHit = moodRule ? RULES.find((r) => r.id === moodRule) : undefined;
+  const moodReply = moodHit ? applyRule(moodHit, null) : null;
+  if (moodReply) return moodReply;
+
   // 3b. Opinions, yes/no questions, and topics he has something to say about.
   const take = opinion(text, brain(), rnd) ?? oracle(text, brain(), rnd);
   if (take) return use(take);
   const theme = rnd() < 0.75 ? themed(text, brain(), rnd) : null;
   if (theme) {
     use(theme);
-    interject(replies, petActions, env, rnd);
+    volunteer();
     return done();
   }
 
   // 4/5. Reflection or babble.
-  const plain = text.replace(/[.!]+$/, "");
+  const plain = elizaForm(text.replace(/[.!]+$/, ""));
   const eliza = ELIZA.find(([re]) => re.test(plain));
   const babbleInput = keys.length ? text : `${text} ${conv.topic}`;
-  const babble = env.babbler?.reply(babbleInput, rnd, undefined, env.recent) ?? null;
+  let babble: string | null = null;
+  for (let i = 0; i < 4 && env.babbler; i++) {
+    const b = env.babbler.reply(babbleInput, rnd, undefined, env.recent);
+    if (!b || wellFormed(b)) {
+      babble = b;
+      break;
+    }
+  }
+  // The embedding model found one of his own lines that fits - often better than a remix.
+  const retrieved = env.semantic?.lines?.find((l) => l.score >= 0.45 && !env.recent.has(l.text));
+  if (retrieved && (!babble || rnd() < 0.55)) babble = retrieved.text;
+  // Smart brain on and fairly sure what you meant: answer that instead of echoing your sentence
+  // back - the echo is where the clunky grammar comes from. A looser bar than SEMANTIC_MIN, since
+  // the alternative here is a template, not a better match.
+  if (eliza && env.semantic) {
+    const near = env.semantic.intent && env.semantic.intent.score >= SEMANTIC_ECHO_MIN ? RULES.find((r) => r.id === env.semantic!.intent!.id && !r.huffy) : undefined;
+    const meant = near ? applyRule(near, null) : null;
+    if (meant) return meant;
+    if (retrieved) {
+      replies.push({ text: retrieved.text });
+      volunteer();
+      return done();
+    }
+  }
   if (eliza && (rnd() < 0.6 || !babble)) {
     const cap = reflect(plain.match(eliza[0])![1]);
     say(LINES[eliza[1]], cap);
   } else if (babble && rnd() < 0.85) {
     replies.push({ text: babble });
+    const phrase = env.learn && rnd() < 0.08 ? catchphrase(mem.phrases ?? {}, rnd) : null;
+    if (phrase) replies.push({ text: echoPhrase(phrase, rnd), motion: "wobble" });
   } else if (/^why\b/i.test(text)) {
     say(LINES.why);
   } else if (text.endsWith("?")) {
@@ -537,9 +771,55 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
     say(LINES.askLike);
     expect({ kind: "like" });
   } else {
-    interject(replies, petActions, env, rnd);
+    volunteer();
   }
   return done();
+
+  /** Says one of a rule's lines and applies its effects. `cap` is what its regex captured; null
+   *  for a fuzzy/mood match, which has nothing to fill "{1}" with ("my {1}" -> "my that"), so those
+   *  lines are skipped - and if nothing's left, null: the match isn't used at all. */
+  function applyRule(rule: (typeof RULES)[number], cap: string | null): ChatResult | null {
+    const stage = stageFor(mem.affection);
+    const over = rule.stages?.[stage];
+    const usable = (ls: Line[]) => (cap === null ? ls.filter((l) => !(typeof l === "string" ? l : (l(ctx()) ?? "")).includes("{1}")) : ls);
+    const lines: Required<Lines> = {
+      clean: usable(over?.clean ?? rule.lines.clean),
+      cheeky: usable(over?.cheeky ?? rule.lines.cheeky ?? []),
+      nasty: usable(over?.nasty ?? rule.lines.nasty ?? []),
+      hot: usable(over?.hot ?? rule.lines.hot ?? rule.hot ?? []),
+    };
+    // Clean is the fallback when the tier's own list comes up empty, so it has to have something.
+    if (!lines.clean.length) return null;
+    cap ??= "that";
+    if (rule.affection) mem = { ...mem, affection: Math.max(0, Math.min(100, mem.affection + rule.affection)) };
+    if (rule.huffy) mem = { ...mem, huffyUntil: env.now + HUFFY_MS, heat: 0 };
+    if (rule.heat) warm(rule.heat);
+    if (rule.apology) mem = { ...mem, huffyUntil: 0 };
+    if (rule.petAction) petActions.push(rule.petAction);
+    if (rule.expects) expect(typeof rule.expects === "function" ? rule.expects(ctx()) : rule.expects);
+    if (!say(tierLines(lines, env.tier, rnd, mem.heat), cap.toLowerCase(), rule.motion, rule.emoji)) say(lines.clean, cap.toLowerCase(), rule.motion, rule.emoji);
+    volunteer();
+    return done();
+  }
+
+  /** Now and then he brings something up himself: his needs, his day (once a session), or what
+   *  you've been browsing (once a session). */
+  function volunteer() {
+    const said = conv.volunteered ?? [];
+    const flag = (f: string) => (conv = { ...conv, volunteered: [...said, f] });
+    if (replies.length < 3 && !said.includes("day") && rnd() < 0.08) {
+      replies.push({ text: gusDayAside(new Date(env.now), rnd), motion: "hop" });
+      flag("day");
+      return;
+    }
+    const quip = env.browse && !said.includes("browse") && rnd() < 0.1 ? browseQuip(env.browse, env.tier, rnd) : null;
+    if (quip && replies.length < 3) {
+      replies.push({ text: quip, motion: "tilt" });
+      flag("browse");
+      return;
+    }
+    interject(replies, petActions, env, rnd);
+  }
 
   /** Handles a reply to his last question. False = it wasn't an answer, carry on as normal. */
   function answerExpected(e: Expect): boolean {
@@ -561,6 +841,15 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
         return true;
       }
       case "fact": {
+        // "Blue, you?" / "what about you?" - answer it, then give his own.
+        if (ASK_BACK_RE.test(text) && GUS_ANSWERS[e.key]) {
+          const own = text.replace(ASK_BACK_RE, "").replace(/[,\s]+$/, "").trim();
+          const told = own && !/^(?:what|how)$/i.test(own) && own.split(/\s+/).length <= 8;
+          if (told) rememberFact(e.key, reflect(own.replace(/^(it'?s|its|they'?re|it is|i'?m from|i live in|i work as|i'?m an?|i'?m)\s+/i, "")));
+          replies.push({ text: told ? `Me? ${GUS_ANSWERS[e.key]}` : `Me? ${GUS_ANSWERS[e.key]} Your turn!`, motion: "hop" });
+          if (!told) expect(e);
+          return true;
+        }
         if (text.endsWith("?") || text.split(/\s+/).length > 8 || FILLER_RE.test(text) || /^(i don'?t know|no idea|not sure|dunno)\b/i.test(text)) return false;
         rememberFact(e.key, reflect(text.replace(/^(?:yes|yeah|yep),?\s+/i, "").replace(/^(it'?s|its|they'?re|it is|i'?m from|i live in|i work as|i'?m an?|i'?m)\s+/i, "").replace(/[.!]+$/, "")));
         return true;
@@ -594,6 +883,20 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
         const joke = RULES.find((r) => r.id === "joke")!;
         say(tierLines(joke.lines, env.tier, rnd), undefined, "spin");
         expect({ kind: "joke" });
+        return true;
+      }
+      case "petName": {
+        const p = petNameAnswer(text, rnd);
+        if (!p) return false;
+        mem = { ...mem, bond: { ...EMPTY_BOND, ...mem.bond, petName: p } };
+        replies.push({ text: petNameAck(p, rnd), motion: "hop", emoji: ["💕"] });
+        return true;
+      }
+      case "followup": {
+        if (text.endsWith("?") && text.split(/\s+/).length > 3) return false;
+        const ep = (mem.episodes ?? []).find((x) => x.what === e.what) ?? { what: e.what, due: env.now, at: env.now };
+        replies.push({ text: episodeOutcome(ep, text, rnd, env.semantic?.emotion?.name), motion: "nod" });
+        mem = { ...mem, affection: Math.min(100, mem.affection + 2) };
         return true;
       }
       default:

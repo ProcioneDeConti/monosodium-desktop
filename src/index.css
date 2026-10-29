@@ -995,3 +995,13 @@ h3 {
     opacity: 1;
   }
 }
+
+/* Talk to Gus: hearts drifting up off the hearts row at five hearts (GusChat's BondSparkles). */
+@keyframes bond-float {
+  0% { transform: translateY(4px); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(-14px); opacity: 0; }
+}
+.bond-float {
+  animation: bond-float 2.8s ease-out infinite;
+}

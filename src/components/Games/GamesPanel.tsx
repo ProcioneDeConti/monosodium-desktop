@@ -31,6 +31,7 @@ import { TagdleGame } from "../Tagdle/TagdlePanel";
 import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { GameMusic } from "./GameMusic";
+import { GusChatSettings } from "./GusChatSettings";
 import { GusChat } from "./GusChat";
 import { GusPet } from "./GusPet";
 import { HigherLower } from "./HigherLower";
@@ -210,6 +211,7 @@ export function GamesPanel({ site, onClose, onSearch, onOpenPopular }: GamesPane
         <h1 className="text-base font-black tracking-tight">{game ? game.name : "Games"}</h1>
         {/* Every game but Tagdle (whose site-wide tag counts don't narrow to a favorites list). */}
         <div className="ml-auto flex items-center gap-1.5">
+          {selected === "gusChat" && <GusChatSettings />}
           <GameMusic />
           {!isGus && <BlacklistToggle />}
           {selected !== "tagdle" && !isGus && <FavoritesToggle site={site} />}

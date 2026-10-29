@@ -119,7 +119,9 @@ export type PetAction =
   | { type: "medicine" }
   // Adult + explicit mode only (the UI hides them otherwise).
   | { type: "flirt" }
-  | { type: "relieve" };
+  | { type: "relieve" }
+  /** Talk to Gus's fire bar maxed out (gusBond) - he's spent and very content. */
+  | { type: "overheat" };
 
 export type FoodId = "trash" | "grapes" | "fish" | "cheesePuffs";
 
@@ -253,6 +255,8 @@ export function act(prev: PetState, action: PetAction, now: number, rnd: () => n
         "wobble",
         ["😏", "💕"],
       );
+    case "overheat":
+      return done({ ...s, horny: 0, fun: clamp(s.fun + 20), energy: clamp(s.energy - 5) }, ["*sprawled out, blissful* …don't mind me."], "droop", ["😌"]);
     case "relieve":
       if ((s.horny ?? 0) < 30) return refuse(["Not in the mood right now.", "Maybe later, tiger."], "shrug");
       if (s.sick) return refuse(["Not feeling up to it…¦he's sick"], "droop");

@@ -7,7 +7,20 @@ const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    // Gus's optional smart brain (src/lib/gusSemantic.ts) fetches the ONNX runtime's wasm from a
+    // CDN alongside the model, only when it's switched on - so don't ship the ~27 MB copy that
+    // onnxruntime-web references.
+    {
+      name: "drop-ort-wasm",
+      apply: "build" as const,
+      generateBundle(_: unknown, bundle: Record<string, unknown>) {
+        for (const f of Object.keys(bundle)) if (/ort-wasm.*\.wasm$/.test(f)) delete bundle[f];
+      },
+    },
+  ],
 
   // The only runtime is Windows 11's bundled (evergreen Chromium) WebView2, so there's nothing
   // to down-level for: target esnext to skip transpilation overhead and shave the bundle.
