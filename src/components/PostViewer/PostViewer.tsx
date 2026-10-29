@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  MessageCircleHeart,
   Heart,
   Expand,
   Maximize,
@@ -88,6 +89,8 @@ interface PostViewerProps {
   onToggleSlideshow: () => void;
   /** Extra toolbar controls for the current post - e.g. SetsPanel's "remove from set". */
   extraToolbarActions?: (post: Post) => ReactNode;
+  /** "Share with Gus" - opens Talk to Gus with this post. */
+  onShareWithGus?: (post: Post) => void;
 }
 
 const LOAD_MORE_THRESHOLD = 6;
@@ -113,6 +116,7 @@ export function PostViewer({
   slideshowActive,
   onToggleSlideshow,
   extraToolbarActions,
+  onShareWithGus,
 }: PostViewerProps) {
   // `index` can briefly point past the end - e.g. blacklisting a tag the open post matches shrinks
   // the `posts` array a render before App clamps the index - so `post` may be undefined here. The
@@ -486,6 +490,11 @@ export function PostViewer({
           >
             <Send size={16} />
           </IconButton>
+          {onShareWithGus && (
+            <IconButton tone="invert" title="Share with Gus" onClick={() => onShareWithGus(post)}>
+              <MessageCircleHeart size={16} />
+            </IconButton>
+          )}
           {extraToolbarActions?.(post)}
           <AddToSetButton site={site} postId={post.id} isAuthenticated={isAuthenticated} />
           <ReportPostButton postId={post.id} isAuthenticated={isAuthenticated} report={report} />

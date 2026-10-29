@@ -18,7 +18,8 @@ import { PostViewer } from "./components/PostViewer/PostViewer";
 import { SettingsPanel } from "./components/Settings/SettingsPanel";
 import { ProfilePanel } from "./components/Profile/ProfilePanel";
 import { SavedSearchesPanel } from "./components/SavedSearches/SavedSearchesPanel";
-import { GamesPanel } from "./components/Games/GamesPanel";
+import { GamesPanel, resumeGameOnReturn } from "./components/Games/GamesPanel";
+import { shareWithGus } from "./lib/gusShare";
 import { MessagesPanel } from "./components/Messages/MessagesPanel";
 import { ForumPanel } from "./components/Forum/ForumPanel";
 import { PoolPanel } from "./components/Pool/PoolPanel";
@@ -1072,6 +1073,11 @@ function App() {
           onOpenPool={(id) => navigate({ poolTarget: id })}
           onOpenArtist={(tag) => navigate({ artistTarget: tag })}
           onOpenWiki={(tag) => navigate({ wikiTarget: tag })}
+          onShareWithGus={(post) => {
+            shareWithGus(post);
+            resumeGameOnReturn("gusChat");
+            navigate({ gamesOpen: true });
+          }}
           slideshowActive={slideshowActive}
           onToggleSlideshow={() => replaceNav({ slideshowActive: !slideshowActive })}
           extraToolbarActions={(post) => <CollectionPicker posts={[post]} />}

@@ -335,7 +335,7 @@ function GameBody({
     case "gusPet":
       return <GusPet />;
     case "gusChat":
-      return <GusChat onSearch={onSearch} onOpenPopular={onOpenPopular} />;
+      return <GusChat site={site} onSearch={onSearch} onOpenPopular={onOpenPopular} />;
     case "tagdle":
       return null; // rendered full-bleed by GamesPanel itself
   }

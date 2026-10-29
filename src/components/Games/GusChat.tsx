@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Brain, Flame, Heart, Send, Trash2, Volume2, VolumeX } from "lucide-react";
-import { buildBabbler, EMPTY_MEMORY, respond, stageFor, type Stage, type Tier } from "../../lib/gusChat";
+import { buildBabbler, EMPTY_MEMORY, respond, stageFor, type GusReply, type Stage, type Tier } from "../../lib/gusChat";
+import { commentOnPost, sharedThumb, takeSharedPost } from "../../lib/gusShare";
+import { cooledHeat, greeting } from "../../lib/gusBrain";
 import { act, advance, ageDays } from "../../lib/gusPet";
+import { EMPTY_CONV, tagCountReply, type ChatStats, type ConvState } from "../../lib/gusSmarts";
+import { e621Api } from "../../api/client";
+import type { Site } from "../../models/site";
+import { useStatsStore } from "../../state/statsStore";
+import { visiblePosts } from "../../lib/blacklist";
 import { MASCOT_NAME, type MascotMotion } from "../../lib/mascot";
 import { motionReduced } from "../../lib/theme";
 import { useGamesStore } from "../../state/gamesStore";
@@ -13,17 +20,45 @@ interface Message {
   id: number;
   from: "gus" | "you";
   text: string;
+  /** A post shared from the viewer - shown as its thumbnail. */
+  image?: string;
 }
 
 const RECENT_MAX = 15;
 
 /** The conversation survives the panel closing (a search, Back) for the rest of the session. */
 let sessionLog: Message[] | null = null;
+/** What he just asked / what you were on about - kept alongside the log. */
+let sessionConv: ConvState = EMPTY_CONV;
+
+/** The bits of the local stats he can talk about. */
+function chatStats(): ChatStats {
+  const s = useStatsStore.getState();
+  return {
+    topSearches: Object.entries(s.searchTermCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([t]) => t),
+    postsViewed: s.lifetime.postsViewed,
+    favoritesAdded: s.lifetime.favoritesAdded,
+    searches: s.lifetime.searches,
+    activeMs: s.lifetime.activeMs,
+    sessions: s.lifetime.sessions,
+  };
+}
 const STAGE_LABEL: Record<Stage, string> = { stranger: "Acquaintance", friend: "Friend", crush: "Crush" };
 
 /** "Talk to Gus": a chat with the layered rule/ELIZA/MegaHAL brain in lib/gusChat.ts. Replies
  *  arrive after a short "typing" pause sized to their length. */
-export function GusChat({ onSearch, onOpenPopular }: { onSearch?: (query: string) => void; onOpenPopular?: () => void }) {
+export function GusChat({
+  site,
+  onSearch,
+  onOpenPopular,
+}: {
+  site: Site;
+  onSearch?: (query: string) => void;
+  onOpenPopular?: () => void;
+}) {
   const adultExplicit = useSettingsStore((s) => s.adultModeEnabled && s.enabledRatings.includes("e"));
   const cheekyOn = useSettingsStore((s) => s.mascotSpicy);
   const games = useGamesStore();
@@ -40,7 +75,18 @@ export function GusChat({ onSearch, onOpenPopular }: { onSearch?: (query: string
   const [messages, setMessages] = useState<Message[]>(
     () =>
       sessionLog ?? [
-        { id: 0, from: "gus", text: chat.name ? `Hey, ${chat.name}! What's up?` : `Hi! I'm ${MASCOT_NAME}. Talk to me!` },
+        {
+          id: 0,
+          from: "gus",
+          text: greeting(chat.lastSeen, {
+            tier,
+            stage: stageFor(chat.affection),
+            heat: cooledHeat(chat.heat, chat.heatAt, Date.now()),
+            name: chat.name,
+            now: new Date(),
+            topSearches: [],
+          }),
+        },
       ],
   );
   const [draft, setDraft] = useState("");
@@ -76,6 +122,38 @@ export function GusChat({ onSearch, onOpenPopular }: { onSearch?: (query: string
     window.speechSynthesis.speak(u);
   }
 
+  /** Posts Gus's replies one by one, each after a typing pause sized to its length. Returns
+   *  when (ms from now) the last one lands. */
+  function deliver(replies: GusReply[]): number {
+    if (!replies.length) return 0;
+    setTyping(true);
+    let at = 0;
+    replies.forEach((reply, i) => {
+      at += Math.min(2200, 450 + reply.text.length * 28) + (i ? 500 : 0);
+      later(at, () => {
+        recent.current = [...recent.current, reply.text].slice(-RECENT_MAX);
+        setMessages((m) => [...m, { id: nextId.current++, from: "gus", text: reply.text }]);
+        if (reply.motion) setMotion({ id: nextId.current, m: reply.motion });
+        speak(reply.text);
+        if (i === replies.length - 1) setTyping(false);
+      });
+    });
+    return at;
+  }
+
+  // A post shared from the viewer ("Share with Gus"): show it, and let him react.
+  useEffect(() => {
+    const post = takeSharedPost();
+    if (!post) return;
+    setMessages((m) => [...m, { id: nextId.current++, from: "you", text: "", image: sharedThumb(post) ?? undefined }]);
+    const state = useGamesStore.getState();
+    const { replies, topic } = commentOnPost(post, { tier, likes: state.chat.likes, dislikes: state.chat.dislikes });
+    sessionConv = { expect: null, topic };
+    state.setChat({ ...state.chat, affection: Math.min(100, state.chat.affection + 1) });
+    deliver(replies);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function send(e?: FormEvent) {
     e?.preventDefault();
     const text = draft.trim();
@@ -93,8 +171,11 @@ export function GusChat({ onSearch, onOpenPopular }: { onSearch?: (query: string
       now,
       babbler,
       recent: new Set(recent.current),
+      conv: sessionConv,
+      stats: chatStats(),
     });
     if (!result) return;
+    sessionConv = result.conv;
 
     state.setChat(result.memory);
     if (pet && result.petActions.length) {
@@ -108,20 +189,51 @@ export function GusChat({ onSearch, onOpenPopular }: { onSearch?: (query: string
       if (useLearned) babbler.learn(text);
     }
 
-    // Each reply after a typing pause sized to its length.
-    setTyping(true);
-    let at = 0;
-    result.replies.forEach((reply, i) => {
-      at += Math.min(2200, 450 + reply.text.length * 28) + (i ? 500 : 0);
-      later(at, () => {
-        recent.current = [...recent.current, reply.text].slice(-RECENT_MAX);
-        setMessages((m) => [...m, { id: nextId.current++, from: "gus", text: reply.text }]);
-        if (reply.motion) setMotion({ id: nextId.current, m: reply.motion });
-        speak(reply.text);
-        if (i === result.replies.length - 1) setTyping(false);
+    const at = deliver(result.replies);
+    if (result.lookup) {
+      const { tag } = result.lookup;
+      const asked = e621Api
+        .getTag(site, tag)
+        .then((info) => info?.post_count ?? null)
+        .catch(() => null);
+      // Said once both the "counting…" line has shown and the answer is in.
+      later(at + 200, () => {
+        setTyping(true);
+        void asked.then((count) => {
+          const text = tagCountReply(tag, count, tier);
+          recent.current = [...recent.current, text].slice(-RECENT_MAX);
+          setMessages((m) => [...m, { id: nextId.current++, from: "gus", text }]);
+          setMotion({ id: nextId.current, m: count ? "nod" : "shrug" });
+          speak(text);
+          setTyping(false);
+        });
       });
-    });
-    if (!result.replies.length) setTyping(false);
+    }
+    if (result.sendPic) {
+      const { query, after } = result.sendPic;
+      const settings = useSettingsStore.getState();
+      const rating = settings.ratingTagFilter() ?? "";
+      const asked = e621Api
+        .getPosts(site, `${query} ${rating}`.trim(), 40)
+        .then((r) => visiblePosts(r.posts, settings.blacklistEntries, settings.blacklistDisabled))
+        .then((posts) => posts.filter((p) => p.sample.url ?? p.preview.url))
+        .then((posts) => (posts.length ? posts[Math.floor(Math.random() * posts.length)] : null))
+        .catch(() => null);
+      later(at + 300, () => {
+        setTyping(true);
+        void asked.then((post) => {
+          const url = post ? (post.sample.url ?? post.preview.url ?? undefined) : undefined;
+          setMessages((m) => [
+            ...m,
+            url
+              ? { id: nextId.current++, from: "gus", text: "", image: url }
+              : { id: nextId.current++, from: "gus", text: "Ugh, my camera's broken. Ask me later." },
+          ]);
+          setTyping(false);
+          if (url) later(1200, () => deliver([{ text: after, motion: "wobble" }]));
+        });
+      });
+    }
     if (result.search && onSearch)
       later(at + 900, () => {
         resumeGameOnReturn("gusChat");
@@ -139,6 +251,7 @@ export function GusChat({ onSearch, onOpenPopular }: { onSearch?: (query: string
     games.clearLearned();
     games.setChat(EMPTY_MEMORY);
     recent.current = [];
+    sessionConv = EMPTY_CONV;
     setConfirmForget(false);
     setMessages([{ id: nextId.current++, from: "gus", text: "Huh? Who are you? Hi! I'm Gus." }]);
   }
@@ -163,6 +276,17 @@ export function GusChat({ onSearch, onOpenPopular }: { onSearch?: (query: string
               />
             ))}
             <span className="ml-1">{huffy ? "Sulking" : STAGE_LABEL[stage]}</span>
+            {tier === "nasty" && (
+              <span className="ml-2 flex items-center gap-1" title="Heat - flirting warms him up, it cools off over time">
+                <Flame size={11} className="text-orange-400" />
+                <span className="h-1.5 w-12 overflow-hidden rounded-full bg-white/15">
+                  <span
+                    className="block h-full rounded-full bg-gradient-to-r from-orange-400 to-red-500 transition-[width] duration-500"
+                    style={{ width: `${cooledHeat(chat.heat, chat.heatAt, Date.now())}%` }}
+                  />
+                </span>
+              </span>
+            )}
           </div>
         </div>
         <Toggle
@@ -215,7 +339,8 @@ export function GusChat({ onSearch, onOpenPopular }: { onSearch?: (query: string
                   : "rounded-bl-sm border-2 border-black/80 bg-white font-semibold text-black"
               }`}
             >
-              <ChatText text={m.text} />
+              {m.image && <img src={m.image} alt="Shared post" className="mb-0.5 max-h-48 rounded-xl" draggable={false} />}
+              {m.text && <ChatText text={m.text} />}
             </div>
           </div>
         ))}

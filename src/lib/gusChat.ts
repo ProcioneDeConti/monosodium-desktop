@@ -8,9 +8,28 @@
 // Plus his Pocket Gus needs leak into the conversation, and talking to him affects them.
 
 import { Babbler } from "./gusMarkov";
+import { answerGame, chatGame, cooledHeat, oracle, opinion, special, themed, type BrainCtx, type BrainOut } from "./gusBrain";
 import { CORPUS, LINES, RULES, type Line, type Lines, type Stage, type Tier } from "./gusChatLines";
 import type { PetAction, PetState } from "./gusPet";
 import { REACTIONS, type MascotMotion } from "./mascot";
+import {
+  answerLike,
+  answerName,
+  dateAnswer,
+  DO_I_LIKE_RE,
+  EMPTY_CONV,
+  mathAnswer,
+  normalize,
+  NO_RE,
+  parseCountQuestion,
+  parseFact,
+  parseFactQuestion,
+  statsAnswer,
+  YES_RE,
+  type ChatStats,
+  type ConvState,
+  type Expect,
+} from "./gusSmarts";
 import { SPICY_LINES } from "./mascotSpicy";
 
 export type { Stage, Tier };
@@ -23,9 +42,27 @@ export interface ChatMemory {
   affection: number;
   /** He sulks until this time (ms) unless you apologise. */
   huffyUntil: number;
+  /** "my favorite color is blue" -> { "favorite color": "blue" }. */
+  facts: Record<string, string>;
+  /** 0-100: how worked up he is. Builds with flirting, cools with time (see gusBrain). */
+  heat: number;
+  heatAt: number;
+  /** When you last said anything - his greeting depends on how long you've been gone. */
+  lastSeen: number;
 }
 
-export const EMPTY_MEMORY: ChatMemory = { name: null, likes: [], dislikes: [], affection: 10, huffyUntil: 0 };
+export const EMPTY_MEMORY: ChatMemory = {
+  name: null,
+  likes: [],
+  dislikes: [],
+  affection: 10,
+  huffyUntil: 0,
+  facts: {},
+  heat: 0,
+  heatAt: 0,
+  lastSeen: 0,
+};
+const MAX_FACTS = 40;
 
 export interface ChatCtx {
   tier: Tier;
@@ -51,6 +88,11 @@ export interface ChatResult {
   /** Run this as a normal search (closes the Games panel). */
   search?: string;
   openPopular?: boolean;
+  /** Look up this tag's post count and say it (see gusSmarts' tagCountReply). */
+  lookup?: { tag: string };
+  /** Fetch a random post for this search and send it as a picture, then say `after`. */
+  sendPic?: { query: string; after: string };
+  conv: ConvState;
 }
 
 export interface ChatEnv {
@@ -61,6 +103,8 @@ export interface ChatEnv {
   babbler: Babbler | null;
   /** Lines said recently - avoided when there's a choice. */
   recent: ReadonlySet<string>;
+  conv?: ConvState;
+  stats?: ChatStats;
 }
 
 const MAX_LIST = 20;
@@ -118,8 +162,15 @@ function choose(lines: Line[], ctx: ChatCtx, env: ChatEnv, rnd: () => number, ca
 }
 
 /** Which tier's lines to use: nasty most of the time when allowed, cheeky often, clean otherwise. */
-function tierLines(lines: Lines, tier: Tier, rnd: () => number): Line[] {
-  if (tier === "nasty" && lines.nasty?.length && rnd() < 0.75) return lines.nasty;
+function tierLines(lines: Lines, tier: Tier, rnd: () => number, heat = 50): Line[] {
+  if (tier === "nasty" && lines.hot?.length && heat >= 60 && rnd() < 0.75) return lines.hot;
+  // The hotter he is, the more often the nasty lines win.
+  if (tier === "nasty" && lines.nasty?.length && rnd() < 0.35 + (0.6 * heat) / 100) return lines.nasty;
+  // Opted into nasty, he's never prudish: cool, he teases (cheeky) rather than going clean.
+  if (tier === "nasty") {
+    if (lines.cheeky?.length) return lines.cheeky;
+    if (lines.nasty?.length) return lines.nasty;
+  }
   if (tier !== "clean" && lines.cheeky?.length && rnd() < 0.6) return lines.cheeky;
   return lines.clean;
 }
@@ -132,7 +183,7 @@ const SEARCH_RE =
   /^(?:(?:hey\s+)?gus[,!]?\s+)?(?:(?:can|could|would|will) you\s+|please\s+)?(?:show|find|search(?:\s+for)?|look\s+(?:for|up)|fetch|gimme|give me|i (?:want|wanna) (?:to )?see|let me see|let'?s see)\s+(?:me\s+)?(.+?)[.!?]*$/i;
 /** Things after "show me" that are about Gus, not a search. */
 const NOT_SEARCH =
-  /^(?:(?:a|an|some|me)\s+)?(?:you|your|yourself|ur|how|what|why|where|who|love|affection|mercy|the way|around|hug|hugs|kiss|kisses|cuddles?|smooch|break|chance|minute|sec|second|moment|hint|clue|reason|attention|snacks?|food|treats?)\b/i;
+  /^(?:(?:a|an|some|me)\s+)?(?:you|your|yourself|ur|how|what|why|where|who|love|affection|mercy|the way|around|hug|hugs|kiss|kisses|cuddles?|smooch|break|chance|minute|sec|second|moment|hint|clue|reason|attention|snacks?|food|treats?|nudes?|nude pics?|naked pics?|lewds?|dick pics?|cock pics?|thirst traps?|spicy pics?)\b/i;
 const FILLER = /\b(?:some|any|a|an|the|more|of|pics?|pictures?|images?|posts?|art|artwork|stuff|things|porn|please|pls|plz)\b/gi;
 
 function singular(word: string): string {
@@ -220,9 +271,33 @@ export function buildBabbler(tier: Tier, learned: string[] = []): Babbler {
 // ---- The main entry point ------------------------------------------------------------------------
 
 export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: () => number = Math.random): ChatResult | null {
-  const text = input.trim();
+  const text = normalize(input);
   if (!text) return null;
-  let mem: ChatMemory = { ...memory };
+  let mem: ChatMemory = { ...EMPTY_MEMORY, ...memory };
+  mem = { ...mem, heat: cooledHeat(mem.heat, mem.heatAt, env.now), heatAt: env.now, lastSeen: env.now };
+  const prev = env.conv ?? EMPTY_CONV;
+  const keys = env.babbler?.keywords(text) ?? [];
+  // Follow-ups ("why?", "tell me more") carry no keywords - keep talking about the last thing.
+  let conv: ConvState = { expect: null, topic: keys.length ? keys.join(" ") : prev.topic, lastInput: text };
+  const warm = (n: number) => {
+    mem = { ...mem, heat: Math.max(0, Math.min(100, mem.heat + n)) };
+  };
+  const brain = (): BrainCtx => ({
+    tier: env.tier,
+    stage: stageFor(mem.affection),
+    heat: mem.heat,
+    name: mem.name,
+    now: new Date(env.now),
+    topSearches: env.stats?.topSearches ?? [],
+  });
+  /** Applies a gusBrain result. */
+  const use = (out: BrainOut) => {
+    replies.push(...out.replies);
+    if (out.heat) warm(out.heat);
+    if (out.affection) mem = { ...mem, affection: Math.max(0, Math.min(100, mem.affection + out.affection)) };
+    if (out.expect !== undefined) expect(out.expect);
+    return done(out.sendPic ? { sendPic: out.sendPic } : {});
+  };
   const replies: GusReply[] = [];
   const petActions: PetAction[] = [];
   const ctx = (): ChatCtx => ({
@@ -240,7 +315,15 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
     if (t) replies.push({ text: t, motion, emoji });
     return !!t;
   };
-  const done = (extra: Partial<ChatResult> = {}): ChatResult => ({ replies, memory: mem, petActions, ...extra });
+  const done = (extra: Partial<ChatResult> = {}): ChatResult => ({ replies, memory: mem, petActions, conv, ...extra });
+  const expect = (e: Expect | null) => {
+    conv = { ...conv, expect: e };
+  };
+  const rememberFact = (key: string, value: string) => {
+    const facts = Object.fromEntries(Object.entries({ ...mem.facts, [key]: value }).slice(-MAX_FACTS));
+    mem = { ...mem, facts };
+    say(LINES.learnedFact, key, "nod", ["📝"]);
+  };
 
   // Talking to him wakes him up.
   if (env.pet?.asleep) {
@@ -255,7 +338,30 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
     return done();
   }
 
-  // 1. Intents.
+  // 0. A bare answer to something he just asked.
+  if (prev.expect) {
+    const game = answerGame(prev.expect, text, brain(), rnd);
+    if (game) return use(game);
+    if (answerExpected(prev.expect)) return done();
+  }
+
+  // 0b. How it was typed: repeats, keysmash, emoji-only (replace the reply); CAPS, essays (lead it).
+  const shape = special(text, prev.lastInput ?? "", brain(), rnd);
+  if (shape && !shape.prefix) return use(shape);
+  if (shape) replies.push(...shape.replies);
+
+  // 1. Intents and things he can work out.
+  const count = parseCountQuestion(text);
+  const countTag = count ? phraseToTag(count) : null;
+  if (countTag) {
+    say(LINES.counting, undefined, "tilt");
+    return done({ lookup: { tag: countTag } });
+  }
+  const practical = mathAnswer(text) ?? dateAnswer(text, new Date(env.now)) ?? (env.stats ? statsAnswer(text, env.stats, env.tier) : null);
+  if (practical) {
+    replies.push({ text: practical, motion: "nod" });
+    return done();
+  }
   const search = parseSearch(text);
   if (search) {
     const pretty = search.split(" ").filter((t) => !t.startsWith("-")).join(" + ").replace(/_/g, " ");
@@ -275,6 +381,42 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
     return done();
   }
 
+  // 2. Memory: facts about you, and questions about them.
+  const fact = parseFact(text);
+  if (fact) {
+    rememberFact(fact[0], reflect(fact[1]));
+    return done();
+  }
+  const factQ = parseFactQuestion(text);
+  if (factQ) {
+    const known = mem.facts[factQ];
+    if (known) replies.push({ text: `Your ${factQ}? ${capitalise(known)}! I remembered.`, motion: "hop" });
+    else {
+      say(LINES.askFact, factQ, "tilt");
+      expect({ kind: "fact", key: factQ });
+    }
+    return done();
+  }
+  const doILike = text.match(DO_I_LIKE_RE)?.[1]?.toLowerCase();
+  if (doILike) {
+    const hit = (xs: string[]) => xs.find((x) => x.toLowerCase().includes(doILike) || doILike.includes(x.toLowerCase()));
+    const liked = hit(mem.likes);
+    const disliked = hit(mem.dislikes);
+    replies.push({
+      text: liked
+        ? `You told me you like ${liked}, so… yes?`
+        : disliked
+          ? `You said you don't like ${disliked}. Changed your mind?`
+          : "You haven't told me! Do you?",
+      motion: "tilt",
+    });
+    return done();
+  }
+
+  // 2c. Chat games: truth or dare, would you rather, roasts, pickup lines…
+  const game = chatGame(text, brain(), rnd);
+  if (game) return use(game);
+
   // 3. Personality rules.
   for (const rule of RULES) {
     const m = text.match(rule.match);
@@ -286,12 +428,15 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
       clean: over?.clean ?? rule.lines.clean,
       cheeky: over?.cheeky ?? rule.lines.cheeky ?? [],
       nasty: over?.nasty ?? rule.lines.nasty ?? [],
+      hot: over?.hot ?? rule.lines.hot ?? rule.hot ?? [],
     };
     if (rule.affection) mem = { ...mem, affection: Math.max(0, Math.min(100, mem.affection + rule.affection)) };
-    if (rule.huffy) mem = { ...mem, huffyUntil: env.now + HUFFY_MS };
+    if (rule.huffy) mem = { ...mem, huffyUntil: env.now + HUFFY_MS, heat: 0 };
+    if (rule.heat) warm(rule.heat);
     if (rule.apology) mem = { ...mem, huffyUntil: 0 };
     if (rule.petAction) petActions.push(rule.petAction);
-    if (!say(tierLines(lines, env.tier, rnd), cap.toLowerCase(), rule.motion, rule.emoji)) say(lines.clean, cap.toLowerCase(), rule.motion, rule.emoji);
+    if (rule.expects) expect(typeof rule.expects === "function" ? rule.expects(ctx()) : rule.expects);
+    if (!say(tierLines(lines, env.tier, rnd, mem.heat), cap.toLowerCase(), rule.motion, rule.emoji)) say(lines.clean, cap.toLowerCase(), rule.motion, rule.emoji);
     interject(replies, petActions, env, rnd);
     return done();
   }
@@ -310,10 +455,21 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
     return done();
   }
 
+  // 3b. Opinions, yes/no questions, and topics he has something to say about.
+  const take = opinion(text, brain(), rnd) ?? oracle(text, brain(), rnd);
+  if (take) return use(take);
+  const theme = rnd() < 0.75 ? themed(text, brain(), rnd) : null;
+  if (theme) {
+    use(theme);
+    interject(replies, petActions, env, rnd);
+    return done();
+  }
+
   // 4/5. Reflection or babble.
   const plain = text.replace(/[.!]+$/, "");
   const eliza = ELIZA.find(([re]) => re.test(plain));
-  const babble = env.babbler?.reply(text, rnd, undefined, env.recent) ?? null;
+  const babbleInput = keys.length ? text : `${text} ${conv.topic}`;
+  const babble = env.babbler?.reply(babbleInput, rnd, undefined, env.recent) ?? null;
   if (eliza && (rnd() < 0.6 || !babble)) {
     const cap = reflect(plain.match(eliza[0])![1]);
     say(LINES[eliza[1]], cap);
@@ -328,8 +484,78 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
   } else {
     say(LINES.fallback, undefined, "tilt");
   }
-  interject(replies, petActions, env, rnd);
+  // Curiosity: sometimes he asks something back, which gives him more to remember.
+  // Never the same question twice running.
+  if (!mem.name && prev.expect?.kind !== "name" && rnd() < 0.3) {
+    say(LINES.askName);
+    expect({ kind: "name" });
+  } else if (mem.likes.length < 3 && prev.expect?.kind !== "like" && rnd() < 0.15) {
+    say(LINES.askLike);
+    expect({ kind: "like" });
+  } else {
+    interject(replies, petActions, env, rnd);
+  }
   return done();
+
+  /** Handles a reply to his last question. False = it wasn't an answer, carry on as normal. */
+  function answerExpected(e: Expect): boolean {
+    const yes = YES_RE.test(text);
+    const no = NO_RE.test(text);
+    switch (e.kind) {
+      case "name": {
+        const n = answerName(text);
+        if (!n || NOT_NAMES.has(n.toLowerCase())) return false;
+        mem = { ...mem, name: n, affection: Math.min(100, mem.affection + 2) };
+        say(LINES.learnedName, undefined, "hop", ["👋"]);
+        return true;
+      }
+      case "like": {
+        const l = answerLike(text);
+        if (!l) return false;
+        mem = { ...mem, likes: remember(mem.likes, reflect(l)) };
+        say(LINES.learnedLike, reflect(l), "nod", ["📝"]);
+        return true;
+      }
+      case "fact": {
+        if (text.endsWith("?") || text.split(/\s+/).length > 8) return false;
+        rememberFact(e.key, reflect(text.replace(/^(it'?s|its|they'?re|it is)\s+/i, "").replace(/[.!]+$/, "")));
+        return true;
+      }
+      case "talk":
+        if (yes) {
+          say(LINES.listenYes, undefined, "nod");
+          expect({ kind: "vent" });
+          return true;
+        }
+        if (no) {
+          say(LINES.listenNo, undefined, "nod");
+          return true;
+        }
+        // Launched straight into it - that's venting too.
+        if (text.split(/\s+/).length < 4) return false;
+        mem = { ...mem, affection: Math.min(100, mem.affection + 2) };
+        say(LINES.vented, undefined, "droop", ["🫂"]);
+        return true;
+      case "vent":
+        if (no) return false;
+        mem = { ...mem, affection: Math.min(100, mem.affection + 2) };
+        say(LINES.vented, undefined, "droop", ["🫂"]);
+        return true;
+      case "joke": {
+        if (no) {
+          say(LINES.jokeNo, undefined, "shrug");
+          return true;
+        }
+        if (!yes) return false;
+        const joke = RULES.find((r) => r.id === "joke")!;
+        say(tierLines(joke.lines, env.tier, rnd), undefined, "spin");
+        expect({ kind: "joke" });
+        return true;
+      }
+      default:
+        return false;
+    }
+  }
 }
 
 /** Now and then he mentions what he needs - unless the reply just took care of it. */

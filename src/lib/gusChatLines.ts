@@ -9,6 +9,7 @@
 import type { MascotMotion } from "./mascot";
 import type { PetAction } from "./gusPet";
 import type { ChatCtx } from "./gusChat";
+import type { Expect } from "./gusSmarts";
 
 export type Tier = "clean" | "cheeky" | "nasty";
 /** Affection 0-100 -> stranger (<25), friend (<65), crush. */
@@ -19,6 +20,8 @@ export interface Lines {
   clean: Line[];
   cheeky?: Line[];
   nasty?: Line[];
+  /** Nasty tier once heat is high - where he stops teasing. */
+  hot?: Line[];
 }
 
 export interface Rule {
@@ -28,6 +31,10 @@ export interface Rule {
   /** Per-stage overrides of `lines`. */
   stages?: Partial<Record<Stage, Partial<Lines>>>;
   affection?: number;
+  /** How much this warms him up (gusBrain's heat). */
+  heat?: number;
+  /** Hot lines (see Lines.hot) for rules whose `lines` sit on one line. */
+  hot?: Line[];
   /** Something done to his Pocket Gus self (a hug pets him, a snack feeds him). */
   petAction?: PetAction;
   motion?: MascotMotion;
@@ -36,6 +43,8 @@ export interface Rule {
   huffy?: boolean;
   /** Ends a sulk. */
   apology?: boolean;
+  /** He's asked something - a bare answer next turn is read as the answer to it. */
+  expects?: Expect | ((c: ChatCtx) => Expect | null);
 }
 
 const r = (rule: Rule) => rule;
@@ -45,6 +54,7 @@ const r = (rule: Rule) => rule;
 const FLIRT: Rule[] = [
   r({
     id: "loveYou",
+    heat: 5,
     match: /\b(i\s+(really\s+|do\s+)?(love|like)\s+(you|u)|ily|love\s+you)\b/i,
     affection: 4,
     motion: "hop",
@@ -65,12 +75,14 @@ const FLIRT: Rule[] = [
   }),
   r({
     id: "kiss",
+    heat: 8,
     match: /(\*\s*(kiss|smooch|kisses|smooches|mwah)[^*]*\*|\bkiss (me|you)\b|\bcan i kiss\b|\bmwah\b|:\*)/i,
     affection: 3,
     motion: "hop",
     emoji: ["💋", "😳"],
     petAction: { type: "pet" },
     lines: { clean: ["Whoa! Buy me dinner first. Trash is fine.", "*blushes under the mask* …Okay that was nice."] },
+    hot: ["*kisses you hard, pinning you against the wall*", "*bites your lip* Mm. I've wanted to do that all night.", "*kisses down your chest, slowly, eyes on yours*"],
     stages: {
       friend: { clean: ["*smooch* There. Happy?", "*kisses your nose* Boop."], cheeky: ["*kisses back* Mmm, you taste like cheese puffs."], nasty: ["*kisses back, slow* Careful. Keep that up and I'm not stopping at your lips."] },
       crush: {
@@ -82,6 +94,7 @@ const FLIRT: Rule[] = [
   }),
   r({
     id: "hug",
+    heat: 4,
     match: /(\*\s*(hug|hugs|cuddle|cuddles|snuggle|snuggles|holds)[^*]*\*|\b(hug|cuddle|snuggle) (me|you)\b|\bcan i (hug|cuddle)\b)/i,
     affection: 2,
     motion: "hop",
@@ -94,12 +107,14 @@ const FLIRT: Rule[] = [
   }),
   r({
     id: "pets",
+    heat: 3,
     match: /\*\s*(pets|pat|pats|scratches|strokes|rubs|boops|headpats|scritches)[^*]*\*|\b(head ?pats?|scritches|boop)\b/i,
     affection: 1,
     motion: "hop",
     emoji: ["❤️", "🥰"],
     petAction: { type: "pet" },
     lines: {
+      hot: ["Mmh, if you keep touching me like that I'm dragging you to bed.", "*arches into your hand* Lower. Please."],
       clean: ["Hehe. Right behind the ears.", "*leans into it* More.", "Mmmh. You have magic hands.", "*happy chitter*", "Boop received. Boop returned. *boop*"],
       cheeky: ["Ooh, lower. …The back. I meant the back.", "Careful, I purr. Raccoons don't purr. I'm making an exception."],
       nasty: ["Mmh, lower. No, I don't mean the back this time.", "Keep rubbing like that and I'm going to need a minute alone."],
@@ -107,7 +122,8 @@ const FLIRT: Rule[] = [
   }),
   r({
     id: "cute",
-    match: /\b(you('?re| are)|ur|youre|u r)\s+(so\s+|really\s+|very\s+|super\s+|soo+\s+)?(cute|adorable|sweet|precious|fluffy|soft|pretty|beautiful|handsome|gorgeous|a cutie|a good boy|lovely)\b|\bgood boy\b|\bcutie\b/i,
+    heat: 3,
+    match: /\b(you('?re| are)|ur|youre|u r|your)\s+(so\s+|really\s+|very\s+|super\s+|soo+\s+)?(cute|adorable|sweet|precious|fluffy|soft|pretty|beautiful|handsome|gorgeous|a cutie|a good boy|lovely)\b|\bgood boy\b|\bcutie\b/i,
     affection: 2,
     motion: "hop",
     emoji: ["😊", "✨"],
@@ -122,11 +138,13 @@ const FLIRT: Rule[] = [
   }),
   r({
     id: "hot",
-    match: /\b(you('?re| are)|ur|youre|u r)\s+(so\s+|really\s+|very\s+)?(hot|sexy|fine|thicc|thick|yummy|fuckable|hung)\b|\bdaddy\b/i,
+    heat: 8,
+    match: /\b(you('?re| are)|ur|youre|u r|your)\s+(so\s+|really\s+|very\s+)?(hot|sexy|fine|thicc|thick|yummy|fuckable|hung)\b|\bdaddy\b/i,
     affection: 2,
     motion: "wobble",
     emoji: ["😳", "🔥"],
     lines: {
+      hot: ["Hot? Come over here and find out how hot.", "You keep saying that, and I keep getting harder. Do something about it."],
       clean: ["I'm… a raccoon. On a computer. But okay, sure, yes, thank you.", "Hot? Must be all this fur. It's a lot of fur.", "*fans self with tail*"],
       cheeky: ["Oh, I know. Rule 34 knows too.", "Hot? Have you SEEN my tail? Ringed for your pleasure.", "Keep talking. My ego's hungry."],
       nasty: ["Hot? You haven't seen what's under the fur. Yet.", "Say that again and I might let you find out how hot.", "Mmm. Want to see how thicc this tail really is? Up close?"],
@@ -150,6 +168,7 @@ const FLIRT: Rule[] = [
   }),
   r({
     id: "wink",
+    heat: 4,
     match: /(;\)|;-\)|\*\s*winks?\s*\*|\bwink\b|\bowo\b|\buwu\b|\b(rawr|x3)\b)/i,
     affection: 1,
     motion: "tilt",
@@ -176,10 +195,12 @@ const FLIRT: Rule[] = [
   }),
   r({
     id: "whatWearing",
+    heat: 8,
     match: /\bwhat are you wearing\b|\bare you naked\b|\btake (it|that|your \w+) off\b|\bstrip\b/i,
     motion: "wobble",
     emoji: ["😳"],
     lines: {
+      hot: ["Nothing. And I'm waiting for you to match me.", "Just fur. Take yours off and let's even it up."],
       clean: ["A fur coat. Permanently. It's a whole thing.", "Just the mask. Raccoon fashion is minimal."],
       cheeky: ["Nothing but a mask and a smile.", "Fur. Just fur. Technically I've been naked this whole time. You're welcome."],
       nasty: ["Nothing at all. Want to come check?", "Just fur, and it's very easy to get your paws into.", "Naked as the day I was born. Come closer and see."],
@@ -187,10 +208,12 @@ const FLIRT: Rule[] = [
   }),
   r({
     id: "horny",
+    heat: 12,
     match: /\b(i'?m|im|i am|feeling|so)\s+(so\s+|really\s+)?(horny|aroused|turned on|needy|pent up)\b|\bhorny\b/i,
     motion: "look",
     emoji: ["👀"],
     lines: {
+      hot: ["Good. Take it out. Tell me what you're doing with your hands.", "Then stop typing with both hands. I know you're not.", "Fuck, me too. Come here, I'll take care of you."],
       clean: ["I'm going to pretend I didn't hear that.", "Have you tried drinking some water? And going outside?"],
       cheeky: ["On THIS website? Shocking. Truly.", "You're on e621. I'd be worried if you weren't.", "Go on then. I'll look away. *doesn't look away*"],
       nasty: ["Yeah? Me too. Tell me what you want.", "Mm, good. I like you needy.", "Then stop talking to me and get your hands busy. …Or keep talking to me while you do."],
@@ -201,10 +224,12 @@ const FLIRT: Rule[] = [
   }),
   r({
     id: "dirty",
+    heat: 10,
     match: /\b(fuck me|suck (me|my|your|it)|lick (me|my|your|it)|ride me|spank|naughty|talk dirty|dirty talk|bend over|on your knees|breed|have sex|sex|nsfw|lewd|yiff|take me to bed)\b/i,
     motion: "wobble",
     emoji: ["😳", "🔥"],
     lines: {
+      hot: ["Mm, yes. Say it again, and tell me exactly how.", "Get on the bed. Now. I'm done being patient.", "I'm going to wreck you, and you're going to thank me for it.", "You talk like that and I'm going to make you scream my name."],
       clean: ["Whoa! I'm a family raccoon. Mostly.", "Let's keep it PG, pal. PG-13 at most.", "*covers ears with tiny paws*"],
       cheeky: ["Ooh, somebody's feeling bold today.", "Hey, I'm a lady. …I'm not, but you get it.", "Ask me again when Explicit's on. Wait, it is. Ask me nicely."],
       nasty: [
@@ -227,7 +252,7 @@ const FLIRT: Rule[] = [
 const RUDE: Rule[] = [
   r({
     id: "insult",
-    match: /\b(you('?re| are)|ur|youre|u r)\s+(so\s+|really\s+)?(stupid|dumb|ugly|annoying|useless|an idiot|gross|smelly|lame|boring|cringe|the worst|a pest|vermin)\b|\b(i hate you|shut up|stfu|fuck you|fuck off|go away|screw you)\b/i,
+    match: /\b(you('?re| are)|ur|youre|u r|your)\s+(so\s+|really\s+)?(stupid|dumb|ugly|annoying|useless|an idiot|gross|smelly|lame|boring|cringe|the worst|a pest|vermin)\b|\b(i hate you|shut up|stfu|fuck you|fuck off|go away|screw you)\b/i,
     affection: -8,
     huffy: true,
     motion: "shake",
@@ -286,7 +311,7 @@ const ABOUT: Rule[] = [
   }),
   r({
     id: "howAreYou",
-    match: /\b(how are (you|u)|how('?re| r) (you|u)|how('?s| is) it going|what'?s up|wassup|how do you feel|you ok(ay)?\??|are you ok(ay)?)\b/i,
+    match: /\b(how are (you|u)|how('?re| r) (you|u)|how('?s| is) it going|what'?s up|wassup|how do you feel|you ok(ay)?\??|are you ok(ay)?|what about you|how about you)\b/i,
     lines: {
       clean: [
         (c) => {
@@ -301,6 +326,21 @@ const ABOUT: Rule[] = [
           return "Great! Fed, clean, and talking to you. Can't complain.";
         },
       ],
+    },
+  }),
+  r({
+    id: "whatDoing",
+    match: /\bwhat are you (doing|up to)\b|\bwhat('?re| are) you up to\b/i,
+    lines: {
+      clean: [
+        (c) => (c.pet?.asleep ? "Sleeping. Well, I was." : null),
+        "Counting my bottle caps. Again.",
+        "Sitting in the corner, watching you. Normal raccoon stuff.",
+        "Thinking about grapes. What are you doing?",
+        "Planning a heist. On your snack drawer. Forget I said that.",
+      ],
+      cheeky: ["Watching you browse. It's my favorite show."],
+      nasty: ["Thinking about you. Not in a wholesome way."],
     },
   }),
   r({
@@ -377,6 +417,7 @@ const ABOUT: Rule[] = [
   }),
   r({
     id: "joke",
+    expects: { kind: "joke" },
     match: /\b(tell me a joke|say something funny|make me laugh|know any jokes)\b/i,
     motion: "spin",
     lines: {
@@ -425,6 +466,7 @@ const ABOUT: Rule[] = [
 const SMALLTALK: Rule[] = [
   r({
     id: "sad",
+    expects: { kind: "talk" },
     match: /\b(i'?m|im|i am|feeling|i feel)\s+(so\s+|really\s+|kinda\s+)?(sad|down|depressed|lonely|upset|awful|bad|terrible|miserable|stressed|anxious)\b/i,
     affection: 1,
     motion: "droop",
@@ -476,11 +518,13 @@ const SMALLTALK: Rule[] = [
 const MEMORY_Q: Rule[] = [
   r({
     id: "whatsMyName",
+    expects: (c) => (c.name ? null : { kind: "name" }),
     match: /\b(what'?s|what is|do you (know|remember)) my name\b|\bwho am i\b/i,
     lines: { clean: [(c) => (c.name ? `You're ${c.name}! How could I forget?` : "You never told me! What should I call you?")] },
   }),
   r({
     id: "whatILike",
+    expects: (c) => (c.likes.length ? null : { kind: "like" }),
     match: /\bwhat do i (like|love)\b|\bwhat am i into\b|\bdo you remember what i like\b/i,
     lines: {
       clean: [
@@ -521,6 +565,15 @@ export const LINES = {
   canYou: ["Can I {1}? I'm a raccoon, I can do anything with these paws.", "Maybe. What's in it for me?"],
   why: ["Why not?", "Because raccoon.", "Good question. Next question.", "Why does anything happen? Trash, mostly."],
   question: ["Hmm. Good question.", "Ask me again after a snack.", "I'd tell you, but then I'd have to steal your food.", "Honestly? No idea. I'm a raccoon."],
+  askName: ["By the way, what should I call you?", "Hey, I never asked - what's your name?"],
+  askLike: ["So what kind of stuff are you into?", "Tell me something you like. I collect those.", "What's your favorite thing to look at on here?"],
+  askFact: ["You never told me your {1}. What is it?", "Your {1}? I don't know it yet. Tell me!"],
+  learnedFact: ["Your {1}. Got it. I'll remember.", "Ooh, noted! Filed under 'important human facts'.", "I'll remember that. Raccoons never forget. Except where we hid stuff."],
+  listenYes: ["I'm all ears. Big ones. What happened?", "Okay. I'm listening. Take your time."],
+  listenNo: ["That's okay. I'm right here if you change your mind.", "Alright. Want a distraction instead? I know a good dumpster."],
+  vented: ["That sounds really hard. Thanks for telling me.", "Oof. I'm sorry. You didn't deserve that.", "*scoots closer* I'm glad you told me. Want a hug?"],
+  jokeNo: ["Tough crowd.", "Fine. My material's wasted on you."],
+  counting: ["Let me count… *licks paw, flips pages*", "Hang on, counting… *abacus noises*", "One sec, asking the database nicely…"],
   fallback: ["Huh.", "Tell me more.", "Interesting…", "Mhm. Go on.", "*nods like he understood*", "I see. I don't, but I see.", "Fascinating. Got any snacks?"],
   needHunger: ["…also I'm starving, just saying.", "Psst. Feed me in Pocket Gus?"],
   needDirty: ["Also, I'm kind of grubby. Bath?"],

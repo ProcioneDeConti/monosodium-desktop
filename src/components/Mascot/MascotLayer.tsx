@@ -366,7 +366,10 @@ export function MascotLayer({
   const sleeping = useMascotStore((s) => s.sleeping);
   const thinking = useMascotStore((s) => s.thinking > 0);
   const hidden = useMascotStore((s) => s.hiddenForSession);
-  if (mode === "off" || suppressed) return null;
+  // Only one Gus on screen: while a panel hosts its own (Games, Dashboard - including Pocket Gus
+  // and Talk to Gus, whose host layer is suppressed for their big Gus), the grid's steps aside.
+  const hostedElsewhere = useMascotStore((s) => !inOverlay && s.overlayHosts > 0);
+  if (mode === "off" || suppressed || hostedElsewhere) return null;
   if (hidden) return <HiddenUndoPill />;
   return mode === "companion" ? (
     <Companion active={active} sleeping={sleeping} thinking={thinking} onPet={onPet} />
