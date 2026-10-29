@@ -22,6 +22,26 @@ This is a personal project, not affiliated with or endorsed by e621 or e6AI. It 
 - **Update check** - an optional check against the GitHub releases page for a newer version.
 - **Content rating controls** - an adult-mode master switch plus per-rating (Safe / Questionable / Explicit) toggles.
 - **Theming** - an accent color, a light / dark / system theme override, and a random welcome greeting in Settings.
+- **Gus, the mascot** - a paper-cut raccoon companion who can sit in a corner of the grid and react to what you do, plus the games below.
+
+## Games
+
+A Games panel built around e621's own data - every post-based game pulls real posts through the same rate-limited API as the rest of the app, and respects your rating settings and blacklist.
+
+- **Pocket Gus** - a Tamagotchi-style Gus to feed, groom, bathe, play with and put to bed. His needs drain in real time, even while the app is closed. His room follows the time of day, and you might catch a visitor at the window now and then.
+- **Talk to Gus** - chat with him, flirt, ask him things, play Truth or Dare and Would You Rather, or share a post from the viewer and hear what he thinks of it. He remembers your name and what you've told him, and can fetch posts if you ask ("show me red foxes").
+- **Tagdle** - which tag has more posts? A daily puzzle plus endless mode.
+- **Score Sniffer** - does the next post have a higher score or more favorites? Keep the streak alive.
+- **Whodunnit** - who drew this? Four names, ten posts.
+- **Who's That Floof?!** - name the species before the blur clears.
+- **Enhance!** - starts zoomed way in; every wrong guess pulls the camera back.
+- **Horny Jail or Sunday School** - a blurred post and its tags: safe, questionable, or explicit?
+- **Tag Hopper** - hop from one tag to another through shared posts. Daily puzzle plus endless.
+- **Sus** - three posts share a tag; spot the impostor.
+- **Time Machine** - guess the upload year.
+- **Tag Bingo** - claim posts for the squares on your card; first line in the fewest posts wins.
+
+**Gus is not an AI chatbot.** Talk to Gus doesn't use an LLM or any online AI service - it's hand-written rules and lines plus a small Markov-chain "babbler", running entirely on your machine. Nothing you say to him leaves your computer: the only network requests he makes are ordinary e621 API lookups (searching posts, counting a tag's posts, or picking a post to show you), through the same rate-limited backend as the rest of the app. His spicier lines only appear in adult mode with the Explicit rating enabled.
 
 ## Requirements
 
@@ -33,9 +53,9 @@ This is a personal project, not affiliated with or endorsed by e621 or e6AI. It 
 
 Grab the latest build from the [Releases](https://github.com/ProcioneDeConti/monosodium-desktop/releases) page. Each release has three flavors:
 
-- **Offline installer** (`-offline-setup.exe`, ~210 MB) - carries the full WebView2 Runtime and installs it with no network access. Use this on a machine that might not have the runtime, or for unattended/air-gapped installs.
-- **Online installer** (`-online-setup.exe`, ~4 MB) - the same app, but it fetches the WebView2 Runtime from Microsoft during setup if it isn't already present. Much smaller; needs a connection the first time only.
-- **Portable** (`-portable.exe`, ~12 MB) - a single self-contained executable with no installer, no registry entries, and no Start Menu shortcut. It keeps its data in a `data` folder next to the exe when that location is writable, and falls back to `%LOCALAPPDATA%\Monosodium Desktop` otherwise. Needs the WebView2 Runtime already installed.
+- **Offline installer** (`-offline-setup.exe`, ~310 MB) - carries the full WebView2 Runtime and installs it with no network access. Use this on a machine that might not have the runtime, or for unattended/air-gapped installs.
+- **Online installer** (`-online-setup.exe`, ~100 MB) - the same app, but it fetches the WebView2 Runtime from Microsoft during setup if it isn't already present. Smaller; needs a connection the first time only.
+- **Portable** (`-portable.exe`, ~110 MB) - a single self-contained executable with no installer, no registry entries, and no Start Menu shortcut. It keeps its data in a `data` folder next to the exe when that location is writable, and falls back to `%LOCALAPPDATA%\Monosodium Desktop` otherwise. Needs the WebView2 Runtime already installed.
 
 All three are the same compiled build - the only difference is how (or whether) the WebView2 Runtime is handled.
 
