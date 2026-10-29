@@ -534,6 +534,7 @@ export function PostViewer({
                 loopDefault={videoLoopEnabled}
                 speedDefault={videoPlaybackSpeed}
                 autoplayEnabled={videoAutoplayEnabled}
+                hideControls={slideshowActive}
               />
             ) : (
               <ZoomableImage
