@@ -8,7 +8,25 @@
 // Plus his Pocket Gus needs leak into the conversation, and talking to him affects them.
 
 import { Babbler } from "./gusMarkov";
-import { answerGame, chatGame, cooledHeat, oracle, opinion, special, themed, type BrainCtx, type BrainOut } from "./gusBrain";
+import {
+  aboutSelf,
+  answerGame,
+  because,
+  chatGame,
+  cooledHeat,
+  favorite,
+  FILLER_RE,
+  oracle,
+  opinion,
+  recap,
+  special,
+  steer,
+  themed,
+  WHY_RE,
+  type BrainCtx,
+  type BrainOut,
+  type Known,
+} from "./gusBrain";
 import { CORPUS, LINES, RULES, type Line, type Lines, type Stage, type Tier } from "./gusChatLines";
 import type { PetAction, PetState } from "./gusPet";
 import { REACTIONS, type MascotMotion } from "./mascot";
@@ -18,6 +36,7 @@ import {
   dateAnswer,
   DO_I_LIKE_RE,
   EMPTY_CONV,
+  introName,
   mathAnswer,
   normalize,
   NO_RE,
@@ -278,7 +297,11 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
   const prev = env.conv ?? EMPTY_CONV;
   const keys = env.babbler?.keywords(text) ?? [];
   // Follow-ups ("why?", "tell me more") carry no keywords - keep talking about the last thing.
-  let conv: ConvState = { expect: null, topic: keys.length ? keys.join(" ") : prev.topic, lastInput: text };
+  let conv: ConvState = { expect: null, topic: keys.length ? keys.join(" ") : prev.topic, lastInput: text, topics: prev.topics ?? [] };
+  const mention = (x: string) => {
+    conv = { ...conv, topics: [...(conv.topics ?? []).filter((t) => t !== x), x].slice(-8) };
+  };
+  const known = (): Known => ({ name: mem.name, likes: mem.likes, facts: mem.facts, topics: conv.topics ?? [] });
   const warm = (n: number) => {
     mem = { ...mem, heat: Math.max(0, Math.min(100, mem.heat + n)) };
   };
@@ -296,6 +319,11 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
     if (out.heat) warm(out.heat);
     if (out.affection) mem = { ...mem, affection: Math.max(0, Math.min(100, mem.affection + out.affection)) };
     if (out.expect !== undefined) expect(out.expect);
+    if (out.subject) {
+      conv = { ...conv, subject: out.subject };
+      mention(out.subject.x);
+    }
+    if (out.topic) mention(out.topic);
     return done(out.sendPic ? { sendPic: out.sendPic } : {});
   };
   const replies: GusReply[] = [];
@@ -350,6 +378,9 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
   if (shape && !shape.prefix) return use(shape);
   if (shape) replies.push(...shape.replies);
 
+  // 0c. "Why?" right after he gave a take - he explains himself.
+  if (prev.subject && WHY_RE.test(text)) return use(because(prev.subject, brain()));
+
   // 1. Intents and things he can work out.
   const count = parseCountQuestion(text);
   const countTag = count ? phraseToTag(count) : null;
@@ -366,6 +397,7 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
   if (search) {
     const pretty = search.split(" ").filter((t) => !t.startsWith("-")).join(" + ").replace(/_/g, " ");
     say(env.tier !== "clean" && rnd() < 0.5 ? LINES.searchingCheeky : LINES.searching, pretty, "hop", ["🔍"]);
+    mention(pretty);
     return done({ search });
   }
   if (POPULAR_RE.test(text)) {
@@ -374,8 +406,9 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
   }
 
   // 2. Memory: being told his name for you.
-  const name = text.match(NAME_RE)?.[1];
-  if (name && !NOT_NAMES.has(name.toLowerCase())) {
+  const named = text.match(NAME_RE)?.[1];
+  const name = named && !NOT_NAMES.has(named.toLowerCase()) ? named : introName(text, (w) => env.babbler?.knows(w) ?? false);
+  if (name) {
     mem = { ...mem, name: capitalise(name), affection: Math.min(100, mem.affection + 2) };
     say(LINES.learnedName, undefined, "hop", ["👋"]);
     return done();
@@ -417,6 +450,10 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
   const game = chatGame(text, brain(), rnd);
   if (game) return use(game);
 
+  // 2d. Things he can answer properly: what he remembers, his favorites, himself.
+  const answer = recap(text, known()) ?? favorite(text, brain()) ?? aboutSelf(text);
+  if (answer) return use(answer);
+
   // 3. Personality rules.
   for (const rule of RULES) {
     const m = text.match(rule.match);
@@ -453,6 +490,13 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
     mem = { ...mem, likes: remember(mem.likes, reflect(like)) };
     say(env.tier !== "clean" && rnd() < 0.4 ? LINES.learnedLikeCheeky : LINES.learnedLike, reflect(like), "nod", ["📝"]);
     return done();
+  }
+
+  // 3a. "Cool." / "Hmm." - nothing to work with, so he steers, using what he knows about you.
+  if (FILLER_RE.test(text)) {
+    let out = steer(known(), brain(), rnd);
+    for (let i = 0; i < 4 && env.recent.has(out.replies[0].text); i++) out = steer(known(), brain(), rnd);
+    return use(out);
   }
 
   // 3b. Opinions, yes/no questions, and topics he has something to say about.
@@ -517,8 +561,8 @@ export function respond(input: string, memory: ChatMemory, env: ChatEnv, rnd: ()
         return true;
       }
       case "fact": {
-        if (text.endsWith("?") || text.split(/\s+/).length > 8) return false;
-        rememberFact(e.key, reflect(text.replace(/^(it'?s|its|they'?re|it is)\s+/i, "").replace(/[.!]+$/, "")));
+        if (text.endsWith("?") || text.split(/\s+/).length > 8 || FILLER_RE.test(text) || /^(i don'?t know|no idea|not sure|dunno)\b/i.test(text)) return false;
+        rememberFact(e.key, reflect(text.replace(/^(?:yes|yeah|yep),?\s+/i, "").replace(/^(it'?s|its|they'?re|it is|i'?m from|i live in|i work as|i'?m an?|i'?m)\s+/i, "").replace(/[.!]+$/, "")));
         return true;
       }
       case "talk":

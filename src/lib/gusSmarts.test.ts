@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_MEMORY, respond, type ChatEnv, type ChatMemory } from "./gusChat";
-import { answerName, EMPTY_CONV, mathAnswer, normalize, parseCountQuestion, parseFact, parseFactQuestion, statsAnswer, type ConvState } from "./gusSmarts";
+import { answerName, EMPTY_CONV, introName, quickReplies, mathAnswer, normalize, parseCountQuestion, parseFact, parseFactQuestion, statsAnswer, type ConvState } from "./gusSmarts";
 
 const NOW = 1_700_000_000_000;
 const first = () => 0;
@@ -100,5 +100,42 @@ describe("practical answers", () => {
     expect(answerName("Sam")).toBe("Sam");
     expect(answerName("nope")).toBeNull();
     expect(answerName("why do you ask?")).toBeNull();
+  });
+});
+
+describe("introName", () => {
+  const knows = (w: string) => ["cool", "sleepy", "trash"].includes(w);
+  it("picks names out of introductions", () => {
+    expect(introName("i'm alex", knows)).toBe("Alex");
+    expect(introName("hi gus, im Riley!", knows)).toBe("Riley");
+    expect(introName("i'm Trash", knows)).toBe("Trash");
+  });
+  it("ignores states and ordinary words", () => {
+    expect(introName("i'm bored", knows)).toBeNull();
+    expect(introName("i'm cool", knows)).toBeNull();
+    expect(introName("i'm starving", knows)).toBeNull();
+    expect(introName("i'm going home", knows)).toBeNull();
+  });
+  it("answers 'what's my X called'", () => {
+    expect(parseFactQuestion("what's my dog called?")).toBe("dog");
+  });
+});
+
+describe("quickReplies", () => {
+  it("offers answers to his question, or starters early on", () => {
+    expect(quickReplies({ kind: "tod" }, 9)).toEqual(["Truth", "Dare"]);
+    expect(quickReplies({ kind: "wyr", a: "fly", b: "be invisible" }, 9)).toEqual(["Fly", "Be invisible"]);
+    expect(quickReplies(null, 0).length).toBeGreaterThan(0);
+    expect(quickReplies(null, 5)).toEqual([]);
+    expect(quickReplies({ kind: "name" }, 0)).toEqual([]);
+  });
+});
+
+describe("introName edge cases", () => {
+  it("doesn't take states or Gus's own name", () => {
+    const none = () => false;
+    expect(introName("this is gus", none)).toBeNull();
+    expect(introName("i'm hard", none)).toBeNull();
+    expect(introName("i'm married", none)).toBeNull();
   });
 });

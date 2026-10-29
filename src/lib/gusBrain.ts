@@ -32,7 +32,14 @@ export interface BrainOut {
   expect?: Expect | null;
   heat?: number;
   affection?: number;
+  /** What he just gave a take on - "why?" / "really?" next asks about this (see because()). */
+  subject?: { x: string; mood: Mood };
+  /** Something talked about, for "what did we talk about?" (a subject counts too). */
+  topic?: string;
 }
+
+/** How he feels about a subject he's just given a take on. */
+export type Mood = "love" | "meh" | "unsure" | "dislike" | "dodge";
 
 interface T {
   clean: string[];
@@ -136,60 +143,61 @@ export function special(raw: string, lastInput: string, ctx: BrainCtx, rnd: () =
 const OPINION_RE =
   /^(?:what do you think (?:of|about)|what'?s your (?:opinion|take) on|how do you feel about|thoughts on|do you (?:like|love|hate|enjoy)|you like|are you (?:a fan of|into)|opinion on) (.+?)\??$/i;
 
-const OPINIONS: [RegExp, T][] = [
+/** [topic, his take, how he feels (default love) - picks his reason if you ask "why?"]. */
+const OPINIONS: [RegExp, T, Mood?][] = [
   [/\b(trash|garbage|dumpsters?|bins?)\b/, { clean: ["Trash is life. Trash is love. Next question.", "I'd die for trash. I'd LIVE for trash, actually. Every night."] }],
   [/\b(grapes?)\b/, { clean: ["Grapes are perfect. Bite-sized, paw-sized, washable. Ten out of ten."] }],
-  [/\b(cats?|kitties)\b/, { clean: ["Cats and I have an understanding. They stay off my bins, I stay off their couch."], cheeky: ["Cats? Arrogant. Fluffy. Honestly, a bit like me."] }],
-  [/\b(dogs?|doggos?|puppies)\b/, { clean: ["Dogs are sweet but they keep chasing me. Rude."] }],
+  [/\b(cats?|kitties)\b/, { clean: ["Cats and I have an understanding. They stay off my bins, I stay off their couch."], cheeky: ["Cats? Arrogant. Fluffy. Honestly, a bit like me."] }, "meh"],
+  [/\b(dogs?|doggos?|puppies)\b/, { clean: ["Dogs are sweet but they keep chasing me. Rude."] }, "dislike"],
   [/\b(foxes|fox)\b/, { clean: ["Foxes are the only other night bandits I respect."], cheeky: ["Foxes? Everyone's thirsty for foxes. I get it. Pointy, cocky, great tails."] }],
-  [/\b(water|baths?|swimming)\b/, { clean: ["Water is great for washing food. Less great for washing me. Complicated feelings."] }],
-  [/\b(mondays?)\b/, { clean: ["Mondays are the dumpster fire of the week. And not the fun kind."] }],
-  [/\b(coffee)\b/, { clean: ["Coffee is just bean water for people who can't nap. I nap."] }],
-  [/\b(pineapple (on )?pizza)\b/, { clean: ["Pineapple on pizza? I eat from bins. I don't get to have opinions on pizza. …It's fine."] }],
+  [/\b(water|baths?|swimming)\b/, { clean: ["Water is great for washing food. Less great for washing me. Complicated feelings."] }, "meh"],
+  [/\b(mondays?)\b/, { clean: ["Mondays are the dumpster fire of the week. And not the fun kind."] }, "dislike"],
+  [/\b(coffee)\b/, { clean: ["Coffee is just bean water for people who can't nap. I nap."] }, "meh"],
+  [/\b(pineapple (on )?pizza)\b/, { clean: ["Pineapple on pizza? I eat from bins. I don't get to have opinions on pizza. …It's fine."] }, "meh"],
   [/\b(rain|storms?)\b/, { clean: ["Rain washes my paws for free. Big fan."] }],
-  [/\b(winter|snow|cold)\b/, { clean: ["Winter? I sleep through most of it. Fat raccoon season."] }],
+  [/\b(winter|snow|cold)\b/, { clean: ["Winter? I sleep through most of it. Fat raccoon season."] }, "meh"],
   [/\b(summer|heat|sun)\b/, { clean: ["Summer means picnics, and picnics mean unattended snacks."] }],
   [/\b(anime)\b/, { clean: ["Anime's great. Have you seen how many raccoon girls are in Pom Poko? Iconic."], cheeky: ["Anime? I know what tags you pair it with."] }],
   [/\b(furr(y|ies)|the fandom|fursuits?)\b/, { clean: ["I'm the mascot of a furry art browser. I'm not just in the fandom, I'm load-bearing."], cheeky: ["Furries? Pal, look where we are."] }],
   [/\b(e621|e6)\b/, { clean: ["It's my home! Well, I live in the app. e621 is the dumpster I raid."], cheeky: ["e621 is the world's biggest, horniest library and I'm the librarian."] }],
-  [/\b(ai art|e6ai|ai)\b/, { clean: ["AI art? Robots drawing raccoons. Weird times. I prefer hand-drawn, personally."], cheeky: ["AI art? Too many fingers. Although… some people are into that."] }],
-  [/\b(humans?|people)\b/, { clean: ["Humans are weird hairless giants who throw away perfectly good food. I love them."] }],
+  [/\b(ai art|e6ai|ai)\b/, { clean: ["AI art? Robots drawing raccoons. Weird times. I prefer hand-drawn, personally."], cheeky: ["AI art? Too many fingers. Although… some people are into that."] }, "meh"],
+  [/\b(humans?|people)\b/, { clean: ["Humans are weird hairless giants who throw away perfectly good food. I love them."] }, "meh"],
   [/\b(raccoons?|trash pandas?)\b/, { clean: ["Raccoons are the peak of evolution. I'm not biased. I'm correct."] }],
   [/\b(red pandas?)\b/, { clean: ["Red pandas! Cousins. Sort of. Distant. They got the cute marketing, we got the bins."] }],
   [/\b(sleep|naps?)\b/, { clean: ["Sleep is my second-favorite hobby. The first is eating before sleep."] }],
   [/\b(the moon|moon)\b/, { clean: ["The moon is a big shiny bottle cap and one day I'm stealing it."] }],
   [/\b(bottle caps?)\b/, { clean: ["Bottle caps are the currency of the future. I'm VERY rich."] }],
-  [/\b(sex|fucking|smut|porn)\b/, { clean: ["Ahem. No comment. I'm a family raccoon.", "Uh. I'm going to go check on my bottle caps."], cheeky: ["It's literally what this website is for, babe.", "Ask me again with Nasty on."], nasty: ["Love it. Especially with you. Next question.", "Big fan. Huge fan. Would you like a demonstration?"], hot: ["You really want to talk about it, or do you want to do it? Because I've been ready for a while."] }],
+  [/\b(sex|fucking|smut|porn)\b/, { clean: ["Ahem. No comment. I'm a family raccoon.", "Uh. I'm going to go check on my bottle caps."], cheeky: ["It's literally what this website is for, babe.", "Ask me again with Nasty on."], nasty: ["Love it. Especially with you. Next question.", "Big fan. Huge fan. Would you like a demonstration?"], hot: ["You really want to talk about it, or do you want to do it? Because I've been ready for a while."] }, "dodge"],
   [/\b(feet|paws|toes)\b/, { clean: ["My paws are very sensitive. Don't touch. …Okay, a little touch."], cheeky: ["Paws? Oh, I see what you're into.", "Feet? This website's favorite tag that isn't a species."], nasty: ["Want me to rub your feet? Or do you want to worship my paws? Either works."] }],
   [/\b(tails?)\b/, { clean: ["Tails are the best part of anyone. Mine has rings. Need I say more?"], nasty: ["Tails are great to grab. Hint hint."] }],
-  [/\b(knots?|knotting)\b/, { clean: ["Knots? Like, rope knots? I'm great with knots. Tiny clever paws."], cheeky: ["I'm a raccoon, not a canine, so… professionally, no comment."], nasty: ["Not my department, anatomically. But I'm a fast learner."] }],
-  [/\b(bdsm|bondage|being tied|ropes?)\b/, { clean: ["I'm good at knots! Wait, that's not what you meant, is it."], cheeky: ["Tie me up and I'll just untie it. Clever paws. Ruins the mood."], nasty: ["I'd let you tie me up. And then I'd pick the lock and return the favor."] }],
+  [/\b(knots?|knotting)\b/, { clean: ["Knots? Like, rope knots? I'm great with knots. Tiny clever paws."], cheeky: ["I'm a raccoon, not a canine, so… professionally, no comment."], nasty: ["Not my department, anatomically. But I'm a fast learner."] }, "dodge"],
+  [/\b(bdsm|bondage|being tied|ropes?)\b/, { clean: ["I'm good at knots! Wait, that's not what you meant, is it."], cheeky: ["Tie me up and I'll just untie it. Clever paws. Ruins the mood."], nasty: ["I'd let you tie me up. And then I'd pick the lock and return the favor."] }, "dodge"],
   // ---- Food & drink
   [/\b(pizza)\b/, { clean: ["Pizza is the king of dumpster finds. Cold, warm, dropped - all valid."] }],
   [/\b(sushi)\b/, { clean: ["Sushi! Raw fish, rolled up tidy. Somebody finally gets me."] }],
   [/\b(tacos?|burritos?)\b/, { clean: ["Tacos fall apart in your hands. Mine are tiny and clever and they STILL fall apart. Worth it."] }],
   [/\b(chocolate|candy|sweets)\b/, { clean: ["Chocolate! I'm told it's bad for animals. I'm told a lot of things."] }],
   [/\b(ice cream)\b/, { clean: ["Ice cream is just cold happiness. The dropped cone is the best part of a summer bin."] }],
-  [/\b(vegetables?|veggies|salad|broccoli)\b/, { clean: ["Vegetables are fine if there's literally nothing else in the bin."] }],
-  [/\b(tea)\b/, { clean: ["Tea is coffee that went to finishing school. I'll allow it."] }],
+  [/\b(vegetables?|veggies|salad|broccoli)\b/, { clean: ["Vegetables are fine if there's literally nothing else in the bin."] }, "meh"],
+  [/\b(tea)\b/, { clean: ["Tea is coffee that went to finishing school. I'll allow it."] }, "meh"],
   [/\b(energy drinks?|monster|red bull)\b/, { clean: ["Energy drinks? I'm a raccoon at 3 a.m. I AM the energy drink."] }],
-  [/\b(alcohol|beer|wine|booze)\b/, { clean: ["I've licked a beer can. Once. I saw colors. Never again. …Maybe again."], nasty: ["A drink or two? Sure. Loosens you up. I like you loose."] }],
+  [/\b(alcohol|beer|wine|booze)\b/, { clean: ["I've licked a beer can. Once. I saw colors. Never again. …Maybe again."], nasty: ["A drink or two? Sure. Loosens you up. I like you loose."] }, "meh"],
   [/\b(cheese)\b/, { clean: ["Cheese is proof that the universe loves me specifically."] }],
   [/\b(bacon)\b/, { clean: ["Bacon is the smell that tells me a human is happy and careless with scraps."] }],
-  [/\b(spicy food|hot sauce|peppers?)\b/, { clean: ["Spicy food? I bit a pepper once. I washed my tongue for an hour."], cheeky: ["Spicy? Oh, I like spicy. Food AND company."] }],
+  [/\b(spicy food|hot sauce|peppers?)\b/, { clean: ["Spicy food? I bit a pepper once. I washed my tongue for an hour."], cheeky: ["Spicy? Oh, I like spicy. Food AND company."] }, "dislike"],
 
   // ---- Animals
-  [/\b(geese|goose)\b/, { clean: ["Geese are the enemy. Hissing, honking, sandwich-stealing feathered menaces. I lost. Twice."] }],
+  [/\b(geese|goose)\b/, { clean: ["Geese are the enemy. Hissing, honking, sandwich-stealing feathered menaces. I lost. Twice."] }, "dislike"],
   [/\b(possums?|opossums?)\b/, { clean: ["Possums! My bin buddies. Weird little guys. They play dead when I steal their snacks. Rude, but fair."] }],
-  [/\b(skunks?)\b/, { clean: ["Skunks are lovely. From a distance. A LARGE distance."] }],
-  [/\b(squirrels?)\b/, { clean: ["Squirrels hoard nuts. Amateurs. I hoard EVERYTHING."] }],
-  [/\b(birds?|pigeons?|crows?)\b/, { clean: ["Crows are smart. Too smart. They know where I hide my bottle caps."] }],
-  [/\b(rats?|mice|mouse)\b/, { clean: ["Rats? We are NOT related. I have a mask. They have… tails. Fine, we both have tails."] }],
-  [/\b(wolf|wolves)\b/, { clean: ["Wolves are so dramatic. Howling at the moon like it owes them money."], cheeky: ["Wolves? This website loves a wolf. I've seen the numbers."] }],
+  [/\b(skunks?)\b/, { clean: ["Skunks are lovely. From a distance. A LARGE distance."] }, "meh"],
+  [/\b(squirrels?)\b/, { clean: ["Squirrels hoard nuts. Amateurs. I hoard EVERYTHING."] }, "meh"],
+  [/\b(birds?|pigeons?|crows?)\b/, { clean: ["Crows are smart. Too smart. They know where I hide my bottle caps."] }, "meh"],
+  [/\b(rats?|mice|mouse)\b/, { clean: ["Rats? We are NOT related. I have a mask. They have… tails. Fine, we both have tails."] }, "meh"],
+  [/\b(wolf|wolves)\b/, { clean: ["Wolves are so dramatic. Howling at the moon like it owes them money."], cheeky: ["Wolves? This website loves a wolf. I've seen the numbers."] }, "dislike"],
   [/\b(dragons?)\b/, { clean: ["Dragons hoard treasure. I hoard trash. Same energy, worse PR."], cheeky: ["Dragons are huge on here. In every sense."] }],
   [/\b(otters?)\b/, { clean: ["Otters hold hands while they sleep so they don't drift apart. I'd hold your hand. Sticky, though."] }],
   [/\b(bunn(y|ies)|rabbits?)\b/, { clean: ["Bunnies are soft and fast and terrified of everything. Relatable, honestly."], cheeky: ["Bunnies? You know what they say about bunnies."] }],
-  [/\b(horses?)\b/, { clean: ["Horses are huge. Nice, but huge. I don't trust anything I can't climb."], cheeky: ["Horses. I've seen the tags. I've seen ALL the tags."] }],
+  [/\b(horses?)\b/, { clean: ["Horses are huge. Nice, but huge. I don't trust anything I can't climb."], cheeky: ["Horses. I've seen the tags. I've seen ALL the tags."] }, "meh"],
   [/\b(sharks?)\b/, { clean: ["Sharks are just ocean raccoons. They eat anything and nobody trusts them."] }],
   [/\b(snakes?|scalies?|lizards?)\b/, { clean: ["Scalies! Cold-blooded, warm-hearted. Mostly."] }],
   [/\b(protogens?|robots?)\b/, { clean: ["Protogens! Screen faces. Can I put my face on a screen? …Wait, I already live in one."] }],
@@ -197,7 +205,7 @@ const OPINIONS: [RegExp, T][] = [
 
   // ---- Places, time, weather
   [/\b(night|nighttime|late nights?)\b/, { clean: ["Night is my time. Everything's quieter, the bins are fuller, and you're awake."], nasty: ["Night's when the good stuff happens. You know what I mean."] }],
-  [/\b(mornings?)\b/, { clean: ["Mornings are when I go to bed. Strongly against them."] }],
+  [/\b(mornings?)\b/, { clean: ["Mornings are when I go to bed. Strongly against them."] }, "dislike"],
   [/\b(weekends?|fridays?)\b/, { clean: ["Weekends mean parties, and parties mean leftovers. Best two days."] }],
   [/\b(halloween)\b/, { clean: ["Halloween! Everyone wears a mask. Finally, they get it."] }],
   [/\b(christmas|holidays)\b/, { clean: ["Christmas means wrapping paper in the bins. I make a nest. It's lovely."] }],
@@ -210,15 +218,15 @@ const OPINIONS: [RegExp, T][] = [
   // ---- Tech & internet
   [/\b(computers?|pcs?|laptops?)\b/, { clean: ["Computers are warm. I live in one. Five stars."] }],
   [/\b(phones?|iphones?|android)\b/, { clean: ["Phones are just tiny screens for looking at posts in bed. I see you."] }],
-  [/\b(windows)\b/, { clean: ["Windows? I live here. It updates whenever it wants. Kind of like me."] }],
-  [/\b(linux)\b/, { clean: ["Linux? You can make it do anything if you suffer enough. Very raccoon."] }],
-  [/\b(macs?|apple)\b/, { clean: ["Apple? Shiny, expensive, and they won't let me in. Very fancy bin."] }],
-  [/\b(social media|twitter|bluesky|tumblr|reddit|discord|tiktok)\b/, { clean: ["Social media is a bin everyone's yelling into. I prefer real bins."] }],
+  [/\b(windows)\b/, { clean: ["Windows? I live here. It updates whenever it wants. Kind of like me."] }, "meh"],
+  [/\b(linux)\b/, { clean: ["Linux? You can make it do anything if you suffer enough. Very raccoon."] }, "meh"],
+  [/\b(macs?|apple)\b/, { clean: ["Apple? Shiny, expensive, and they won't let me in. Very fancy bin."] }, "meh"],
+  [/\b(social media|twitter|bluesky|tumblr|reddit|discord|tiktok)\b/, { clean: ["Social media is a bin everyone's yelling into. I prefer real bins."] }, "meh"],
   [/\b(memes?)\b/, { clean: ["Memes are humanity's finest art form. Second only to garbage."] }],
   [/\b(video games?|gaming|games)\b/, { clean: ["Games are great. I'd main a stealth class. Obviously."] }],
-  [/\b(minecraft)\b/, { clean: ["Minecraft! An entire world made of blocks and not one bin. Missed opportunity."] }],
+  [/\b(minecraft)\b/, { clean: ["Minecraft! An entire world made of blocks and not one bin. Missed opportunity."] }, "meh"],
   [/\b(pok[eé]mon)\b/, { clean: ["Pokémon? Bidoof is the only one who gets me. Okay, and Zigzagoon."] }],
-  [/\b(chatgpt|chatbots?|claude|llms?)\b/, { clean: ["Chatbots? Pfft. I'm hand-crafted, organic, and run on trash. Way more authentic."] }],
+  [/\b(chatgpt|chatbots?|claude|llms?)\b/, { clean: ["Chatbots? Pfft. I'm hand-crafted, organic, and run on trash. Way more authentic."] }, "dislike"],
 
   // ---- Media & culture
   [/\b(movies?|films?)\b/, { clean: ["Movies are great if there's a heist in them. Every movie should have a heist."] }],
@@ -235,37 +243,36 @@ const OPINIONS: [RegExp, T][] = [
   [/\b(blacklists?)\b/, { clean: ["Blacklists are good! Everyone has stuff they don't want to see. Except me. I see everything."] }],
 
   // ---- Life stuff
-  [/\b(money)\b/, { clean: ["Money's just weird bottle caps that humans agreed on."] }],
-  [/\b(work|jobs?)\b/, { clean: ["Work? I don't have a job. I have a calling."] }],
-  [/\b(school|college)\b/, { clean: ["School? I went to the school of hard bins."] }],
-  [/\b(exercise|the gym|working out)\b/, { clean: ["Exercise? I climb a fence every night. Peak fitness."], cheeky: ["The gym? Ooh, sweaty. Send pics."], nasty: ["Working out? Good. You'll need the stamina."] }],
-  [/\b(showers?)\b/, { clean: ["Showers? Too much water from above. I prefer washing one paw at a time."], nasty: ["A shower? Only if I'm in it with you."] }],
+  [/\b(money)\b/, { clean: ["Money's just weird bottle caps that humans agreed on."] }, "meh"],
+  [/\b(work|jobs?)\b/, { clean: ["Work? I don't have a job. I have a calling."] }, "meh"],
+  [/\b(school|college)\b/, { clean: ["School? I went to the school of hard bins."] }, "meh"],
+  [/\b(exercise|the gym|working out)\b/, { clean: ["Exercise? I climb a fence every night. Peak fitness."], cheeky: ["The gym? Ooh, sweaty. Send pics."], nasty: ["Working out? Good. You'll need the stamina."] }, "meh"],
+  [/\b(showers?)\b/, { clean: ["Showers? Too much water from above. I prefer washing one paw at a time."], nasty: ["A shower? Only if I'm in it with you."] }, "dislike"],
   [/\b(cuddl(e|es|ing)|hugs?)\b/, { clean: ["Cuddles are the best. I'm very warm and only a little sticky."], nasty: ["Cuddling's great. Especially after."] }],
   [/\b(kiss(es|ing)?)\b/, { clean: ["Kisses? *blushes under mask* …I'm in favor."], nasty: ["Kissing's great. Especially when it goes somewhere."] }],
   [/\b(love|romance)\b/, { clean: ["Love is finding someone who'd share their last fry with you. I'd share mine. With you. Maybe."] }],
   [/\b(marriage|weddings?)\b/, { clean: ["Weddings have the BEST leftovers. Big fan of marriage, from a catering perspective."] }],
   [/\b(kids|children|babies)\b/, { clean: ["Kids drop SO much food. Honestly, love them."] }],
-  [/\b(death|dying)\b/, { clean: ["Heavy question. I try to live every night like it's garbage day."] }],
-  [/\b(god|religion)\b/, { clean: ["I worship the Great Dumpster in the sky. Very forgiving. Always full."] }],
-  [/\b(politics)\b/, { clean: ["Politics? I'm a raccoon. My only platform is 'more bins, fewer lids'."] }],
+  [/\b(death|dying)\b/, { clean: ["Heavy question. I try to live every night like it's garbage day."] }, "meh"],
+  [/\b(god|religion)\b/, { clean: ["I worship the Great Dumpster in the sky. Very forgiving. Always full."] }, "meh"],
+  [/\b(politics)\b/, { clean: ["Politics? I'm a raccoon. My only platform is 'more bins, fewer lids'."] }, "meh"],
 
   // ---- Spicy topics
-  [/\b(kinks?|fetish(es)?)\b/, { clean: ["Ahem. I'm going to take the Fifth on that one."], cheeky: ["Everyone's got one. Yours is showing, by the way."], nasty: ["Kinks? Love them. Tell me yours and I'll tell you mine.", "I've got a few. You want the list, or the demonstration?"] }],
-  [/\b(musk|musky|sweat(y)?)\b/, { clean: ["Musk? I smell like a dumpster. Is that musk? I think that's musk."], cheeky: ["Musk is extremely popular on here. I've noticed."], nasty: ["Mmm. I'm already musky. Come closer and find out."] }],
-  [/\b(size difference|macro|micro)\b/, { clean: ["Size difference? Everything's bigger than me. I'm used to it."], cheeky: ["Size difference? Very big on here. Literally."], nasty: ["I'm small, but I'm VERY good at climbing."] }],
-  [/\b(vore)\b/, { clean: ["I eat a lot of things. Not people. …Not usually."], cheeky: ["Vore? I eat literally everything, but I draw the line somewhere. Somewhere."] }],
-  [/\b(inflation|blueberr(y|ies))\b/, { clean: ["Blueberries are great. Washed, of course."], cheeky: ["Blueberry? Oh. OH. That kind of blueberry."] }],
-  [/\b(latex|rubber)\b/, { clean: ["Latex? Gloves. For washing food. Right?"], cheeky: ["Latex? Squeaky. Shiny. I can see why."], nasty: ["Latex on me? Shiny raccoon. You'd never let me out of your sight."] }],
-  [/\b(collars?|leash(es)?)\b/, { clean: ["A collar? I'm a wild animal! …What color, though?"], cheeky: ["A collar, huh? Asking for a friend?"], nasty: ["Put a collar on me and see what happens. Or I'll put one on you."] }],
-  [/\b(lingerie|panties|underwear|jockstraps?)\b/, { clean: ["Underwear? I don't wear any. I'm a raccoon."], cheeky: ["Lingerie? I'd look great in lace. Don't argue."], nasty: ["Wear something lacy for me sometime. I'll take it off with my teeth."] }],
-  [/\b(nudity|nudes|naked)\b/, { clean: ["I'm always naked. It's called fur. Very scandalous."], nasty: ["Nudes? Send one. Fair trade, I'm already naked."] }],
-  [/\b(dom|dominant|domming)\b/, { clean: ["Dominant? I'm in charge of the bins. That counts."], nasty: ["Dom? I can take charge. Get on your knees and find out."] }],
-  [/\b(sub|submissive|subbing)\b/, { clean: ["Submissive? I submit to snacks. Always."], nasty: ["Subby, huh? I'd make you beg so nicely."] }],
-  [/\b(top|tops|topping)\b/, { clean: ["Top of the bin? Best spot. Freshest trash."], nasty: ["Top? I'll top you any day. Or let you try."] }],
-  [/\b(bottom|bottoms|bottoming)\b/, { clean: ["Bottom of the bin? That's where the treasure is."], nasty: ["Bottom? Bend over and I'll make you love it."] }],
-  [/\b(yiff|yiffing)\b/, { clean: ["I don't know that word. *knows that word*"], cheeky: ["Yiff? On e621? Never heard of it."], nasty: ["Yiff? Constantly. Want to?"] }],
-  [/\b(murrsuits?|murrsuiting)\b/, { clean: ["I'm going to pretend I don't know what that is."], cheeky: ["Murrsuits. Fursuits with… extra features. I've heard."] }],
-  [/\b(knot|knots)\b/, { clean: ["Knots? I'm great at untying things."] }],
+  [/\b(kinks?|fetish(es)?)\b/, { clean: ["Ahem. I'm going to take the Fifth on that one."], cheeky: ["Everyone's got one. Yours is showing, by the way."], nasty: ["Kinks? Love them. Tell me yours and I'll tell you mine.", "I've got a few. You want the list, or the demonstration?"] }, "dodge"],
+  [/\b(musk|musky|sweat(y)?)\b/, { clean: ["Musk? I smell like a dumpster. Is that musk? I think that's musk."], cheeky: ["Musk is extremely popular on here. I've noticed."], nasty: ["Mmm. I'm already musky. Come closer and find out."] }, "dodge"],
+  [/\b(size difference|macro|micro)\b/, { clean: ["Size difference? Everything's bigger than me. I'm used to it."], cheeky: ["Size difference? Very big on here. Literally."], nasty: ["I'm small, but I'm VERY good at climbing."] }, "dodge"],
+  [/\b(vore)\b/, { clean: ["I eat a lot of things. Not people. …Not usually."], cheeky: ["Vore? I eat literally everything, but I draw the line somewhere. Somewhere."] }, "dodge"],
+  [/\b(inflation|blueberr(y|ies))\b/, { clean: ["Blueberries are great. Washed, of course."], cheeky: ["Blueberry? Oh. OH. That kind of blueberry."] }, "dodge"],
+  [/\b(latex|rubber)\b/, { clean: ["Latex? Gloves. For washing food. Right?"], cheeky: ["Latex? Squeaky. Shiny. I can see why."], nasty: ["Latex on me? Shiny raccoon. You'd never let me out of your sight."] }, "dodge"],
+  [/\b(collars?|leash(es)?)\b/, { clean: ["A collar? I'm a wild animal! …What color, though?"], cheeky: ["A collar, huh? Asking for a friend?"], nasty: ["Put a collar on me and see what happens. Or I'll put one on you."] }, "dodge"],
+  [/\b(lingerie|panties|underwear|jockstraps?)\b/, { clean: ["Underwear? I don't wear any. I'm a raccoon."], cheeky: ["Lingerie? I'd look great in lace. Don't argue."], nasty: ["Wear something lacy for me sometime. I'll take it off with my teeth."] }, "dodge"],
+  [/\b(nudity|nudes|naked)\b/, { clean: ["I'm always naked. It's called fur. Very scandalous."], nasty: ["Nudes? Send one. Fair trade, I'm already naked."] }, "dodge"],
+  [/\b(dom|dominant|domming)\b/, { clean: ["Dominant? I'm in charge of the bins. That counts."], nasty: ["Dom? I can take charge. Get on your knees and find out."] }, "dodge"],
+  [/\b(sub|submissive|subbing)\b/, { clean: ["Submissive? I submit to snacks. Always."], nasty: ["Subby, huh? I'd make you beg so nicely."] }, "dodge"],
+  [/\b(top|tops|topping)\b/, { clean: ["Top of the bin? Best spot. Freshest trash."], nasty: ["Top? I'll top you any day. Or let you try."] }, "dodge"],
+  [/\b(bottom|bottoms|bottoming)\b/, { clean: ["Bottom of the bin? That's where the treasure is."], nasty: ["Bottom? Bend over and I'll make you love it."] }, "dodge"],
+  [/\b(yiff|yiffing)\b/, { clean: ["I don't know that word. *knows that word*"], cheeky: ["Yiff? On e621? Never heard of it."], nasty: ["Yiff? Constantly. Want to?"] }, "dodge"],
+  [/\b(murrsuits?|murrsuiting)\b/, { clean: ["I'm going to pretend I don't know what that is."], cheeky: ["Murrsuits. Fursuits with… extra features. I've heard."] }, "dodge"],
   [/\b(you|yourself|gus)\b/, { clean: ["I think I'm great. Handsome, clever, slightly sticky."] }],
   [/\b(me|myself)\b/, { clean: ["You? I think you're one of my favorite humans.", "You're alright. Better than alright. Don't let it go to your head."], nasty: ["I think you're hot and I think about you way too much."] }],
 ];
@@ -286,8 +293,198 @@ export function opinion(text: string, ctx: BrainCtx, rnd: () => number): BrainOu
   const topic = m[1].replace(/^(the|a|an)\s+/i, "").trim();
   if (!topic || topic.split(/\s+/).length > 6) return null;
   const known = OPINIONS.find(([re]) => re.test(topic.toLowerCase()));
-  const line = known ? tiered(known[1], ctx, rnd) : fill(tiered(stable(VERDICTS, topic), ctx, rnd), { x: topic });
-  return { replies: [say(line.charAt(0).toUpperCase() + line.slice(1), "tilt")] };
+  const verdict = stable(VERDICTS, topic);
+  const line = known ? tiered(known[1], ctx, rnd) : fill(tiered(verdict, ctx, rnd), { x: topic });
+  const mood: Mood = known ? (known[2] ?? "love") : VERDICT_MOODS[VERDICTS.indexOf(verdict)];
+  return { replies: [say(line.charAt(0).toUpperCase() + line.slice(1), "tilt")], subject: { x: topic, mood } };
+}
+
+/** Lines up with VERDICTS. */
+const VERDICT_MOODS: Mood[] = ["love", "meh", "unsure", "dislike", "dislike", "love"];
+
+// ---- Reasons ("why?" after a take) -----------------------------------------------------------------
+
+export const WHY_RE = /^(?:why|how come|really|for real|explain|elaborate|says who|what makes you say that|why do you (?:think|say) that)\b[^a-z]*$/i;
+
+const REASONS: Record<Mood, string[]> = {
+  love: [
+    "Because {x} has never once let me down. Unlike that one bin on 5th street.",
+    "Honestly? {x} just gets me. Some things you feel in your whiskers.",
+    "{x} is cozy and a little chaotic. Like me!",
+    "I had a great night once that involved {x}. I'm not telling you the details.",
+  ],
+  meh: [
+    "{x} is fine! It's just not trash-tier, you know? Top tier is trash.",
+    "Nothing wrong with {x}. It just doesn't make my tail fluff up.",
+    "I respect {x}. I don't lie awake thinking about it.",
+  ],
+  dodge: [
+    "Why? Because a raccoon never kisses and tells. Especially about {x}.",
+    "I'm not explaining my {x} opinions. Some things stay in the bin.",
+    "*looks away* Next question.",
+  ],
+  unsure: [
+    "I've never actually seen {x} up close. Raccoon life is very bin-focused.",
+    "Nobody's ever left {x} in a dumpster, so I haven't had the chance.",
+    "{x} is outside my area of expertise. My area is snacks.",
+  ],
+  dislike: [
+    "{x} looked at me funny once. I hold grudges.",
+    "Something about {x} smells wrong. My nose is never wrong. Mostly.",
+    "{x} and I have history. Long story. There was a broom involved.",
+    "Everyone acts like {x} is great and I'm the only one brave enough to say otherwise.",
+  ],
+};
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Spicy topics: he only dodges in clean - cheeky, he winks; nasty, he's keen to explain. */
+const DODGE_REASONS: Record<Tier, string[]> = {
+  clean: REASONS.dodge,
+  cheeky: [
+    "Why? You know why. You're on e621. *winks*",
+    "Let's just say {x} and I have an understanding. Don't make me spell it out.",
+    "I've seen enough {x} on here to have opinions. Lots of opinions.",
+  ],
+  nasty: [
+    "Why? Because {x} is hot and you know it. Want me to show you why?",
+    "Because thinking about {x} with you gets me going. Simple as that.",
+    "I could explain, or I could demonstrate. Your call.",
+  ],
+};
+
+/** His reason for the take he just gave - stable, so asking twice gets the same story. */
+export function because(subject: { x: string; mood: Mood }, ctx: BrainCtx): BrainOut {
+  const reasons = subject.mood === "dodge" ? DODGE_REASONS[ctx.tier] : REASONS[subject.mood];
+  return { replies: [say(cap(fill(stable(reasons, subject.x), { x: subject.x })), "tilt")], heat: subject.mood === "dodge" && ctx.tier === "nasty" ? 4 : 0 };
+}
+
+// ---- Favorites and questions about himself ---------------------------------------------------------
+
+const FAVORITE_RE =
+  /^(?:what'?s|what is|what are) your (?:favorite|fav|fave) ([a-z][a-z ]{1,25}?)\??$|^what (?:kind of |sort of |type of )?([a-z][a-z ]{1,25}?) do you (?:like|love|enjoy|listen to|prefer)(?: best| most)?\??$|^(?:do you have|got) a (?:favorite|fav|fave) ([a-z][a-z ]{1,25}?)\??$/i;
+
+/** [what it's about, his answer, an extra bit if you've searched for things]. */
+const FAVORITES: [RegExp, string, string?][] = [
+  [/colou?r/, "Gold. Bottle-cap gold. Second place: whatever color your snacks are."],
+  [/food|snack|meal|dish/, "Grapes. Then cold pizza. Then whatever you're eating right now."],
+  [/drink/, "The last sip of a soda someone threw out. Warm. Flat. Perfect."],
+  [/music|genre|band|song|artist/, "Anything with a bassline you can rummage to. Lo-fi is good. Lo-fi is basically bin music."],
+  [/movie|film|show|series/, "Heist movies. Obviously. I take notes."],
+  [/game/, "Anything with stealth sections. I was born for stealth sections."],
+  [/animal|species/, "Raccoons. Next question. …Okay, otters are cute too. Don't tell them I said that."],
+  [/season/, "Autumn. Leaf piles, candy wrappers, and everyone leaves their bins out."],
+  [/time|hour/, "3 AM. Bin o'clock."],
+  [/place|spot/, "Behind the dumpster on weekends. And right here, with you."],
+  [/number/, "Seven. It looks like it's sneaking somewhere."],
+  [/word/, "'Leftovers'. Such a beautiful word."],
+  [/tag/, "raccoon. I'm biased.", "After that, whatever you search most - I've noticed."],
+  [/weather/, "Light rain. Everything smells interesting and nobody's outside."],
+  [/holiday/, "Halloween. Free candy AND I don't need a costume."],
+  [/book/, "I can't read. I like the ones with good crunch, though."],
+  [/human|person|user/, "You. Obviously. Who else talks to me?"],
+];
+
+const FAV_FALLBACK = [
+  "My favorite {x}? Whichever one I can steal.",
+  "Ooh, hard to pick a favorite {x}. The shiny one.",
+  "Favorite {x}… I'll have to think about it. Raccoon-scale thinking takes a while.",
+];
+
+/** "what's your favorite color?" / "what kind of music do you like?" - same answer every time. */
+export function favorite(text: string, ctx: BrainCtx): BrainOut | null {
+  const m = text.match(FAVORITE_RE);
+  const x = (m?.[1] ?? m?.[2] ?? m?.[3])?.trim().toLowerCase();
+  if (!x || /^(?:things?|stuff|positions?|kinks?|you|me|else|exactly|all|about|other|more|most|best|the most)$/.test(x)) return null;
+  const known = FAVORITES.find(([re]) => re.test(x));
+  if (!known) return { replies: [say(fill(stable(FAV_FALLBACK, x), { x }), "tilt")] };
+  const extra = known[2] && ctx.topSearches.length ? ` ${known[2]}` : "";
+  return { replies: [say(known[1] + extra, "hop")], subject: { x, mood: "love" } };
+}
+
+const SELF: [RegExp, string[]][] = [
+  [/^(?:who (?:made|created|built|programmed|coded) you|where do you come from|where did you come from)\b/i, ["Someone who really likes raccoons put me in here. I've lived in the app ever since. Rent-free.", "I crawled in through a gap in the code. They decided to keep me."]],
+  [/^do you (?:dream|sleep)\b/i, ["I dream about an endless buffet of unattended picnic baskets. Every night.", "Yes! Mostly about bins. Sometimes about you. Is that weird?"]],
+  [/^(?:what do you do all day|what have you been (?:doing|up to))\b/i, ["Rummaging. Napping. Watching you scroll. A full schedule.", "Counting my bottle caps. I'm up to forty. Or four. Counting is hard."]],
+  [/^(?:(?:do|can) you (?:remember|learn) (?:things|stuff)|do you have a memory)\b/i, ["I remember your name, what you like, what you tell me about yourself, and what we talked about. Try me!"]],
+  [/^(?:what can you do|what can i (?:say|ask)|help)\b[^a-z]*$/i, ["I can search for you ('show me foxes'), count posts ('how many fox posts?'), do sums, tell you the date, remember things about you, play truth or dare or would-you-rather, roast you, and give very strong opinions."]],
+];
+
+/** Questions about Gus himself that deserve a real answer, not a shrug. */
+export function aboutSelf(text: string): BrainOut | null {
+  const hit = SELF.find(([re]) => re.test(text));
+  return hit ? { replies: [say(stable(hit[1], text), "nod")] } : null;
+}
+
+// ---- Recap and steering (from what he remembers about you) -----------------------------------------
+
+export interface Known {
+  name: string | null;
+  likes: string[];
+  facts: Record<string, string>;
+  /** Subjects this session, oldest first. */
+  topics: string[];
+}
+
+const RECAP_RE =
+  /^(?:what (?:did|have) we (?:talk(?:ed)? about|discuss(?:ed)?)|what were we talking about|what do you (?:know|remember) about me|what have i told you|tell me what you know about me|do you remember me)\??$/i;
+
+const listOf = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+
+/** "What do you know about me?" / "what did we talk about?" - he lists it back. */
+export function recap(text: string, k: Known): BrainOut | null {
+  if (!RECAP_RE.test(text)) return null;
+  const bits: string[] = [];
+  if (k.name) bits.push(`your name's ${k.name}`);
+  if (k.likes.length) bits.push(`you like ${listOf(k.likes.slice(-3))}`);
+  for (const [key, v] of Object.entries(k.facts).slice(-3)) bits.push(`your ${key} is ${v}`);
+  const topics = [...new Set(k.topics)].slice(-3);
+  if (!/\bme\b|told you/i.test(text) && topics.length)
+    return { replies: [say(`We talked about ${listOf(topics)}.${bits.length ? ` And I know ${listOf(bits.slice(0, 2))}.` : ""}`, "nod", ["🧠"])] };
+  if (!bits.length)
+    return { replies: [say("Not much yet! Tell me about yourself - your name, what you're into. I'm a great rememberer.", "tilt")], expect: k.name ? { kind: "like" } : { kind: "name" } };
+  return { replies: [say(`I know ${listOf(bits)}. See? Raccoon memory.`, "hop", ["🧠"])] };
+}
+
+export const FILLER_RE = /^(?:ok|okay|k|cool|nice|neat|hmm|hm|mhm|ah|oh|i see|alright|right|true|fair|fair enough|anyway|so|interesting|wow|huh|same)[.!?…]*$/i;
+
+/** Things he asks about when the chat goes quiet - the answer goes into his memory. */
+const CURIOUS: [string, string][] = [
+  ["favorite color", "What's your favorite color? Mine's gold."],
+  ["favorite food", "What's your favorite food? Asking for… me. I'm hungry."],
+  ["favorite animal", "What's your favorite animal? Choose carefully."],
+  ["pet", "Do you have a pet? What's it called?"],
+  ["job", "What do you do, when you're not here with me?"],
+  ["favorite game", "What's your favorite game?"],
+  ["favorite song", "What song have you been listening to lately?"],
+  ["hometown", "Where are you from? Do they have good bins?"],
+];
+
+/** When you say "ok" or "cool" and nothing else, he keeps the conversation going himself -
+ *  checking in on things you've told him, or asking something new about you. */
+export function steer(k: Known, ctx: BrainCtx, rnd: () => number): BrainOut {
+  const options: (() => BrainOut)[] = [];
+  const facts = Object.entries(k.facts);
+  if (facts.length) {
+    const [key, v] = pick(facts, rnd);
+    const critter = /^(dog|cat|pet|bird|hamster|rabbit|bunny|snake|fish|ferret|rat|lizard)\b/.test(key);
+    const line = critter ? `How's ${cap(v)} doing, by the way? Give them a scritch from me.` : `I keep thinking about how your ${key} is ${v}. Tell me more about that.`;
+    options.push(() => ({ replies: [say(line, "tilt")] }));
+  }
+  if (k.likes.length) {
+    const l = pick(k.likes, rnd);
+    options.push(() => ({ replies: [say(pick([`So, ${l}. What got you into that?`, `Been into ${l} much lately?`, `Want me to find some ${l}? Just say "show me ${l}".`], rnd), "tilt")] }));
+  }
+  const topic = k.topics[k.topics.length - 1];
+  if (topic) options.push(() => ({ replies: [say(`Still thinking about ${topic}?`, "tilt")] }));
+  const unknown = CURIOUS.filter(([key]) => !(key in k.facts));
+  if (unknown.length) {
+    const [key, q] = pick(unknown, rnd);
+    options.push(() => ({ replies: [say(q, "tilt")], expect: { kind: "fact", key } }));
+  }
+  if (!k.name) options.push(() => ({ replies: [say("Hey, I still don't know your name! What should I call you?", "tilt")], expect: { kind: "name" } }));
+  if (!options.length) return { replies: [say(ctx.name ? `So, ${ctx.name}. What's new?` : "So. What's new with you?", "tilt")] };
+  return pick(options, rnd)();
 }
 
 // ---- Oracle ----------------------------------------------------------------------------------------
@@ -523,8 +720,15 @@ export function answerGame(e: Expect, text: string, ctx: BrainCtx, rnd: () => nu
       };
     case "wyr": {
       const t = text.toLowerCase();
-      const firstWord = (s: string) => s.split(" ").find((w) => w.length > 3) ?? s;
-      const chose = /\b(first|former|1|the first|a)\b/.test(t) || t.includes(firstWord(e.a)) ? e.a : /\b(second|latter|2|the second|b|other)\b/.test(t) || t.includes(firstWord(e.b)) ? e.b : null;
+      // A word that's in one option and not the other ("tail" vs "whiskers", not the shared "have").
+      const own = (s: string, other: string) => s.split(" ").find((w) => w.length > 3 && !other.split(" ").includes(w)) ?? s;
+      const said = t.replace(/[.!?]+$/, "").trim();
+      const chose =
+        said === e.a ? e.a
+        : said === e.b ? e.b
+        : /^(?:the )?(?:first|former|1|a)$|\bthe first\b/.test(said) || t.includes(own(e.a, e.b)) ? e.a
+        : /^(?:the )?(?:second|latter|2|b|other)$|\bthe (?:second|other)\b/.test(said) || t.includes(own(e.b, e.a)) ? e.b
+        : null;
       if (!chose) return yes || no ? { replies: [say("That's not an answer! Pick one!", "shake")], expect: e } : null;
       const mine = hashString(e.a + e.b) % 2 ? e.b : e.a;
       return {
@@ -558,7 +762,20 @@ const THEMES: [RegExp, T][] = [
   [/\b(love life|dating|date|tinder|grindr|crush|relationship|boyfriend|girlfriend|partner|ex)\b/, { clean: ["Love life stuff, huh? Tell me everything. I'm nosy.", "If they don't treat you right, I know where their bins are."], cheeky: ["Dating? But you have me.", "Ex? Ugh. Want me to knock over their trash cans?"], nasty: ["They're not as good as me. Trust me. I'd prove it."] }],
 ];
 
+const THEME_LABELS: Record<string, string> = { mom: "family", dinner: "food", beer: "drinking", sick: "feeling sick", friends: "friends" };
+
+/** A theme's name for "what did we talk about?" - its first keyword, tidied: /\b(work|job…)\b/ -> "work". */
+function themeLabel(re: RegExp): string {
+  const first = re.source.match(/\(([a-z ]+)/)?.[1] ?? "that";
+  return THEME_LABELS[first] ?? first;
+}
+
 export function themed(text: string, ctx: BrainCtx, rnd: () => number): BrainOut | null {
-  const hit = THEMES.find(([re]) => re.test(text.toLowerCase()));
-  return hit ? { replies: [say(tiered(hit[1], ctx, rnd), "nod")] } : null;
+  const lower = text.toLowerCase();
+  const hit = THEMES.find(([re]) => re.test(lower));
+  if (!hit) return null;
+  const line = tiered(hit[1], ctx, rnd);
+  // He offered to listen - so a "yes" or a rant next is an answer to that.
+  const offer = /\b(want to complain|great listener|tell me everything|want to talk)\b/i.test(line);
+  return { replies: [say(line, "nod")], expect: offer ? { kind: "talk" } : undefined, topic: themeLabel(hit[0]) };
 }

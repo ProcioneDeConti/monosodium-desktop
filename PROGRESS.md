@@ -2073,3 +2073,17 @@ live call before implementing (per user instruction - no more guessing).
   duplicated Gus was reported - moved him via translate3d + will-change as a likely WebView2
   paint fix, not confirmed. Not live-tested beyond the user's first listen.
 - [x] **Wrapped collage tiles** (unreleased) Bigger tiles (340px, 22px gap) - fewer to load.
+- [x] **Smarter Gus, round 2 + chat redesign** (unreleased) Talk to Gus layers, all pure and
+  unit-tested: "why?/really?" after a take gets a reason matching his mood (opinions tagged
+  love/meh/dislike/dodge; dodges are coy in clean, winking in cheeky, eager in nasty); stable
+  favorites ("what's your favorite color / what music do you like"); real answers about himself
+  (who made you, what can you do); recaps ("what did we talk about / what do you know about
+  me" from name, likes, facts and this session's topics); filler ("cool", "hmm") makes him
+  steer - checking in on things you told him or asking new fact questions that land in memory;
+  "i'm Alex" learned as a name (states/known words excluded); "what's my dog called?"; "going
+  to bed" = goodnight; his "want to complain?" offers expect venting. Fixed: would-you-rather
+  credited the wrong option when both shared a word or one started with "a". Chat UI
+  (`GusChat.tsx`): grouped bubbles with his face on the last of a run, softer readable Gus
+  bubbles, time dividers after 10min gaps, bouncing typing dots + header status, quick-reply
+  chips (`quickReplies()`: starters early on, Truth/Dare, WYR options, joke/vent answers), Up
+  recalls your last message, toggles grouped. Not live-tested.

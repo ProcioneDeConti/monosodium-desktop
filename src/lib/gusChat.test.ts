@@ -98,3 +98,36 @@ describe("babbler", () => {
     expect(detokenize(["i", "like", "trash", ",", "honestly"])).toBe("I like trash, honestly.");
   });
 });
+
+describe("respond follow-ups", () => {
+  it("answers 'why?' about his last take instead of babbling", () => {
+    const a = say("what do you think about tuesdays?");
+    const b = respond("why?", a.memory, env({ conv: a.conv }), first)!;
+    expect(b.replies[0].text).toMatch(/tuesdays/i);
+  });
+  it("doesn't save filler as a fact", () => {
+    const a = say("what's my favorite color?");
+    const b = respond("hmm", a.memory, env({ conv: a.conv }), first)!;
+    expect(b.memory.facts).toEqual({});
+  });
+  it("treats going to bed as goodnight", () => {
+    expect(say("ok i'm going to bed").replies[0].text).toMatch(/bye|night|see you/i);
+  });
+});
+
+describe("quick-reply chips", () => {
+  it("each starter reaches a real feature", () => {
+    expect(say("What's popular?").openPopular).toBe(true);
+    expect(say("Truth or dare").conv.expect?.kind).toBe("tod");
+    expect(say("Would you rather").conv.expect?.kind).toBe("wyr");
+    expect(say("Tell me a joke").conv.expect?.kind).toBe("joke");
+    expect(say("What can you do?").replies[0].text).toMatch(/search/i);
+    expect(say("Roast me").replies[0].text.length).toBeGreaterThan(10);
+  });
+  it("answer chips are understood", () => {
+    const tod = say("Truth or dare");
+    expect(respond("Truth", tod.memory, env({ conv: tod.conv }), first)!.conv.expect?.kind).toBe("truth");
+    const joke = say("Tell me a joke");
+    expect(respond("No more jokes", joke.memory, env({ conv: joke.conv }), first)!.conv.expect).toBeNull();
+  });
+});

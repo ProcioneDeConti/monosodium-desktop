@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { Brain, Flame, Heart, Send, Trash2, Volume2, VolumeX } from "lucide-react";
 import { buildBabbler, EMPTY_MEMORY, respond, stageFor, type GusReply, type Stage, type Tier } from "../../lib/gusChat";
 import { commentOnPost, sharedThumb, takeSharedPost } from "../../lib/gusShare";
 import { cooledHeat, greeting } from "../../lib/gusBrain";
 import { act, advance, ageDays } from "../../lib/gusPet";
-import { EMPTY_CONV, tagCountReply, type ChatStats, type ConvState } from "../../lib/gusSmarts";
+import { EMPTY_CONV, quickReplies, tagCountReply, type ChatStats, type ConvState } from "../../lib/gusSmarts";
 import { e621Api } from "../../api/client";
 import type { Site } from "../../models/site";
 import { useStatsStore } from "../../state/statsStore";
@@ -20,6 +20,8 @@ interface Message {
   id: number;
   from: "gus" | "you";
   text: string;
+  /** When it was sent (ms) - drives the time dividers. Missing on logs from before it existed. */
+  at?: number;
   /** A post shared from the viewer - shown as its thumbnail. */
   image?: string;
 }
@@ -77,6 +79,7 @@ export function GusChat({
       sessionLog ?? [
         {
           id: 0,
+          at: Date.now(),
           from: "gus",
           text: greeting(chat.lastSeen, {
             tier,
@@ -90,11 +93,15 @@ export function GusChat({
       ],
   );
   const [draft, setDraft] = useState("");
+  const [conv, setConv] = useState(sessionConv);
   const [typing, setTyping] = useState(false);
   const [motion, setMotion] = useState<{ id: number; m: MascotMotion } | null>(null);
   const [confirmForget, setConfirmForget] = useState(false);
   const nextId = useRef(Math.max(0, ...messages.map((m) => m.id)) + 1);
+  /** Messages already there when the panel opened don't animate in again. */
+  const initialMaxId = useRef(nextId.current - 1);
   const recent = useRef<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
   const timers = useRef<number[]>([]);
   const logRef = useRef<HTMLDivElement>(null);
   const reduced = motionReduced();
@@ -132,7 +139,7 @@ export function GusChat({
       at += Math.min(2200, 450 + reply.text.length * 28) + (i ? 500 : 0);
       later(at, () => {
         recent.current = [...recent.current, reply.text].slice(-RECENT_MAX);
-        setMessages((m) => [...m, { id: nextId.current++, from: "gus", text: reply.text }]);
+        setMessages((m) => [...m, { id: nextId.current++, at: Date.now(), from: "gus", text: reply.text }]);
         if (reply.motion) setMotion({ id: nextId.current, m: reply.motion });
         speak(reply.text);
         if (i === replies.length - 1) setTyping(false);
@@ -145,21 +152,21 @@ export function GusChat({
   useEffect(() => {
     const post = takeSharedPost();
     if (!post) return;
-    setMessages((m) => [...m, { id: nextId.current++, from: "you", text: "", image: sharedThumb(post) ?? undefined }]);
+    setMessages((m) => [...m, { id: nextId.current++, at: Date.now(), from: "you", text: "", image: sharedThumb(post) ?? undefined }]);
     const state = useGamesStore.getState();
     const { replies, topic } = commentOnPost(post, { tier, likes: state.chat.likes, dislikes: state.chat.dislikes });
-    sessionConv = { expect: null, topic };
+    setConv((sessionConv = { ...sessionConv, expect: null, subject: undefined, topic }));
     state.setChat({ ...state.chat, affection: Math.min(100, state.chat.affection + 1) });
     deliver(replies);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function send(e?: FormEvent) {
+  function send(e?: FormEvent, quick?: string) {
     e?.preventDefault();
-    const text = draft.trim();
+    const text = (quick ?? draft).trim();
     if (!text || typing) return;
-    setDraft("");
-    setMessages((m) => [...m, { id: nextId.current++, from: "you", text }]);
+    if (quick === undefined) setDraft("");
+    setMessages((m) => [...m, { id: nextId.current++, at: Date.now(), from: "you", text }]);
 
     const now = Date.now();
     const state = useGamesStore.getState();
@@ -175,7 +182,7 @@ export function GusChat({
       stats: chatStats(),
     });
     if (!result) return;
-    sessionConv = result.conv;
+    setConv((sessionConv = result.conv));
 
     state.setChat(result.memory);
     if (pet && result.petActions.length) {
@@ -202,7 +209,7 @@ export function GusChat({
         void asked.then((count) => {
           const text = tagCountReply(tag, count, tier);
           recent.current = [...recent.current, text].slice(-RECENT_MAX);
-          setMessages((m) => [...m, { id: nextId.current++, from: "gus", text }]);
+          setMessages((m) => [...m, { id: nextId.current++, at: Date.now(), from: "gus", text }]);
           setMotion({ id: nextId.current, m: count ? "nod" : "shrug" });
           speak(text);
           setTyping(false);
@@ -226,8 +233,8 @@ export function GusChat({
           setMessages((m) => [
             ...m,
             url
-              ? { id: nextId.current++, from: "gus", text: "", image: url }
-              : { id: nextId.current++, from: "gus", text: "Ugh, my camera's broken. Ask me later." },
+              ? { id: nextId.current++, at: Date.now(), from: "gus", text: "", image: url }
+              : { id: nextId.current++, at: Date.now(), from: "gus", text: "Ugh, my camera's broken. Ask me later." },
           ]);
           setTyping(false);
           if (url) later(1200, () => deliver([{ text: after, motion: "wobble" }]));
@@ -251,22 +258,36 @@ export function GusChat({
     games.clearLearned();
     games.setChat(EMPTY_MEMORY);
     recent.current = [];
-    sessionConv = EMPTY_CONV;
+    setConv((sessionConv = EMPTY_CONV));
     setConfirmForget(false);
-    setMessages([{ id: nextId.current++, from: "gus", text: "Huh? Who are you? Hi! I'm Gus." }]);
+    setMessages([{ id: nextId.current++, at: Date.now(), from: "gus", text: "Huh? Who are you? Hi! I'm Gus." }]);
   }
 
   const stage = stageFor(chat.affection);
   const huffy = Date.now() < chat.huffyUntil;
+  const suggestions = typing ? [] : quickReplies(conv.expect, messages.filter((m) => m.from === "you").length);
+
+  /** Up recalls what you last said, like a terminal. */
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "ArrowUp" || draft) return;
+    const last = [...messages].reverse().find((m) => m.from === "you" && m.text);
+    if (!last) return;
+    e.preventDefault();
+    setDraft(last.text);
+  }
 
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col gap-3">
       <div className="flex items-center gap-3 rounded-2xl bg-neutral-900/85 px-3 py-2">
         <div key={motion?.id ?? "idle"} className={`mascot-motion ${!reduced && motion ? `mascot-m-${motion.m}` : ""}`}>
-          <Mascot size={48} mood={huffy ? "sad" : "happy"} />
+          <Mascot size={44} mood={huffy ? "sad" : "happy"} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold">{MASCOT_NAME}</div>
+          <div className="flex items-center gap-1.5 text-sm font-bold">
+            {MASCOT_NAME}
+            <span className={`h-2 w-2 rounded-full ${huffy ? "bg-red-400" : typing ? "bg-amber-300" : "bg-emerald-400"}`} />
+            <span className="text-xs font-normal opacity-60">{huffy ? "sulking" : typing ? "typing…" : "online"}</span>
+          </div>
           <div className="flex items-center gap-1 text-xs opacity-80" title={`Affection ${Math.round(chat.affection)}/100`}>
             {Array.from({ length: 5 }, (_, i) => (
               <Heart
@@ -275,7 +296,7 @@ export function GusChat({
                 className={chat.affection >= (i + 1) * 20 - 10 ? "fill-pink-400 text-pink-400" : "text-white/30"}
               />
             ))}
-            <span className="ml-1">{huffy ? "Sulking" : STAGE_LABEL[stage]}</span>
+            <span className="ml-1">{STAGE_LABEL[stage]}</span>
             {tier === "nasty" && (
               <span className="ml-2 flex items-center gap-1" title="Heat - flirting warms him up, it cools off over time">
                 <Flame size={11} className="text-orange-400" />
@@ -289,90 +310,149 @@ export function GusChat({
             )}
           </div>
         </div>
-        <Toggle
-          on={tier === "nasty"}
-          disabled={!adultExplicit}
-          onClick={() => games.setChatNasty(!chatNasty)}
-          title={
-            adultExplicit
-              ? chatNasty
-                ? "Nasty Gus is on - he can get explicit"
-                : "Let Gus get nasty (explicit talk)"
-              : "Needs adult mode and the Explicit rating (Settings)"
-          }
-          tone="red"
-        >
-          <Flame size={13} /> Nasty
-        </Toggle>
-        <Toggle
-          on={chatLearn}
-          onClick={() => games.setChatLearn(!chatLearn)}
-          title={
-            chatLearn
-              ? `Gus learns from what you type (${learned.length} lines). Only used while adult mode + Explicit are on.`
-              : "Let Gus learn to talk from what you type"
-          }
-          tone="sky"
-        >
-          <Brain size={13} /> Learn
-        </Toggle>
-        <Toggle on={chatVoice} onClick={() => games.setChatVoice(!chatVoice)} title="Read his replies aloud" tone="sky">
-          {chatVoice ? <Volume2 size={13} /> : <VolumeX size={13} />}
-        </Toggle>
-        <button
-          type="button"
-          onClick={forget}
-          title="Make Gus forget you (name, likes, affection, learned lines)"
-          className={`rounded-full p-1.5 text-xs transition-colors ${confirmForget ? "bg-red-500/30 text-red-300" : "opacity-60 hover:opacity-100"}`}
-        >
-          {confirmForget ? "Sure?" : <Trash2 size={14} />}
-        </button>
+        <div className="flex items-center gap-0.5 rounded-full bg-white/5 p-0.5">
+          <Toggle
+            on={tier === "nasty"}
+            disabled={!adultExplicit}
+            onClick={() => games.setChatNasty(!chatNasty)}
+            title={
+              adultExplicit
+                ? chatNasty
+                  ? "Nasty Gus is on - he can get explicit"
+                  : "Let Gus get nasty (explicit talk)"
+                : "Needs adult mode and the Explicit rating (Settings)"
+            }
+            tone="red"
+          >
+            <Flame size={13} /> Nasty
+          </Toggle>
+          <Toggle
+            on={chatLearn}
+            onClick={() => games.setChatLearn(!chatLearn)}
+            title={
+              chatLearn
+                ? `Gus learns from what you type (${learned.length} lines). Only used while adult mode + Explicit are on.`
+                : "Let Gus learn to talk from what you type"
+            }
+            tone="sky"
+          >
+            <Brain size={13} /> Learn
+          </Toggle>
+          <Toggle on={chatVoice} onClick={() => games.setChatVoice(!chatVoice)} title="Read his replies aloud" tone="sky">
+            {chatVoice ? <Volume2 size={13} /> : <VolumeX size={13} />}
+          </Toggle>
+          <button
+            type="button"
+            onClick={forget}
+            title="Make Gus forget you (name, likes, affection, learned lines)"
+            className={`rounded-full px-2 py-1 text-xs font-semibold transition-colors ${confirmForget ? "bg-red-500/30 text-red-300" : "opacity-60 hover:opacity-100"}`}
+          >
+            {confirmForget ? "Sure?" : <Trash2 size={13} />}
+          </button>
+        </div>
       </div>
 
-      <div ref={logRef} className="min-h-[260px] flex-1 space-y-2 overflow-y-auto rounded-2xl bg-black/40 p-3 [text-shadow:none]">
-        {messages.map((m) => (
-          <div key={m.id} className={`flex ${m.from === "you" ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-3 py-1.5 text-sm ${
-                m.from === "you"
-                  ? "rounded-br-sm bg-[rgb(var(--accent))] text-white"
-                  : "rounded-bl-sm border-2 border-black/80 bg-white font-semibold text-black"
-              }`}
-            >
-              {m.image && <img src={m.image} alt="Shared post" className="mb-0.5 max-h-48 rounded-xl" draggable={false} />}
-              {m.text && <ChatText text={m.text} />}
+      <div ref={logRef} className="min-h-[260px] flex-1 overflow-y-auto rounded-2xl bg-black/40 px-3 py-4 [text-shadow:none]">
+        {messages.map((m, i) => {
+          const prev = messages[i - 1];
+          const next = messages[i + 1];
+          const divider = timeDivider(prev?.at, m.at);
+          // Runs of messages from the same side stack tightly; the last one gets the tail (and his face).
+          const first = !prev || prev.from !== m.from || !!divider;
+          const last = !next || next.from !== m.from || !!timeDivider(m.at, next.at);
+          const mine = m.from === "you";
+          return (
+            <div key={m.id}>
+              {divider && <div className="my-3 text-center text-[11px] font-medium text-white/40">{divider}</div>}
+              <div
+                className={`flex items-end gap-2 ${mine ? "justify-end" : "justify-start"} ${first ? "mt-3" : "mt-0.5"} ${
+                  !reduced && m.id > initialMaxId.current ? "chat-in" : ""
+                }`}
+                title={m.at ? new Date(m.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : undefined}
+              >
+                {!mine && <div className="w-7 shrink-0">{last && <Mascot size={28} mood={huffy ? "sad" : "happy"} bob={false} />}</div>}
+                <div
+                  className={`max-w-[78%] whitespace-pre-wrap break-words rounded-2xl text-sm leading-relaxed shadow-sm ${
+                    m.image && !m.text ? "p-1" : "px-3.5 py-2"
+                  } ${
+                    mine
+                      ? `bg-[rgb(var(--accent))] text-white ${last ? "rounded-br-md" : ""}`
+                      : `bg-neutral-100 text-neutral-900 ${last ? "rounded-bl-md" : ""}`
+                  }`}
+                >
+                  {m.image && <img src={m.image} alt="Shared post" className="max-h-56 rounded-xl" draggable={false} />}
+                  {m.text && <ChatText text={m.text} />}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {typing && (
-          <div className="flex justify-start">
-            <div className="rounded-2xl rounded-bl-sm bg-white/90 px-3 py-1.5 text-sm text-black">
-              <span className="animate-pulse">{MASCOT_NAME} is typing…</span>
+          <div className="mt-3 flex items-end gap-2">
+            <div className="w-7 shrink-0">
+              <Mascot size={28} mood="happy" bob={false} />
+            </div>
+            <div className="flex gap-1 rounded-2xl rounded-bl-md bg-neutral-100 px-3.5 py-3" aria-label={`${MASCOT_NAME} is typing`}>
+              {[0, 1, 2].map((d) => (
+                <span key={d} className={`h-1.5 w-1.5 rounded-full bg-neutral-500 ${reduced ? "" : "typing-dot"}`} />
+              ))}
             </div>
           </div>
         )}
       </div>
 
-      <form onSubmit={send} className="flex gap-2">
+      {suggestions.length > 0 && (
+        <div className="-mb-1 flex flex-wrap gap-1.5">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => {
+                send(undefined, s);
+                inputRef.current?.focus();
+              }}
+              className="rounded-full border border-white/15 bg-neutral-900/80 px-3 py-1 text-xs font-medium text-white/80 transition-colors
+                         hover:border-[rgb(var(--accent))] hover:text-white"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={send} className="flex items-center gap-2 rounded-full border border-white/15 bg-neutral-900/90 py-1 pl-4 pr-1 focus-within:border-[rgb(var(--accent))]">
         <input
+          ref={inputRef}
           autoFocus
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={`Say something to ${MASCOT_NAME}… (try "show me foxes", or *pets Gus*)`}
+          onKeyDown={onKeyDown}
+          placeholder={`Message ${MASCOT_NAME}…`}
           maxLength={300}
-          className="min-w-0 flex-1 rounded-full border border-white/15 bg-neutral-900/90 px-4 py-2 text-sm outline-none
-                     placeholder:text-white/40 focus:border-[rgb(var(--accent))]"
+          className="min-w-0 flex-1 bg-transparent py-1.5 text-sm outline-none placeholder:text-white/40"
         />
         <button
           type="submit"
           disabled={!draft.trim() || typing}
-          className="flex items-center gap-1.5 rounded-full bg-[rgb(var(--accent))] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+          title="Send"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--accent))] text-white transition-opacity disabled:opacity-30"
         >
-          <Send size={14} /> Send
+          <Send size={14} />
         </button>
       </form>
     </div>
   );
+}
+
+const DIVIDER_GAP = 10 * 60_000;
+
+/** "Today 3:42 PM" / "Tue 9:10 AM" between messages sent far apart. */
+function timeDivider(before: number | undefined, at: number | undefined): string | null {
+  if (!at || (before && at - before < DIVIDER_GAP)) return null;
+  if (!before) return null;
+  const d = new Date(at);
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return d.toDateString() === new Date().toDateString() ? `Today ${time}` : `${d.toLocaleDateString([], { weekday: "short" })} ${time}`;
 }
 
 /** Renders *actions* in italics and a "¦aside" smaller, like the speech bubble does. */

@@ -303,7 +303,7 @@ const ABOUT: Rule[] = [
   }),
   r({
     id: "bye",
-    match: /^(bye+|goodbye|good night|goodnight|gn|night|cya|see (you|ya)|later|ttyl|gtg|g2g)\b/i,
+    match: /^(bye+|goodbye|good night|goodnight|gn|night|cya|see (you|ya)|later|ttyl|gtg|g2g)\b|\b(going|off|heading|gotta go|have to go|need to go) to (bed|sleep)\b|\bgoing to sleep\b/i,
     motion: "nod",
     emoji: ["👋"],
     lines: { clean: ["Bye! I'll be here. Rummaging.", "See you! Don't forget to feed me.", "Night! Don't let the bedbugs bite. I might, though."], cheeky: ["Bye! Don't do anything I wouldn't do. So, anything."] },

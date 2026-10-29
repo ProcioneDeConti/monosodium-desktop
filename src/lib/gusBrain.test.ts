@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerGame, chatGame, NUDE_QUERY, cooledHeat, greeting, opinion, oracle, special, themed, type BrainCtx } from "./gusBrain";
+import { answerGame, because, chatGame, NUDE_QUERY, cooledHeat, favorite, greeting, opinion, oracle, recap, special, steer, themed, type BrainCtx } from "./gusBrain";
 import { EMPTY_MEMORY, respond, type ChatEnv, type ChatMemory } from "./gusChat";
 import { EMPTY_CONV, type ConvState } from "./gusSmarts";
 
@@ -100,5 +100,71 @@ describe("themes and greetings", () => {
   it("greets by how long you've been away", () => {
     expect(greeting(0, ctx(), first)).toMatch(/I'm Gus/);
     expect(greeting(NOW.getTime() - 10 * 24 * 3600_000, ctx(), first)).toMatch(/week/);
+  });
+});
+
+describe("smarter conversation", () => {
+  const known = { name: "Sam", likes: ["otters"], facts: { dog: "biscuit" }, topics: ["wolves", "work"] };
+
+  it("explains a take, the same way every time", () => {
+    const take = opinion("what do you think about tuesdays?", ctx(), first)!;
+    expect(take.subject?.x).toBe("tuesdays");
+    expect(text(because(take.subject!, ctx()))).toBe(text(because(take.subject!, ctx())));
+    expect(text(because(take.subject!, ctx()))).toMatch(/tuesdays/i);
+  });
+
+  it("has stable favorites", () => {
+    expect(text(favorite("what's your favorite color?", ctx()))).toMatch(/gold/i);
+    expect(text(favorite("what kind of music do you like?", ctx()))).toMatch(/lo-fi/i);
+    expect(favorite("what's your favorite thing?", ctx())).toBeNull();
+  });
+
+  it("recaps what it knows", () => {
+    expect(text(recap("what do you know about me?", known))).toMatch(/Sam.*otters.*biscuit/);
+    expect(text(recap("what did we talk about?", known))).toMatch(/wolves and work/);
+    expect(recap("what about otters", known)).toBeNull();
+  });
+
+  it("steers quiet moments with what it knows, or asks to learn more", () => {
+    const outs = [0, 0.3, 0.6, 0.99].map((r) => steer(known, ctx(), () => r));
+    expect(outs.map(text).join(" ")).toMatch(/Biscuit|otters|work/);
+    const blank = steer({ name: null, likes: [], facts: {}, topics: [] }, ctx(), first);
+    expect(blank.expect).toBeTruthy();
+  });
+
+  it("offers to listen and expects you to vent", () => {
+    const out = themed("work was awful", ctx(), () => 0.99)!;
+    expect(out.expect).toEqual({ kind: "talk" });
+  });
+});
+
+describe("opinion moods", () => {
+  it("gives reasons that match the take", () => {
+    expect(opinion("what do you think about geese?", ctx(), first)!.subject?.mood).toBe("dislike");
+    expect(opinion("thoughts on pineapple pizza?", ctx(), first)!.subject?.mood).toBe("meh");
+    expect(opinion("what do you think about otters?", ctx(), first)!.subject?.mood).toBe("love");
+    expect(opinion("do you like politics?", ctx(), first)!.subject?.mood).toBe("meh");
+    const kink = opinion("thoughts on latex?", ctx(), first)!.subject!;
+    expect(kink.mood).toBe("dodge");
+    expect(text(because(kink, ctx()))).not.toBe(text(because(kink, ctx({ tier: "nasty" }))));
+  });
+});
+
+describe("review fixes", () => {
+  it("would-you-rather tells apart options that share a word", () => {
+    const e = { kind: "wyr" as const, a: "have a tail", b: "have whiskers" };
+    // He says his own pick back: "Interesting" = you were counted as choosing whiskers, not his tail.
+    expect(text(answerGame(e, "Have whiskers", ctx(), first))).toMatch(/^Interesting/);
+    expect(text(answerGame(e, "Have a tail", ctx(), first))).toMatch(/^Same/);
+    const g = { kind: "wyr" as const, a: "fight one giant goose", b: "a hundred tiny geese" };
+    expect(text(answerGame(g, "A hundred tiny geese", ctx(), first))).toMatch(/I'd (fight one giant goose|a hundred tiny geese)/);
+    expect(answerGame(g, "A hundred tiny geese", ctx(), first)!.replies[0].text).not.toBe(answerGame(g, "the first", ctx(), first)!.replies[0].text);
+  });
+  it("themes record a tidy topic, not the matched word", () => {
+    expect(themed("i just ate", ctx(), first)!.topic).toBe("food");
+    expect(themed("studying for finals", ctx(), first)!.topic).toBe("school");
+  });
+  it("doesn't treat 'what else do you like' as a favorite", () => {
+    expect(favorite("what else do you like?", ctx())).toBeNull();
   });
 });

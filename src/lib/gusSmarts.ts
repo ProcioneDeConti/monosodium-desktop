@@ -2,6 +2,7 @@
 // (what he just asked, what you were talking about), general facts about you, and the things he
 // can actually look up or work out - your browsing stats, a tag's post count, dates and sums.
 
+import type { Mood } from "./gusBrain";
 import { listJoin, type Tier } from "./gusChatLines";
 
 // ---- Input clean-up ---------------------------------------------------------------------------
@@ -78,9 +79,27 @@ export interface ConvState {
   /** The babbler keywords of the last message that had any - follow-ups like "why?" or "tell
    *  me more" carry no keywords of their own. */
   topic: string;
+  /** What he last gave a take on, so "why?" gets a reason instead of babble. */
+  subject?: { x: string; mood: Mood };
+  /** Subjects talked about this session, oldest first - for "what did we talk about?". */
+  topics?: string[];
 }
 
 export const EMPTY_CONV: ConvState = { expect: null, topic: "" };
+
+/** States, not names: "i'm bored" isn't someone called Bored. */
+const NOT_NAME_WORDS =
+  /^(?:here|back|home|done|ok|okay|fine|good|great|bad|sad|mad|bored|tired|sleepy|hungry|horny|sick|sorry|lost|confused|new|single|gay|bi|straight|trans|old|young|alive|dead|cold|hot|warm|busy|free|ready|alone|lonely|drunk|high|stoned|broke|late|early|serious|kidding|joking|curious|scared|nervous|stressed|anxious|happy|excited|fat|short|tall|human|real|a|an|the|not|so|very|just|really|also|still|gonna|going|back|out|in|up|down|on|off|over|stuck|right|wrong|sure|glad|proud|cute|weird|dumb|stupid|smart|hard|wet|naked|nude|afk|ace|male|female|nb|enby|gus|you|it|that|me|fun|nice|cool|wild|crazy|insane|awesome|amazing|perfect|lit|sus|bad|cringe|based|ill|well|better|worse|safe|okay|alright|finished|naughty|kinky|furry|single|taken|married)$/i;
+
+/** "hi, i'm Alex" / "im alex" -> "Alex". A single word that isn't a state or an ordinary word
+ *  Gus knows (his babbler's vocabulary), or that was typed with a capital. Null otherwise. */
+export function introName(input: string, knows: (w: string) => boolean): string | null {
+  const m = input.match(/^(?:(?:hi|hey|hello|yo|heya|hiya)[,!]?\s+(?:gus[,!]?\s+)?)?(?:i'?m|im|i am|this is)\s+([a-z][\w'-]{1,20})[.!]*$/i);
+  if (!m || NOT_NAME_WORDS.test(m[1]) || /(?:ing|ed|ly|ful|ish|ous|less|ive|able)$/i.test(m[1])) return null;
+  const capped = /^[A-Z][a-z]/.test(m[1]);
+  if (!capped && knows(m[1].toLowerCase())) return null;
+  return m[1].charAt(0).toUpperCase() + m[1].slice(1);
+}
 
 export const YES_RE = /^(yes|yeah|yep|yup|sure|ok|okay|please|go on|go ahead|another|more|again|do it|y|why not|of course|definitely)\b/i;
 export const NO_RE = /^(no|nope|nah|not really|i'?m good|no thanks|never mind|nevermind|n)\b/i;
@@ -105,7 +124,7 @@ export function answerLike(text: string): string | null {
 // ---- Facts about you --------------------------------------------------------------------------
 
 const FACT_RE = /^my ([a-z][a-z ]{1,30}?)(?:'s name| name)? (?:is|are|'s) (?:called |named )?(.{1,40}?)[.!]*$/i;
-const FACT_Q_RE = /^(?:what'?s|what is|what are|do you (?:know|remember)|remember) my ([a-z][a-z ]{1,30}?)(?:'s name| name)?\??$/i;
+const FACT_Q_RE = /^(?:what'?s|what is|what are|do you (?:know|remember)|remember) my ([a-z][a-z ]{1,30}?)(?:'s name| name|'s called| called| named)?\??$/i;
 /** "my X is Y" where X is really a feeling, not a fact. */
 const NOT_FACT_KEYS = new Set(["name", "life", "day", "head", "heart", "back", "stomach", "tummy", "brain"]);
 
@@ -225,3 +244,25 @@ export function tagCountReply(tag: string, count: number | null, tier: Tier): st
   if (count > 100) return `${n} ${pretty} posts. A nice little collection.`;
   return `Only ${n} ${pretty} posts. Rare stuff!`;
 }
+
+// ---- Quick replies ------------------------------------------------------------------------------
+
+const STARTERS = ["What can you do?", "Tell me a joke", "Truth or dare", "Would you rather", "Roast me", "What's popular?"];
+
+/** Tap-to-send suggestions under the chat: answers to what he just asked, or a few conversation
+ *  starters while the chat is young. Empty when there's nothing useful to suggest. */
+export function quickReplies(expect: Expect | null, youSaid: number): string[] {
+  switch (expect?.kind) {
+    case "tod":
+      return ["Truth", "Dare"];
+    case "wyr":
+      return [cap(expect.a), cap(expect.b)];
+    case "joke":
+      return ["Another one!", "No more jokes"];
+    case "talk":
+      return ["Yeah, I need to vent", "No, I'm okay"];
+  }
+  return youSaid < 3 && !expect ? STARTERS : [];
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
