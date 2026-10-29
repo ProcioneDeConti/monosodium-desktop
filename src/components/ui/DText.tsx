@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { parseDText, type DBlock, type DInline, type DSegment } from "../../lib/dtext";
@@ -11,6 +11,10 @@ interface DTextProps {
   site: Site;
   className?: string;
 }
+
+/** Optional in-app handler for plain DText links: return true if the URL was handled (e.g. a
+ *  pool description's links to its other parts open in-app), false to fall back to the browser. */
+export const DTextLinkContext = createContext<((url: string) => boolean) | null>(null);
 
 /** Renders e621's lightweight DText markup (see lib/dtext.ts for the supported tag set) - used
  *  app-wide for anything the API returns as DText: comment bodies, a profile's about/artist-info,
@@ -133,6 +137,7 @@ function Segment({ segment, site }: { segment: DSegment; site: Site }) {
 }
 
 function Inline({ node, site }: { node: DInline; site: Site }) {
+  const onLink = useContext(DTextLinkContext);
   switch (node.type) {
     case "text":
       return <>{node.text}</>;
@@ -142,7 +147,9 @@ function Inline({ node, site }: { node: DInline; site: Site }) {
       return (
         <button
           type="button"
-          onClick={() => void openUrl(node.url)}
+          onClick={() => {
+            if (!onLink?.(node.url)) void openUrl(node.url);
+          }}
           className="text-[rgb(var(--accent))] underline decoration-[rgb(var(--accent))]/40 hover:opacity-80"
         >
           {node.label}

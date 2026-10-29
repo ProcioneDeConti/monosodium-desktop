@@ -6,7 +6,8 @@ import { useSettingsStore } from "../../state/settingsStore";
 import { parseBlacklist, visiblePosts } from "../../lib/blacklist";
 import { PostGrid } from "../PostGrid/PostGrid";
 import { PostViewer } from "../PostViewer/PostViewer";
-import { DText } from "../ui/DText";
+import { DText, DTextLinkContext } from "../ui/DText";
+import { parseSiteUrl } from "../../lib/deepLink";
 import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { Spinner } from "../ui/Spinner";
@@ -69,6 +70,26 @@ export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile, onOp
   const isLoading = poolLoading || postsLoading;
   const isError = poolError || postsError;
 
+  // Links in the description (typically a multi-part comic's other pools) stay in-app: a pool
+  // stacks another PoolPanel, a post that's in this pool opens the viewer on it. Anything else
+  // falls back to the browser.
+  function handleDescriptionLink(url: string): boolean {
+    const target = parseSiteUrl(url);
+    if (!target || target.site !== site) return false;
+    if (target.kind === "pool") {
+      if (target.id !== poolId) setNestedPoolId(target.id);
+      return true;
+    }
+    if (target.kind === "post") {
+      const i = shownPosts.findIndex((p) => p.id === target.id);
+      if (i >= 0) {
+        setViewerIndex(i);
+        return true;
+      }
+    }
+    return false;
+  }
+
   function addTagToBlacklist(tag: string) {
     setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`);
   }
@@ -93,7 +114,9 @@ export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile, onOp
 
       {pool?.description && (
         <div className="shrink-0 border-b border-black/10 dark:border-white/10 px-4 py-2 max-h-32 overflow-y-auto">
-          <DText text={pool.description} site={site} className="text-xs opacity-80" />
+          <DTextLinkContext.Provider value={handleDescriptionLink}>
+            <DText text={pool.description} site={site} className="text-xs opacity-80" />
+          </DTextLinkContext.Provider>
         </div>
       )}
 
