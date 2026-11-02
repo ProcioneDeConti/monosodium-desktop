@@ -80,6 +80,8 @@ interface SettingsState {
   videoLoopEnabled: boolean;
   videoPlaybackSpeed: number;
   videoAutoplayEnabled: boolean;
+  /** Favoriting a post also upvotes it (one-way: unfavoriting or voting never touches favorites). */
+  favUpvoteSync: boolean;
   downloadDir: string | null;
   slideshowIntervalSec: number;
   slideshowTransition: SlideshowTransition;
@@ -113,6 +115,7 @@ interface SettingsState {
   setVideoLoopEnabled: (enabled: boolean) => void;
   setVideoPlaybackSpeed: (speed: number) => void;
   setVideoAutoplayEnabled: (enabled: boolean) => void;
+  setFavUpvoteSync: (enabled: boolean) => void;
   setDownloadDir: (dir: string | null) => void;
   setSlideshowIntervalSec: (seconds: number) => void;
   setSlideshowTransition: (transition: SlideshowTransition) => void;
@@ -171,6 +174,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   videoLoopEnabled: true,
   videoPlaybackSpeed: DEFAULT_VIDEO_SPEED,
   videoAutoplayEnabled: true,
+  favUpvoteSync: false,
   downloadDir: null,
   slideshowIntervalSec: DEFAULT_SLIDESHOW_INTERVAL_SEC,
   slideshowTransition: DEFAULT_SLIDESHOW_TRANSITION,
@@ -262,6 +266,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ videoAutoplayEnabled });
     void persist("videoAutoplayEnabled", videoAutoplayEnabled);
   },
+  setFavUpvoteSync: (favUpvoteSync) => {
+    set({ favUpvoteSync });
+    void persist("favUpvoteSync", favUpvoteSync);
+  },
   setDownloadDir: (downloadDir) => {
     set({ downloadDir });
     void persist("downloadDir", downloadDir);
@@ -337,6 +345,7 @@ export async function loadSettings(): Promise<void> {
       videoLoopEnabled: (values.videoLoopEnabled as boolean) ?? state.videoLoopEnabled,
       videoPlaybackSpeed: (values.videoPlaybackSpeed as number) ?? state.videoPlaybackSpeed,
       videoAutoplayEnabled: (values.videoAutoplayEnabled as boolean) ?? state.videoAutoplayEnabled,
+      favUpvoteSync: (values.favUpvoteSync as boolean) ?? state.favUpvoteSync,
       downloadDir: (values.downloadDir as string | null) ?? state.downloadDir,
       slideshowIntervalSec:
         (values.slideshowIntervalSec as number) ?? state.slideshowIntervalSec,

@@ -212,7 +212,7 @@ fn grade_label(grade: Grade) -> &'static str {
 }
 
 /// Reads a response body, failing once it exceeds `limit` bytes.
-async fn read_capped(mut response: Response, limit: usize) -> Result<Vec<u8>, String> {
+pub(crate) async fn read_capped(mut response: Response, limit: usize) -> Result<Vec<u8>, String> {
     let mut out = Vec::new();
     while let Some(chunk) = response.chunk().await.map_err(|e| {
         trace(format!("  body read failed after {} bytes: {e}", out.len()));
@@ -329,7 +329,21 @@ impl Resolve for PublicOnlyResolver {
     }
 }
 
-async fn get(client: &Client, url: &Url) -> Result<Response, String> {
+/// An HTTP client for third-party hosts with the same SSRF guards source recovery uses (public
+/// addresses only, checked per redirect hop and per DNS answer). Also used by the uploader to
+/// fetch a direct-URL upload locally for its duplicate checks.
+pub(crate) fn public_client(timeout: Duration, purpose: &str) -> Result<Client, String> {
+    Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(timeout)
+        .redirect(redirect_policy())
+        .dns_resolver(Arc::new(PublicOnlyResolver))
+        .user_agent(format!("MonosodiumDesktop/{} ({purpose})", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+pub(crate) async fn get(client: &Client, url: &Url) -> Result<Response, String> {
     check_url(url)?;
     let referer = referer_for(url);
     let started = std::time::Instant::now();

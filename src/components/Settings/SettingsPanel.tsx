@@ -116,6 +116,8 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   const videoAutoplayEnabled = useSettingsStore((s) => s.videoAutoplayEnabled);
   const setVideoAutoplayEnabled = useSettingsStore((s) => s.setVideoAutoplayEnabled);
   const videoPlaybackSpeed = useSettingsStore((s) => s.videoPlaybackSpeed);
+  const favUpvoteSync = useSettingsStore((s) => s.favUpvoteSync);
+  const setFavUpvoteSync = useSettingsStore((s) => s.setFavUpvoteSync);
   const setVideoPlaybackSpeed = useSettingsStore((s) => s.setVideoPlaybackSpeed);
   const gridThumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
   const setGridThumbnailSizePx = useSettingsStore((s) => s.setGridThumbnailSizePx);
@@ -389,6 +391,23 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
                 <span className="text-xs tabular-nums opacity-60">{videoPlaybackSpeed}×</span>
               </div>
             </div>
+          </Section>
+
+          <Section title="Favorites & voting">
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={favUpvoteSync}
+                onChange={(e) => setFavUpvoteSync(e.target.checked)}
+                className="mt-0.5 accent-[rgb(var(--accent))]"
+              />
+              <span>
+                Upvote posts when I favorite them
+                <span className="block text-xs opacity-60">
+                  One-way: unfavoriting keeps the upvote, and upvoting never adds a favorite.
+                </span>
+              </span>
+            </label>
           </Section>
 
           <Section title="Downloads">

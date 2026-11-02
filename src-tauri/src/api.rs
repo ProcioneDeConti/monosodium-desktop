@@ -99,7 +99,7 @@ fn user_agent(site: Site, username: Option<&str>) -> String {
 /// `Accept`); that apparently isn't reliable for every route. Declaring the desired format
 /// explicitly is correct baseline REST client behavior regardless, so this is applied to every
 /// request through here, not special-cased to dmails.
-async fn request(
+pub(crate) async fn request(
     state: &AppState,
     site: Site,
     method: Method,
@@ -131,7 +131,7 @@ const MAX_RETRY_WAIT_SECS: u64 = 5;
 /// (rate limit exceeded) - usually a momentary blip, e.g. another client on the same IP. Only
 /// GET/HEAD are retried (idempotent; a duplicated vote or comment is worse than an error), and
 /// the retry goes back through the limiter, so it can never push us over the 2 req/sec cap.
-trait SendRetry {
+pub(crate) trait SendRetry {
     async fn send_retry(self, state: &AppState, site: Site) -> reqwest::Result<reqwest::Response>;
 }
 
@@ -162,7 +162,7 @@ impl SendRetry for reqwest::RequestBuilder {
 
 /// Turns a non-2xx response into a descriptive error, calling out the documented 503 (rate
 /// limit exceeded) case specifically so the UI can explain what happened.
-async fn ensure_success(response: reqwest::Response) -> Result<reqwest::Response, String> {
+pub(crate) async fn ensure_success(response: reqwest::Response) -> Result<reqwest::Response, String> {
     let status = response.status();
     if status.is_success() {
         if let Some(len) = response.content_length() {
@@ -270,7 +270,7 @@ pub async fn get_favorites(
 /// reqwest reports both a failed body read and a serde mismatch as just "error decoding response
 /// body"; the real reason (e.g. `missing field` / `invalid type` with a line and column, or a
 /// connection reset) is only in the `source()` chain, so spell it out.
-fn error_chain(e: &dyn std::error::Error) -> String {
+pub(crate) fn error_chain(e: &dyn std::error::Error) -> String {
     let mut out = e.to_string();
     let mut cause = e.source();
     while let Some(c) = cause {

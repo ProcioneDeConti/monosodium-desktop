@@ -2129,3 +2129,22 @@ live call before implementing (per user instruction - no more guessing).
   action (horny 0) plus 45 min "Satisfied" badge, rumpled bed and DO NOT DISTURB sign. Both at
   once: Partner stage label, partner greetings/pings, matching collar tags on the shelf. Not
   live-tested.
+- [x] **e621 uploader** (unreleased) Account menu > Upload (e621 + signed in only).
+  `src-tauri/src/upload.rs`: file inspection (streamed MD5, magic-byte type sniff, image dims),
+  direct-URL pre-fetch via `source_fetch::public_client` (SSRF-guarded, 100 MB cap) so URL
+  uploads get the same checks, MD5 lookup (`md5:<h> status:any`), IQDB (`search[file]`, v2),
+  `tags/preview.json`, DNP (`avoid_postings.json?search[artist_name]`), and multipart
+  `uploads.json` (10 min timeout, never retried, 412 bodies parsed into ok/duplicate/invalid).
+  Rules are pure in `lib/uploadChecks.ts` (tested): >=10 General-category tags not implied by
+  any other entered tag, artist tag required, DNP = hard block, rating required (no default),
+  MD5 dup blocks, IQDB/source/upload-slots advisory. Implication closure walks
+  `tag_implications.json` to full depth (preview only resolves 2 levels), cached per tag.
+  Window drops route to the uploader while it's open. Form draft survives close/reopen for the
+  session. IQDB response shape and DNP search semantics not yet live-verified.
+- [x] **Favorite -> upvote sync** (unreleased) Settings > Favorites & voting. Favoriting also
+  upvotes (skipped if already upvoted, since e621's vote endpoint toggles; a downvote flips).
+  One-way: unfavorite and vote never touch favorites. `usePostMutations.favorite`.
+- [x] **Help refresh** (unreleased) Section cards, contents rail with scroll-spy, numbered steps
+  and tip callouts. New sections: Uploading, Games (how to play each), Gus. Updated for seen
+  posts, smart empty states, favorites order, video controls, wrapped card, browser extension,
+  fav->upvote setting.

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { e621Api } from "../api/client";
 import type { Site } from "../models/site";
 import { useStatsStore } from "../state/statsStore";
+import { useSettingsStore } from "../state/settingsStore";
 import { updatePostInCache } from "./postCache";
 
 /** Vote/favorite/unfavorite against the signed-in account, patching the shared post cache
@@ -30,10 +31,17 @@ export function usePostMutations(site: Site) {
     mutationFn: (postId: number) => e621Api.favorite(site, postId),
     onSuccess: (res, postId) => {
       let score = 0;
+      let voteBy: number | null | undefined;
       updatePostInCache(queryClient, postId, (p) => {
         score = p.score.total;
+        voteBy = p.vote_by;
         return { ...p, is_favorited: true, fav_count: res.favorite_count };
       });
+      // Settings > "Upvote posts when I favorite them". e621's vote endpoint toggles, so only
+      // send it when not already upvoted (a downvote gets flipped to an upvote).
+      if (useSettingsStore.getState().favUpvoteSync && voteBy !== 1) {
+        vote.mutate({ postId, direction: 1 });
+      }
       useStatsStore.getState().recordFavorite(true);
       useMascotStore.getState().favorited(score, res.favorite_count);
     },

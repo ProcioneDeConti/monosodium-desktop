@@ -71,6 +71,8 @@ src-tauri/src/
                   client - not the e621 request()/rate limiter, these aren't e621 hosts
   source_login.rs optional isolated sign-in window for login-gated sources (FA); session cookie
                   kept encrypted in credentials.dat, only ever attached by source_fetch
+  upload.rs       e621 uploader backend - file inspect (MD5/type/dims), URL pre-fetch, MD5/IQDB
+                  duplicate lookups, tag preview, DNP check, multipart uploads.json. e621 only
   install_info.rs how this copy was installed (setup.exe / legacy MSI / portable) from the
                   registry + uninstall.exe; shown in Settings > Updates
   lib.rs          plugin/window/command wiring, tray icon, global shortcut (window is opaque -
@@ -149,6 +151,9 @@ src/
                                way as Favorites/Profile; the shell's Mail button shows an unread
                                badge from `users/me.json`'s `unread_dmail_count`, polled the same
                                way as the connection dot
+    Upload/UploadPanel.tsx    full-screen e621 uploader: form on the left, compliance checklist
+                               on the right (rules in lib/uploadChecks.ts, network in
+                               queries/useUploadChecks.ts); Submit locked until blocking items pass
   App.tsx         wires everything: search state, viewer/settings/profile/saved-searches/
                   messages open-close, blacklist actions
 ```

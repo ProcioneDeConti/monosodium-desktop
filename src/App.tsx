@@ -21,6 +21,7 @@ import { SavedSearchesPanel } from "./components/SavedSearches/SavedSearchesPane
 import { GamesPanel, resumeGameOnReturn } from "./components/Games/GamesPanel";
 import { shareWithGus } from "./lib/gusShare";
 import { MessagesPanel } from "./components/Messages/MessagesPanel";
+import { UploadPanel } from "./components/Upload/UploadPanel";
 import { ForumPanel } from "./components/Forum/ForumPanel";
 import { PoolPanel } from "./components/Pool/PoolPanel";
 import { PopularPanel } from "./components/Popular/PopularPanel";
@@ -88,6 +89,7 @@ interface NavState {
   savedSearchesOpen: boolean;
   gamesOpen: boolean;
   messagesOpen: boolean;
+  uploadOpen: boolean;
   forumOpen: boolean;
   poolTarget: number | null;
   popularOpen: boolean;
@@ -108,6 +110,7 @@ const INITIAL_NAV: NavState = {
   savedSearchesOpen: false,
   gamesOpen: false,
   messagesOpen: false,
+  uploadOpen: false,
   forumOpen: false,
   poolTarget: null,
   popularOpen: false,
@@ -132,6 +135,9 @@ function App() {
   const [nav, setNav] = useState<NavState>(INITIAL_NAV);
   const [navHistory, setNavHistory] = useState<NavState[]>([]);
   const [droppedImagePath, setDroppedImagePath] = useState<string | null>(null);
+  // While the uploader is open, a dropped file goes to it instead of reverse image search.
+  const [uploadDropPath, setUploadDropPath] = useState<string | null>(null);
+  const uploadOpenRef = useRef(false);
   const saucenaoApiKey = useSaucenaoStore((s) => s.apiKey);
 
   // Refs mirror the latest nav/history so the navigate/goBack callbacks stay identity-stable
@@ -175,6 +181,7 @@ function App() {
     savedSearchesOpen,
     gamesOpen,
     messagesOpen,
+    uploadOpen,
     forumOpen,
     poolTarget,
     popularOpen,
@@ -185,6 +192,7 @@ function App() {
     downloadsOpen,
     dashboardOpen,
   } = nav;
+  uploadOpenRef.current = uploadOpen;
 
   useEffect(() => {
     void e621Api.getVaultStatus().then((status) => setVaultLocked(status.locked));
@@ -299,6 +307,11 @@ function App() {
   useEffect(() => {
     const unlisten = getCurrentWebview().onDragDropEvent((event) => {
       if (event.payload.type !== "drop") return;
+      if (uploadOpenRef.current) {
+        const media = event.payload.paths.find((p) => /\.(jpe?g|png|gif|webp|webm|mp4)$/i.test(p));
+        if (media) setUploadDropPath(media);
+        return;
+      }
       const path = event.payload.paths.find((p) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(p));
       if (path) setDroppedImagePath(path);
     });
@@ -715,6 +728,7 @@ function App() {
     savedSearchesOpen ||
     gamesOpen ||
     messagesOpen ||
+    uploadOpen ||
     forumOpen ||
     poolTarget !== null ||
     popularOpen ||
@@ -758,6 +772,7 @@ function App() {
       savedSearchesOpen: false,
       gamesOpen: false,
       messagesOpen: false,
+      uploadOpen: false,
       forumOpen: false,
       poolTarget: null,
       popularOpen: false,
@@ -938,6 +953,7 @@ function App() {
       onOpenFavorites={account?.username ? () => runNewSearch(`fav:${account.username}`) : null}
       onOpenProfile={account?.username ? () => navigate({ profileTarget: "me" }) : null}
       onOpenMessages={account?.username ? () => navigate({ messagesOpen: true }) : null}
+      onOpenUpload={site === "e621" && account?.username ? () => navigate({ uploadOpen: true }) : null}
       onOpenSets={account?.username ? () => navigate({ setsOpen: true }) : null}
       unreadMessageCount={unreadMessageCount}
       onOpenForum={() => navigate({ forumOpen: true })}
@@ -1117,6 +1133,22 @@ function App() {
           onClose={goBack}
           onSearch={runNewSearch}
           onOpenPopular={() => navigate({ popularOpen: true })}
+        />
+      )}
+
+      {uploadOpen && site === "e621" && (
+        <UploadPanel
+          site={site}
+          droppedPath={uploadDropPath}
+          onClose={() => {
+            setUploadDropPath(null);
+            goBack();
+          }}
+          onOpenPost={(id) => {
+            setUploadDropPath(null);
+            setPendingPost({ id, nonce: Date.now() });
+            runNewSearch(`id:${id}`);
+          }}
         />
       )}
 

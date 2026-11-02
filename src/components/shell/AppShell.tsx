@@ -32,6 +32,7 @@ import {
   TrendingUp,
   User,
   Gamepad2,
+  Upload,
 } from "lucide-react";
 import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { errorMessage } from "../../lib/errors";
@@ -71,6 +72,8 @@ interface AppShellProps {
   onOpenFavorites: (() => void) | null;
   onOpenProfile: (() => void) | null;
   onOpenMessages: (() => void) | null;
+  /** e621 + signed in only; null hides the menu item. */
+  onOpenUpload: (() => void) | null;
   onOpenSets: (() => void) | null;
   unreadMessageCount: number;
   onOpenForum: () => void;
@@ -119,6 +122,7 @@ export function AppShell({
   onOpenFavorites,
   onOpenProfile,
   onOpenMessages,
+  onOpenUpload,
   onOpenSets,
   unreadMessageCount,
   onOpenForum,
@@ -449,6 +453,11 @@ export function AppShell({
               >
                 Messages
               </MenuItem>
+              {onOpenUpload && (
+                <MenuItem icon={<Upload size={15} />} onClick={onOpenUpload}>
+                  Upload
+                </MenuItem>
+              )}
             </>
           ) : (
             <MenuItem icon={<LogIn size={15} />} onClick={onOpenSettings}>

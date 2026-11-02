@@ -14,6 +14,7 @@ mod site;
 mod source_fetch;
 mod source_login;
 mod update_check;
+mod upload;
 mod vault;
 
 use tauri::menu::{Menu, MenuItem};
@@ -164,6 +165,14 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             api::get_posts,
             api::get_favorites,
+            upload::upload_inspect_file,
+            upload::upload_fetch_url,
+            upload::upload_preview,
+            upload::upload_md5_lookup,
+            upload::upload_iqdb,
+            upload::upload_tags_preview,
+            upload::upload_dnp_check,
+            upload::upload_submit,
             api::autocomplete_tags,
             api::autocomplete_users,
             api::get_user_by_name,

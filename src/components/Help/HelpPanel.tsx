@@ -1,22 +1,26 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Ban,
   BookOpen,
   Columns2,
   Download,
+  Gamepad2,
   Image as ImageIcon,
   Keyboard,
   LayoutGrid,
   Library,
   LifeBuoy,
+  Lightbulb,
   MousePointerClick,
   Palette,
+  PawPrint,
   Play,
   Scan,
   Search,
   Settings as SettingsIcon,
   ShieldAlert,
   SlidersHorizontal,
+  Upload,
   X,
 } from "lucide-react";
 import { IconButton } from "../ui/IconButton";
@@ -27,18 +31,56 @@ interface HelpPanelProps {
 
 function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="rounded border border-black/15 bg-black/[0.04] px-1.5 py-0.5 text-[11px] font-medium dark:border-white/20 dark:bg-white/[0.08]">
+    <kbd className="rounded border border-black/15 bg-black/[0.04] px-1.5 py-0.5 font-mono text-[11px] font-medium dark:border-white/20 dark:bg-white/[0.08]">
       {children}
     </kbd>
   );
 }
 
 function P({ children }: { children: ReactNode }) {
-  return <p className="text-sm leading-relaxed opacity-80">{children}</p>;
+  return <p className="text-sm leading-relaxed opacity-85">{children}</p>;
 }
 
 function UL({ children }: { children: ReactNode }) {
-  return <ul className="ml-4 list-disc space-y-1 text-sm leading-relaxed opacity-80 marker:opacity-40">{children}</ul>;
+  return (
+    <ul className="ml-4 list-disc space-y-1.5 text-sm leading-relaxed opacity-85 marker:text-[rgb(var(--accent))]">
+      {children}
+    </ul>
+  );
+}
+
+/** Numbered steps with accent-colored number badges. */
+function Steps({ children }: { children: ReactNode }) {
+  return (
+    <ol
+      className="space-y-2 text-sm leading-relaxed opacity-85 [counter-reset:step]
+                 [&>li]:relative [&>li]:pl-8 [&>li]:[counter-increment:step]
+                 [&>li]:before:absolute [&>li]:before:left-0 [&>li]:before:top-0.5 [&>li]:before:flex
+                 [&>li]:before:h-5 [&>li]:before:w-5 [&>li]:before:items-center [&>li]:before:justify-center
+                 [&>li]:before:rounded-full [&>li]:before:bg-[rgb(var(--accent))]/15 [&>li]:before:text-[11px]
+                 [&>li]:before:font-bold [&>li]:before:text-[rgb(var(--accent))] [&>li]:before:content-[counter(step)]"
+    >
+      {children}
+    </ol>
+  );
+}
+
+function Tip({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex gap-2.5 rounded-[var(--radius-md)] border border-[rgb(var(--accent))]/25 bg-[rgb(var(--accent))]/[0.07] px-3 py-2.5 text-sm leading-relaxed">
+      <Lightbulb size={15} className="mt-0.5 shrink-0 text-[rgb(var(--accent))]" />
+      <div className="opacity-90">{children}</div>
+    </div>
+  );
+}
+
+function Game({ name, how }: { name: string; how: string }) {
+  return (
+    <div className="rounded-[var(--radius-md)] border border-black/10 bg-black/[0.02] px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="text-sm font-semibold">{name}</div>
+      <div className="mt-0.5 text-xs leading-relaxed opacity-70">{how}</div>
+    </div>
+  );
 }
 
 const B = ({ children }: { children: ReactNode }) => <span className="font-semibold opacity-100">{children}</span>;
@@ -58,13 +100,13 @@ const SECTIONS: HelpSection[] = [
     body: (
       <>
         <P>
-          Monosodium Desktop is a browser for <B>e621</B> and its sister site <B>e6AI</B>. Browsing,
-          searching, pools, the forum and post viewing all work without an account.
+          Monosodium Desktop is a browser for <B>e621</B> and its sister site <B>e6AI</B>. You can
+          browse, search, read pools and the forum, and view posts without an account.
         </P>
         <P>
-          To vote, favorite, comment, send messages, or use post sets, add your API key under{" "}
-          <B>Menu → Settings → Account</B> (each site has its own login). Switch the active site from
-          the <B>Account menu</B>.
+          To vote, favorite, comment, send messages, upload, or use post sets, add your API key
+          under <B>Menu → Settings → Account</B>. Each site has its own login. Switch the active
+          site from the <B>Account menu</B>.
         </P>
       </>
     ),
@@ -77,7 +119,7 @@ const SECTIONS: HelpSection[] = [
       <>
         <P>
           Type tags into the search box. <Kbd>Space</Kbd> or <Kbd>Enter</Kbd> turns the current word
-          into a chip; click a chip's ✕ to drop it. The dropdown autocompletes tags as you type, and
+          into a chip, and a chip's ✕ removes it. The dropdown autocompletes tags as you type and
           shows your <B>recent searches</B> when the box is empty.
         </P>
         <UL>
@@ -85,23 +127,23 @@ const SECTIONS: HelpSection[] = [
             <B>Exclude</B> a tag with a leading dash: <Kbd>-rating:explicit</Kbd>.
           </li>
           <li>
-            <B>Metatags</B> get value completion too: <Kbd>rating:</Kbd>, <Kbd>order:score</Kbd>,{" "}
+            <B>Metatags</B> autocomplete their values too: <Kbd>rating:</Kbd>, <Kbd>order:score</Kbd>,{" "}
             <Kbd>type:png</Kbd>, <Kbd>score:&gt;100</Kbd>, <Kbd>user:</Kbd>, <Kbd>pool:</Kbd>,{" "}
             <Kbd>fav:me</Kbd>, <Kbd>date:today</Kbd>.
           </li>
           <li>
             The <B>sliders button</B> next to the search box opens the <B>advanced search
-            builder</B> — a form for ratings, sort order, minimum score / favorites, a date range
-            and file type that writes the metatags for you (and reads an existing query back into
-            the form).
+            builder</B>. It's a form for ratings, sort order, minimum score or favorites, date range
+            and file type that writes the metatags for you, and it can read an existing query back
+            into the form.
           </li>
           <li>
-            <B>Menu → Open post IDs…</B> takes a pasted blob of post IDs or URLs in any format and
-            opens them all as one grid.
+            <B>Menu → Open post IDs…</B> takes pasted post IDs or URLs in any format and opens them
+            all in one grid.
           </li>
           <li>
-            The <B>Refresh</B> button re-fetches the current search. Re-running an{" "}
-            <Kbd>order:random</Kbd> search (or the <B>Random posts</B> item in the Menu) re-rolls it.
+            <B>Refresh</B> re-fetches the current search. Re-running an <Kbd>order:random</Kbd>{" "}
+            search, or using <B>Random posts</B> in the Menu, gives a new random set.
           </li>
           <li>
             Save a search you'll come back to via <B>Menu → Saved searches</B>.
@@ -115,13 +157,11 @@ const SECTIONS: HelpSection[] = [
     title: "Ratings & adult content",
     icon: ShieldAlert,
     body: (
-      <>
-        <P>
-          By default only <B>safe</B>-rated posts are shown. In <B>Settings</B>, enable{" "}
-          <B>adult mode</B> and choose which ratings (safe / questionable / explicit) you want. The
-          choice is applied to every search automatically.
-        </P>
-      </>
+      <P>
+        By default only <B>safe</B>-rated posts are shown. To see more, enable <B>adult mode</B> in{" "}
+        <B>Settings</B> and choose which ratings (safe, questionable, explicit) you want. Every search
+        uses that choice automatically.
+      </P>
     ),
   },
   {
@@ -131,20 +171,21 @@ const SECTIONS: HelpSection[] = [
     body: (
       <>
         <P>
-          Edit your blacklist in <B>Settings</B> — one rule per line. Spaces within a line mean{" "}
-          <B>AND</B>; separate lines are <B>OR</B>. <Kbd>rating:explicit</Kbd> works as a pseudo-tag.
+          Edit your blacklist in <B>Settings</B>, one rule per line. Tags on the same line must all
+          match (<B>AND</B>). A post is hidden if any line matches (<B>OR</B>).{" "}
+          <Kbd>rating:explicit</Kbd> works as a tag here.
         </P>
         <UL>
-          <li>Import from / push to your e621 account with the buttons in that section, or <B>Sort A–Z</B> to tidy the list.</li>
+          <li>That section can import from or push to your e621 account, and <B>Sort A–Z</B> tidies the list.</li>
           <li>
-            The <B>blacklist tester</B> at the bottom of that section takes a post ID or URL and
-            shows, line by line, whether your (unsaved) blacklist would hide it and why.
+            The <B>blacklist tester</B> at the bottom of that section takes a post ID or URL. It shows,
+            line by line, whether your blacklist (including unsaved edits) would hide that post and why.
           </li>
           <li>
-            <B>View menu → Show blacklisted posts</B> reveals hidden posts again, marked with a
+            <B>View menu → Show blacklisted posts</B> shows hidden posts again, marked with a
             yellow caution stripe.
           </li>
-          <li>From a post's tag menu you can add a tag straight to the blacklist.</li>
+          <li>A post's tag menu can add that tag straight to the blacklist.</li>
         </UL>
       </>
     ),
@@ -156,13 +197,26 @@ const SECTIONS: HelpSection[] = [
     body: (
       <>
         <P>
-          Posts load into a Pinterest-style masonry grid and page in as you scroll. Set the tile
-          size with the slider in the <B>View menu</B>, where <B>Layout</B> also switches between
-          masonry and a uniform grid of square-cropped tiles.
+          Posts load into a masonry grid, and more load as you scroll. The slider in the{" "}
+          <B>View menu</B> sets tile size. <B>Layout</B> in the same menu switches between masonry
+          and a uniform grid of square-cropped tiles.
         </P>
         <UL>
           <li>Hover a thumbnail for quick <B>favorite</B>, <B>upvote</B> and <B>download</B> buttons.</li>
           <li>Click a thumbnail to open the full viewer.</li>
+          <li>
+            <B>Seen posts</B>: posts you've opened are dimmed until you hover them. To hide them
+            instead, use <B>View menu → Hide seen posts</B>. To turn tracking off, go to{" "}
+            <B>Settings → Seen posts</B>.
+          </li>
+          <li>
+            When a search finds nothing, you'll see suggestions: possible typos, rare tags, buttons
+            to drop a term, and which blacklist line hid the results.
+          </li>
+          <li>
+            Your own <Kbd>fav:me</Kbd> page lists posts in the order <B>you favorited them</B>, the
+            same as e621's Favorites page.
+          </li>
         </UL>
       </>
     ),
@@ -174,14 +228,14 @@ const SECTIONS: HelpSection[] = [
     body: (
       <>
         <P>
-          Turn on the <B>Select</B> button (or <Kbd>Ctrl</Kbd>/<Kbd>Shift</Kbd>-click a thumbnail).
-          Click posts to select them; <Kbd>Shift</Kbd>-click for a range.
+          Turn on the <B>Select</B> button, or <Kbd>Ctrl</Kbd>/<Kbd>Shift</Kbd>-click a thumbnail.
+          Click posts to select them, and <Kbd>Shift</Kbd>-click to select a range.
         </P>
         <UL>
-          <li>The bar at the bottom does <B>Favorite</B>, <B>Unfavorite</B>, <B>Add to set</B>, <B>Collection</B> and <B>Download</B> for the whole selection.</li>
+          <li>The bar at the bottom can <B>Favorite</B>, <B>Unfavorite</B>, <B>Add to set</B>, add to a <B>Collection</B> or <B>Download</B> the whole selection.</li>
           <li>
-            <B>Unfavorite</B> (two clicks to confirm) is the quick way to tidy your favourites — on
-            your own <Kbd>fav:</Kbd> page the removed posts drop out of the grid straight away.
+            <B>Unfavorite</B> (click twice to confirm) is the quick way to clean up your favorites.
+            On your own <Kbd>fav:</Kbd> page, removed posts leave the grid right away.
           </li>
           <li><Kbd>Esc</Kbd> or the ✕ leaves select mode.</li>
         </UL>
@@ -195,14 +249,15 @@ const SECTIONS: HelpSection[] = [
     body: (
       <>
         <P>
-          <Kbd>←</Kbd> / <Kbd>→</Kbd> move between posts, <Kbd>Esc</Kbd> closes. Wheel or
-          double-click to zoom an image, drag to pan. Videos have loop / speed / mute controls.
+          <Kbd>←</Kbd> / <Kbd>→</Kbd> move between posts, and <Kbd>Esc</Kbd> closes. Use the wheel or
+          double-click to zoom an image, and drag to pan. Videos have a control bar for seeking,
+          play/pause, loop, speed and volume.
         </P>
         <UL>
-          <li>Toolbar: vote, favorite, download, report, <B>add to set</B>, <B>add to collection</B>, <B>pop out</B> to its own window, and <B>fullscreen</B> (<Kbd>F11</Kbd>).</li>
-          <li>The sidebar switches between <B>Tags</B>, <B>Comments</B> and <B>History</B> (every tag / rating edit the post has had). Click a tag for actions — search, add, exclude, blacklist, <B>Related tags</B>, <B>Wiki page</B>, or (for artist tags) the <B>Artist page</B>.</li>
-          <li>Translation / annotation <B>notes</B> appear as boxes over the image — click one to read it.</li>
-          <li>The Info panel links a post's <B>parent / children</B> and any <B>pools</B> it belongs to.</li>
+          <li>The toolbar has vote, favorite, download, report, <B>add to set</B>, <B>add to collection</B>, <B>pop out</B> (opens the post in its own window) and <B>fullscreen</B> (<Kbd>F11</Kbd>).</li>
+          <li>The sidebar has three tabs: <B>Tags</B>, <B>Comments</B> and <B>History</B> (every tag and rating edit the post has had). Click a tag for search, add, exclude, blacklist, <B>Related tags</B>, <B>Wiki page</B>, or for artist tags the <B>Artist page</B>.</li>
+          <li>Translation and annotation <B>notes</B> appear as boxes over the image. Click one to read it.</li>
+          <li>The Info panel links the post's <B>parent and children</B> and any <B>pools</B> it's in.</li>
         </UL>
       </>
     ),
@@ -214,14 +269,14 @@ const SECTIONS: HelpSection[] = [
     body: (
       <>
         <P>
-          Click an <B>artist tag</B> in the viewer (tag menu → <B>Artist page</B>) for a panel with
-          the artist's other names, their links (active and dead), any <B>do-not-post</B> notice,
-          and shortcuts to their posts.
+          Choose <B>Artist page</B> from an artist tag's menu in the viewer. It shows the artist's
+          other names, their links (active and dead), any <B>do-not-post</B> notice, and shortcuts
+          to their posts.
         </P>
         <P>
-          <B>Menu → Wiki</B> (or <B>Wiki page</B> from any tag menu) opens the wiki browser: the
-          tag's wiki article, its post count, and its <B>aliases</B>, <B>implications</B> and
-          frequently-seen-with tags — click any of those to walk the tree.
+          <B>Menu → Wiki</B>, or <B>Wiki page</B> from any tag's menu, opens the wiki browser. It
+          shows the tag's wiki article, post count, <B>aliases</B>, <B>implications</B> and the tags
+          it's often used with. Click any of them to look that tag up.
         </P>
       </>
     ),
@@ -233,17 +288,148 @@ const SECTIONS: HelpSection[] = [
     body: (
       <>
         <P>
-          <B>Menu → Collections</B> holds your own private, on-device post lists — no e621 account
-          needed, nothing sent to the site.
+          <B>Menu → Collections</B> holds your own private post lists. They're stored on this
+          device only, so they don't need an e621 account and nothing is sent to the site.
         </P>
         <UL>
           <li>Each collection has a <B>title</B> and an optional <B>category</B> that groups it in the list.</li>
-          <li>Add posts from the viewer's <B>collection</B> toolbar button or the multi-select bar.</li>
+          <li>Add posts with the viewer's <B>collection</B> button or from the multi-select bar.</li>
           <li>
-            Give a collection an <B>auto-download folder</B> and every post you add to it from then
-            on is queued for download there automatically.
+            Give a collection an <B>auto-download folder</B>, and every post you add to it from
+            then on is downloaded there automatically.
           </li>
         </UL>
+      </>
+    ),
+  },
+  {
+    id: "upload",
+    title: "Uploading",
+    icon: Upload,
+    body: (
+      <>
+        <P>
+          <B>Account menu → Upload</B> (e621 only, signed in). It checks your upload against e621's
+          rules <B>before</B> anything is sent. The checklist on the right turns green line by line,
+          and <B>Upload</B> stays locked until every required line passes.
+        </P>
+        <Steps>
+          <li>
+            <B>Pick the file</B>: click the drop zone, drop a file anywhere on the window, or paste
+            a <B>direct URL</B> and press Fetch.
+          </li>
+          <li>
+            <B>Duplicates</B>: if an identical file is already on e621, the upload is blocked. Then
+            e621's image matcher (IQDB) looks for <B>visually similar</B> posts. That's only a
+            warning, and <B>Set parent</B> links your upload to one of them.
+          </li>
+          <li>
+            <B>Tags</B>: you need an <B>artist</B> tag (or <Kbd>unknown_artist</Kbd>) and at least{" "}
+            <B>10 General tags that no other tag you entered implies</B>.
+          </li>
+          <li>
+            <B>Do Not Post</B>: every artist is checked against e621's DNP list. A match blocks the
+            upload.
+          </li>
+          <li>
+            <B>Rating</B>: you must pick one. There's no default.
+          </li>
+          <li>
+            <B>Source</B>: optional but strongly recommended. Link the artist's original post.
+          </li>
+        </Steps>
+        <Tip>
+          Only <B>General</B>-category tags count toward the 10. Artist, contributor, character,
+          species, copyright, lore, meta and invalid tags don't. Implied tags don't either:{" "}
+          <Kbd>forest</Kbd> implies <Kbd>tree</Kbd>, which implies <Kbd>plant</Kbd>, so with all
+          three entered only <Kbd>forest</Kbd> counts. Faded chips are implied tags. Dashed chips
+          are tags that don't exist on e621 yet, so check the spelling.
+        </Tip>
+      </>
+    ),
+  },
+  {
+    id: "games",
+    title: "Games",
+    icon: Gamepad2,
+    body: (
+      <>
+        <P>
+          <B>Menu → Games</B>. Most games use real posts, so your rating settings and blacklist
+          apply. Your best scores are saved on this device.
+        </P>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Game name="Tagdle" how="Two tags. Pick the one with more posts. A daily puzzle plus an endless mode." />
+          <Game name="Score Sniffer" how="Does the next post have a higher score (or more favorites)? Guess higher or lower and keep the streak going." />
+          <Game name="Whodunnit" how="Who drew it? Pick the artist from four names, ten posts per round." />
+          <Game name="Who's That Floof?!" how="Name the species while the image un-blurs. Faster answers score more." />
+          <Game name="Enhance!" how="Starts zoomed way in. Every wrong guess pulls the camera back." />
+          <Game name="Horny Jail or Sunday School" how="A blurred post and its tags. Call it safe, questionable or explicit." />
+          <Game name="Tag Hopper" how="Get from one tag to another by hopping through tags that share posts. Daily plus endless." />
+          <Game name="Sus" how="Three posts share a tag and one doesn't. Spot the impostor." />
+          <Game name="Time Machine" how="Guess the upload year. The closer you are, the more points." />
+          <Game name="Tag Bingo" how="Claim posts that match squares on your card. Finish a line in as few posts as you can." />
+        </div>
+      </>
+    ),
+  },
+  {
+    id: "gus",
+    title: "Gus the raccoon",
+    icon: PawPrint,
+    body: (
+      <>
+        <P>
+          Gus is the app's mascot. He reacts to what you do: searches, votes, favorites, games and
+          your dashboard. He's a scripted character, not an AI chatbot. Choose how often he
+          appears and how much he talks in <B>Settings → Appearance</B>.
+        </P>
+        <UL>
+          <li>
+            <B>Pocket Gus</B> (Games): feed him, groom him and clean his room. He gets hungry even
+            while the app is closed.
+          </li>
+          <li>
+            <B>Talk to Gus</B> (Games): chat with him. He remembers you, and he can find posts if
+            you ask.
+          </li>
+          <li>Use <B>Share with Gus</B> on a post to get his take on it.</li>
+          <li>Click Gus to pet him, or drag him to move him to another corner.</li>
+        </UL>
+
+        <h3 className="mt-1 text-sm font-semibold">Turning him off</h3>
+        <UL>
+          <li>
+            <B>For now:</B> <B>right-click Gus</B> to hide him until you restart the app. An{" "}
+            <B>Undo</B> button appears for a few seconds. After that, you can bring him back with{" "}
+            <B>Restore</B> in <B>Settings → Appearance</B>.
+          </li>
+          <li>
+            <B>For good:</B> set <B>Settings → Appearance → Mascot</B> to <B>Off</B>. He stops
+            appearing and reacting everywhere. Pocket Gus and Talk to Gus stay in Games if you
+            open them yourself.
+          </li>
+        </UL>
+
+        <h3 className="mt-1 text-sm font-semibold">His settings (Settings → Appearance)</h3>
+        <div className="overflow-hidden rounded-[var(--radius-md)] border border-black/10 text-sm dark:border-white/10">
+          {[
+            ["Mascot: Companion", "Sits in a corner of the grid, reacting as you go."],
+            ["Mascot: Cameos", "Pops in briefly when something happens, then leaves."],
+            ["Mascot: Off", "No Gus anywhere."],
+            ["Talkativeness: Never", "He still reacts, but never says a word."],
+            ["Talkativeness: Sometimes", "A line now and then, at most one every few minutes."],
+            ["Talkativeness: Chatty", "Most reactions get a line, with short breaks in between."],
+            ["Talkativeness: Always", "Every reaction with something to say gets a line."],
+            ["Let Gus get cheeky", "Adds flirtier lines. Only shown when explicit posts are enabled."],
+            ["Restore", "Brings him back after you hid him with a right-click."],
+          ].map(([k, v], i) => (
+            <div key={k} className={`flex gap-3 px-3 py-2 ${i % 2 ? "bg-black/[0.02] dark:bg-white/[0.03]" : ""}`}>
+              <span className="w-48 shrink-0 font-semibold">{k}</span>
+              <span className="opacity-75">{v}</span>
+            </div>
+          ))}
+        </div>
       </>
     ),
   },
@@ -252,13 +438,11 @@ const SECTIONS: HelpSection[] = [
     title: "Slideshow",
     icon: Play,
     body: (
-      <>
-        <P>
-          Start one from <B>View menu → Slideshow</B> (with interval, transition and shuffle
-          settings) or the ▶ button inside the viewer. <Kbd>Space</Kbd> pauses; the arrow keys and
-          the on-screen controls still work while it runs.
-        </P>
-      </>
+      <P>
+        Start one from <B>View menu → Slideshow</B>, which has interval, transition and shuffle
+        settings, or from the ▶ button in the viewer. <Kbd>Space</Kbd> pauses. The arrow keys and
+        on-screen controls still work while it runs.
+      </P>
     ),
   },
   {
@@ -267,10 +451,10 @@ const SECTIONS: HelpSection[] = [
     icon: Columns2,
     body: (
       <>
-        <P>Keep several searches open at once and flip between them — results stay loaded.</P>
+        <P>Keep several searches open at once and switch between them. Each tab keeps its results loaded.</P>
         <UL>
-          <li><Kbd>Ctrl</Kbd>+<Kbd>T</Kbd> new tab · <Kbd>Ctrl</Kbd>+<Kbd>W</Kbd> close · <Kbd>Ctrl</Kbd>+<Kbd>Tab</Kbd> cycle · <Kbd>Ctrl</Kbd>+<Kbd>1</Kbd>–<Kbd>9</Kbd> jump.</li>
-          <li>The tab strip appears once you have two or more.</li>
+          <li><Kbd>Ctrl</Kbd>+<Kbd>T</Kbd> new tab · <Kbd>Ctrl</Kbd>+<Kbd>W</Kbd> close · <Kbd>Ctrl</Kbd>+<Kbd>Tab</Kbd> next tab · <Kbd>Ctrl</Kbd>+<Kbd>1</Kbd>–<Kbd>9</Kbd> jump to a tab.</li>
+          <li>The tab strip appears once you have two or more tabs.</li>
         </UL>
       </>
     ),
@@ -280,25 +464,26 @@ const SECTIONS: HelpSection[] = [
     title: "Places (the Menu)",
     icon: SlidersHorizontal,
     body: (
-      <>
-        <UL>
-          <li><B>Popular</B> — e621's most-favorited posts by day, week or month.</li>
-          <li>
-            <B>Dashboard</B> — your local usage stats (time in app, posts viewed, data used, API
-            calls, activity heat-map) plus a breakdown of your favourites (and any other user's, by
-            name or ID). Each analysis can be exported as a <B>shareable card</B> (PNG or PDF).
-            Everything is stored only on this device; turn recording off or reset it in the
-            Dashboard's <B>Manage</B> section.
-          </li>
-          <li><B>About</B> — version, credits and the tech stack.</li>
-          <li><B>Wiki</B> — the tag wiki browser (see “Artists &amp; the wiki”).</li>
-          <li><B>Saved searches</B> — your named search shortcuts.</li>
-          <li><B>Collections</B> — your private on-device post lists.</li>
-          <li><B>Sets</B> (Account menu) — your e621 server-side post sets; add posts from the viewer or the bulk bar.</li>
-          <li><B>Forum</B> — browse topics, <B>search</B> posts, and reply (reading is public).</li>
-          <li><B>Messages</B> (Account menu) — your e621 dmail inbox; select rows or open a message to <B>delete</B>.</li>
-        </UL>
-      </>
+      <UL>
+        <li><B>Popular</B>: e621's most-favorited posts by day, week or month.</li>
+        <li>
+          <B>Dashboard</B>: your usage stats (time in app, posts viewed, data used, API calls, an
+          activity heat-map) and a breakdown of your favorites. It can also analyze another user's
+          favorites by name or ID. Each analysis can be exported as a <B>“wrapped” share card</B>,
+          either one image or a multi-slide story, with an SFW toggle (PNG or PDF). Everything is
+          stored only on this device. Turn recording off or reset it in the Dashboard's{" "}
+          <B>Manage</B> section.
+        </li>
+        <li><B>Games</B>: see “Games” above.</li>
+        <li><B>About</B>: version, credits and the tech stack.</li>
+        <li><B>Wiki</B>: the tag wiki browser (see “Artists &amp; the wiki”).</li>
+        <li><B>Saved searches</B>: your named search shortcuts.</li>
+        <li><B>Collections</B>: your private post lists, stored on this device.</li>
+        <li><B>Sets</B> (Account menu): your post sets on e621. Add posts from the viewer or the multi-select bar.</li>
+        <li><B>Forum</B>: browse topics, <B>search</B> posts, and reply. Reading doesn't need an account.</li>
+        <li><B>Messages</B> (Account menu): your e621 private messages. Select rows or open a message to <B>delete</B> it.</li>
+        <li><B>Upload</B> (Account menu, e621 only): see “Uploading”.</li>
+      </UL>
     ),
   },
   {
@@ -306,14 +491,12 @@ const SECTIONS: HelpSection[] = [
     title: "Downloads",
     icon: Download,
     body: (
-      <>
-        <P>
-          Every download — a single post, a bulk selection, or a post added to a collection with an
-          auto-download folder — goes into the <B>Downloads</B> queue (Menu). Failed items can be
-          retried, and "Show in folder" opens the file. Set the default destination folder in{" "}
-          <B>Settings</B>.
-        </P>
-      </>
+      <P>
+        Every download goes into the <B>Downloads</B> queue (Menu): single posts, multi-select
+        downloads, and posts added to a collection that has an auto-download folder. You can retry
+        failed items, and <B>Show in folder</B> opens the file's location. Set the default folder
+        in <B>Settings</B>.
+      </P>
     ),
   },
   {
@@ -321,12 +504,11 @@ const SECTIONS: HelpSection[] = [
     title: "Reverse image search",
     icon: Scan,
     body: (
-      <>
-        <P>
-          <B>Drag an image file onto the window</B> to look it up on SauceNAO. This needs a free
-          SauceNAO API key, added in <B>Settings</B>.
-        </P>
-      </>
+      <P>
+        <B>Drag an image file onto the window</B> to look it up on SauceNAO. This needs a free
+        SauceNAO API key, added in <B>Settings</B>. While the uploader is open, a dropped file goes
+        to the uploader instead.
+      </P>
     ),
   },
   {
@@ -334,18 +516,21 @@ const SECTIONS: HelpSection[] = [
     title: "Settings",
     icon: SettingsIcon,
     body: (
-      <>
-        <UL>
-          <li><B>Account</B> — per-site username + API key.</li>
-          <li><B>Blacklist</B> — editor with import / push, sort, and the tester.</li>
-          <li><B>Appearance</B> — <B>theme</B> (System / Light / Dark), accent color, thumbnail size.</li>
-          <li><B>Video</B> — loop, playback speed and autoplay defaults.</li>
-          <li><B>Cache</B> — on-disk image cache size limit and clear (applies on next launch).</li>
-          <li><B>Encryption</B> — optionally protect local data with a password.</li>
-          <li><B>Backup &amp; Restore</B> — export / import an encrypted snapshot of your settings.</li>
-          <li><B>Updates</B> — check GitHub for a newer version.</li>
-        </UL>
-      </>
+      <UL>
+        <li><B>Account</B>: username and API key for each site.</li>
+        <li><B>Blacklist</B>: the blacklist editor, with import/push, sort and the tester.</li>
+        <li><B>Appearance</B>: <B>theme</B> (System / Light / Dark), accent color, thumbnail size, and how often <B>Gus</B> appears and talks.</li>
+        <li><B>Seen posts</B>: dim, hide or off, and clear the list of posts you've opened.</li>
+        <li><B>Video</B>: default loop, playback speed and autoplay.</li>
+        <li>
+          <B>Favorites &amp; voting</B>: <B>Upvote posts when I favorite them</B>. This only works
+          one way: unfavoriting keeps the upvote, and upvoting never adds a favorite.
+        </li>
+        <li><B>Cache</B>: size limit for saved images, and a button to clear them (takes effect next launch).</li>
+        <li><B>Encryption</B>: optionally protect local data with a password.</li>
+        <li><B>Backup &amp; Restore</B>: export or import an encrypted copy of your settings.</li>
+        <li><B>Updates</B>: check GitHub for a newer version.</li>
+      </UL>
     ),
   },
   {
@@ -353,23 +538,27 @@ const SECTIONS: HelpSection[] = [
     title: "Tray, hotkey & shortcuts",
     icon: Keyboard,
     body: (
-      <>
-        <UL>
-          <li>Closing the window <B>hides it to the system tray</B> — use the tray icon's <B>Quit</B> to actually exit.</li>
-          <li><Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>E</Kbd> shows / hides the window from anywhere, even when another app is focused.</li>
-          <li>You'll get a notification for new dmail or forum activity while the window is hidden.</li>
-          <li>Press <Kbd>?</Kbd> any time for the full keyboard-shortcut list.</li>
-        </UL>
-      </>
+      <UL>
+        <li>Closing the window <B>hides it to the system tray</B>. Use the tray icon's <B>Quit</B> to exit.</li>
+        <li><Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>E</Kbd> shows or hides the window, even when another app has focus.</li>
+        <li>While the window is hidden, you'll get a notification for new messages or forum activity.</li>
+        <li>Press <Kbd>?</Kbd> any time for the full list of keyboard shortcuts.</li>
+        <li>
+          With the optional <B>browser extension</B>, e621 and e6AI links you open in your browser
+          open in the matching screen here. Pages the app doesn't have stay in the browser.
+        </li>
+      </UL>
     ),
   },
 ];
 
-/** `Help` in the Menu opens this - a scrollable guide with a section list. Plain local state,
- *  not part of the nav stack (same as the keyboard cheatsheet). */
+/** `Help` in the Menu opens this - a scrollable guide of section cards with a contents rail that
+ *  tracks the section being read. Plain local state, not part of the nav stack (same as the
+ *  keyboard cheatsheet). */
 export function HelpPanel({ onClose }: HelpPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  const [active, setActive] = useState(SECTIONS[0].id);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -379,13 +568,31 @@ export function HelpPanel({ onClose }: HelpPanelProps) {
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [onClose]);
 
+  // Highlight whichever section is nearest the top of the reading pane.
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const top = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (top) setActive(top.target.id.replace(/^help-/, ""));
+      },
+      { root, rootMargin: "0px 0px -70% 0px" },
+    );
+    Object.values(sectionRefs.current).forEach((el) => el && io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
   function jumpTo(id: string) {
+    setActive(id);
     sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
     <div className="fixed inset-0 z-[65] flex flex-col animate-[fade-in_150ms_ease-out] bg-[rgb(var(--lt-surface))] dark:bg-[rgb(var(--dk-surface))]">
-      <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
+      <div className="flex shrink-0 items-center gap-2 border-b border-black/10 px-4 py-3 dark:border-white/10">
         <BookOpen size={16} className="text-[rgb(var(--accent))]" />
         <h1 className="text-sm font-semibold">Help</h1>
         <IconButton onClick={onClose} title="Close (Esc)" className="ml-auto">
@@ -394,44 +601,58 @@ export function HelpPanel({ onClose }: HelpPanelProps) {
       </div>
 
       <div className="flex min-h-0 flex-1">
-        <nav className="hidden w-56 shrink-0 overflow-y-auto border-r border-black/10 p-3 dark:border-white/10 md:block">
+        <nav className="hidden w-60 shrink-0 overflow-y-auto border-r border-black/10 bg-black/[0.015] p-3 dark:border-white/10 dark:bg-white/[0.02] md:block">
+          <div className="px-2.5 pb-2 text-[11px] font-semibold uppercase tracking-wide opacity-45">Contents</div>
           <ul className="flex flex-col gap-0.5">
-            {SECTIONS.map((s) => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  onClick={() => jumpTo(s.id)}
-                  className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-left text-xs
-                             opacity-70 transition-colors hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
-                >
-                  <s.icon size={13} className="shrink-0 opacity-60" />
-                  <span className="truncate">{s.title}</span>
-                </button>
-              </li>
-            ))}
+            {SECTIONS.map((s) => {
+              const on = s.id === active;
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => jumpTo(s.id)}
+                    className={`flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+                      on
+                        ? "bg-[rgb(var(--accent))]/15 font-semibold text-[rgb(var(--accent))]"
+                        : "opacity-70 hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+                    }`}
+                  >
+                    <s.icon size={14} className={`shrink-0 ${on ? "" : "opacity-60"}`} />
+                    <span className="truncate">{s.title}</span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 
         <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-2xl px-6 py-6">
-            <p className="mb-6 text-sm leading-relaxed opacity-60">
-              A quick tour of what's here and how to use it. Everything below is also reachable from
-              the menus on the top bar.
-            </p>
-            <div className="flex flex-col gap-8">
+          <div className="mx-auto max-w-3xl px-6 py-8">
+            <header className="mb-8">
+              <h2 className="text-2xl font-bold tracking-tight">How to use Monosodium</h2>
+              <p className="mt-1.5 text-sm leading-relaxed opacity-60">
+                A quick tour of what's here and how to use it. Everything below can also be reached
+                from the menus on the top bar. Press <Kbd>?</Kbd> for keyboard shortcuts.
+              </p>
+            </header>
+            <div className="flex flex-col gap-5">
               {SECTIONS.map((s) => (
                 <section
                   key={s.id}
+                  id={`help-${s.id}`}
                   ref={(el) => {
                     sectionRefs.current[s.id] = el;
                   }}
-                  className="scroll-mt-4"
+                  className="scroll-mt-6 rounded-[var(--radius-md)] border border-black/10 bg-white/60 p-5 shadow-sm
+                             dark:border-white/10 dark:bg-white/[0.03]"
                 >
-                  <h2 className="mb-2 flex items-center gap-2 text-base font-bold">
-                    <s.icon size={16} className="text-[rgb(var(--accent))]" />
+                  <h2 className="mb-3 flex items-center gap-2.5 text-base font-bold">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--accent))]/15">
+                      <s.icon size={15} className="text-[rgb(var(--accent))]" />
+                    </span>
                     {s.title}
                   </h2>
-                  <div className="flex flex-col gap-2">{s.body}</div>
+                  <div className="flex flex-col gap-3">{s.body}</div>
                 </section>
               ))}
             </div>

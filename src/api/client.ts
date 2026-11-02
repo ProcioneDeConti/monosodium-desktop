@@ -4,7 +4,8 @@
 
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { Site } from "../models/site";
-import type { PostsResponse } from "../models/post";
+import type { Post, PostsResponse } from "../models/post";
+import type { DnpHit, IqdbMatch, TagPreview, UploadFileInfo, UploadRequest, UploadResult } from "../models/upload";
 import type { TagSuggestion, UserProfile, VoteResponse, FavoriteResponse } from "../models/user";
 import type { Comment } from "../models/comment";
 import type { Dmail } from "../models/dmail";
@@ -78,6 +79,32 @@ export interface StorageLocation {
 export const e621Api = {
   getPosts(site: Site, tags: string, limit: number, page?: string): Promise<PostsResponse> {
     return invoke("get_posts", { site, tags: tags || null, limit, page: page ?? null });
+  },
+
+  // --- Uploader (e621 only; see src-tauri/src/upload.rs) ---
+  uploadInspectFile(path: string): Promise<UploadFileInfo> {
+    return invoke("upload_inspect_file", { path });
+  },
+  uploadFetchUrl(url: string): Promise<UploadFileInfo> {
+    return invoke("upload_fetch_url", { url });
+  },
+  uploadPreview(path: string): Promise<string | null> {
+    return invoke("upload_preview", { path });
+  },
+  uploadMd5Lookup(site: Site, md5: string): Promise<Post | null> {
+    return invoke("upload_md5_lookup", { site, md5 });
+  },
+  uploadIqdb(site: Site, path: string): Promise<IqdbMatch[]> {
+    return invoke("upload_iqdb", { site, path });
+  },
+  uploadTagsPreview(site: Site, tags: string[]): Promise<TagPreview[]> {
+    return invoke("upload_tags_preview", { site, tags });
+  },
+  uploadDnpCheck(site: Site, artists: string[]): Promise<DnpHit[]> {
+    return invoke("upload_dnp_check", { site, artists });
+  },
+  uploadSubmit(site: Site, req: UploadRequest): Promise<UploadResult> {
+    return invoke("upload_submit", { site, req });
   },
 
   /** Signed-in user's favorites, newest-favorited first (favorites.json; numbered pages). */
