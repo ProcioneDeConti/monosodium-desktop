@@ -6,7 +6,7 @@ import type { Post } from "../models/post";
 const getPosts = vi.fn();
 vi.mock("../api/client", () => ({ e621Api: { getPosts: (...args: unknown[]) => getPosts(...args) } }));
 
-const { fetchLogicalPage, paginationMode } = await import("./usePostsQuery");
+const { fetchLogicalPage, ownFavoritesRatings, paginationMode } = await import("./usePostsQuery");
 
 /** `n` posts with descending ids starting at `fromId`, all tagged `tag`. */
 function posts(n: number, fromId: number, tag = "ok"): Post[] {
@@ -14,6 +14,17 @@ function posts(n: number, fromId: number, tag = "ok"): Post[] {
 }
 
 beforeEach(() => getPosts.mockReset());
+
+describe("ownFavoritesRatings", () => {
+  it("routes only a plain own-favorites view (plus rating filter) to favorites.json", () => {
+    expect(ownFavoritesRatings("fav:Alpha", "alpha")).toBeNull();
+    expect(ownFavoritesRatings("fav:me rating:safe", "alpha")).toEqual(["s"]);
+    expect(ownFavoritesRatings("fav:alpha ~rating:safe ~rating:questionable", "Alpha")).toEqual(["s", "q"]);
+    expect(ownFavoritesRatings("fav:alpha cat", "alpha")).toBeUndefined();
+    expect(ownFavoritesRatings("fav:bob", "alpha")).toBeUndefined();
+    expect(ownFavoritesRatings("fav:alpha", null)).toBeUndefined();
+  });
+});
 
 describe("paginationMode", () => {
   it("uses keyset cursors only for the default id order", () => {

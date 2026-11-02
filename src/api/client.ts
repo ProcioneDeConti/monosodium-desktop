@@ -80,6 +80,11 @@ export const e621Api = {
     return invoke("get_posts", { site, tags: tags || null, limit, page: page ?? null });
   },
 
+  /** Signed-in user's favorites, newest-favorited first (favorites.json; numbered pages). */
+  getFavorites(site: Site, limit: number, page?: string): Promise<PostsResponse> {
+    return invoke("get_favorites", { site, limit, page: page ?? null });
+  },
+
   autocompleteTags(site: Site, name: string): Promise<TagSuggestion[]> {
     return invoke("autocomplete_tags", { site, name });
   },

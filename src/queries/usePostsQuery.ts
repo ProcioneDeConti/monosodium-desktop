@@ -16,6 +16,7 @@ import { e621Api } from "../api/client";
 import type { Post } from "../models/post";
 import type { Site } from "../models/site";
 import { isBlacklisted, type BlacklistEntries } from "../lib/blacklist";
+import { useAccountStore } from "../state/accountStore";
 
 /** e621 allows up to 320; 100 halves the round trips per scroll (and per blacklist hop) under
  *  the ~1 req/sec budget while keeping each response small enough to land quickly. */
@@ -26,7 +27,7 @@ const MAX_HOPS = 20;
 /** e621 rejects `page=N` past this. */
 const MAX_NUMBERED_PAGE = 750;
 
-export type PaginationMode = "keyset" | "numbered";
+export type PaginationMode = "keyset" | "numbered" | "favorites";
 
 export interface PostsPage {
   posts: Post[];
@@ -46,6 +47,35 @@ export function paginationMode(tags: string): PaginationMode {
   return !order || order === "id" || order === "id_desc" ? "keyset" : "numbered";
 }
 
+/** When `tags` is just the signed-in user's own favorites (`fav:me` / `fav:<name>`), optionally
+ *  plus the Settings rating filter App.tsx appends, returns the ratings to keep client-side
+ *  (null = all). Otherwise undefined. Such a view is fetched from favorites.json so it's ordered
+ *  by when each post was favorited, like e621's own Favorites page, rather than by post id. */
+export function ownFavoritesRatings(
+  tags: string,
+  username: string | null | undefined,
+): string[] | null | undefined {
+  const name = username?.toLowerCase();
+  if (!name) return undefined;
+  let sawFav = false;
+  const ratings: string[] = [];
+  for (const t of tags.toLowerCase().trim().split(/\s+/).filter(Boolean)) {
+    const fav = t.match(/^fav:(.+)$/);
+    if (fav && (fav[1] === "me" || fav[1] === name) && !sawFav) {
+      sawFav = true;
+      continue;
+    }
+    const r = t.match(/^~?rating:([sqe])/);
+    if (r) {
+      ratings.push(r[1]);
+      continue;
+    }
+    return undefined;
+  }
+  if (!sawFav) return undefined;
+  return ratings.length ? ratings : null;
+}
+
 function isRandomOrder(tags: string): boolean {
   return orderValue(tags) === "random";
 }
@@ -56,16 +86,22 @@ export async function fetchLogicalPage(
   pageParam: string | undefined,
   blacklistEntries: BlacklistEntries,
   mode: PaginationMode,
+  favRatings: string[] | null = null,
 ): Promise<PostsPage> {
   const accumulated: Post[] = [];
   // The value handed to the API: `b<id>` (keyset) or `"2"`, `"3"`, … (numbered).
   let apiPage = pageParam;
-  let pageNum = mode === "numbered" ? Number(pageParam ?? "1") : 0;
+  let pageNum = mode !== "keyset" ? Number(pageParam ?? "1") : 0;
 
   for (let hop = 0; hop < MAX_HOPS; hop++) {
-    const resp = await e621Api.getPosts(site, tags, PAGE_LIMIT, apiPage);
-    const raw = resp.posts;
-    if (raw.length === 0) {
+    const resp =
+      mode === "favorites"
+        ? await e621Api.getFavorites(site, PAGE_LIMIT, apiPage)
+        : await e621Api.getPosts(site, tags, PAGE_LIMIT, apiPage);
+    const fetched = resp.posts;
+    // favorites.json takes no tags, so the rating filter is applied here instead.
+    const raw = favRatings ? fetched.filter((p) => favRatings.includes(p.rating)) : fetched;
+    if (fetched.length === 0) {
       return { posts: accumulated, nextCursor: null };
     }
     accumulated.push(...raw);
@@ -76,12 +112,12 @@ export async function fetchLogicalPage(
     } else {
       pageNum += 1;
       nextCursor =
-        raw.length === PAGE_LIMIT && pageNum <= MAX_NUMBERED_PAGE ? String(pageNum) : null;
+        fetched.length === PAGE_LIMIT && pageNum <= MAX_NUMBERED_PAGE ? String(pageNum) : null;
     }
     apiPage = nextCursor ?? undefined;
 
     const anyVisible =
-      blacklistEntries.length === 0 || raw.some((p) => !isBlacklisted(blacklistEntries, p));
+      (raw.length > 0 && blacklistEntries.length === 0) || raw.some((p) => !isBlacklisted(blacklistEntries, p));
     if (anyVisible || nextCursor === null) {
       return { posts: accumulated, nextCursor };
     }
@@ -103,17 +139,21 @@ export function usePostsQuery(
   // request itself - included in the key so editing it (Settings) starts a fresh, correctly
   // re-filtered pagination sequence instead of mixing pages fetched under the old blacklist.
   const blacklistSignature = blacklistEntries.map((e) => e.join(" ")).join("\n");
-  const queryKey = postsQueryKey(site, tags, blacklistSignature);
   const queryClient = useQueryClient();
 
-  const mode = paginationMode(tags);
+  const username = useAccountStore((s) => s.accounts[site]?.username);
+  const favRatings = ownFavoritesRatings(tags, username);
+  const mode: PaginationMode = favRatings !== undefined ? "favorites" : paginationMode(tags);
   // `order:random` re-rolls server-side on every request, so caching it as "fresh" would make
   // navigating back to the search (or a remount) show a stale, no-longer-random-feeling set.
   const isRandom = isRandomOrder(tags);
 
+  // Mode in the key so signing in/out on a fav: view doesn't reuse pages from the other source.
+  const queryKey = [...postsQueryKey(site, tags, blacklistSignature), mode] as const;
+
   const query = useInfiniteQuery({
     queryKey,
-    queryFn: ({ pageParam }) => fetchLogicalPage(site, tags, pageParam, blacklistEntries, mode),
+    queryFn: ({ pageParam }) => fetchLogicalPage(site, tags, pageParam, blacklistEntries, mode, favRatings ?? null),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled,

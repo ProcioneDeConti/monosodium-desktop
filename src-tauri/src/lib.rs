@@ -163,6 +163,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             api::get_posts,
+            api::get_favorites,
             api::autocomplete_tags,
             api::autocomplete_users,
             api::get_user_by_name,

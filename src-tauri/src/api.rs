@@ -242,6 +242,31 @@ pub async fn get_posts(
     serde_json::from_slice::<PostsResponse>(&body).map_err(|e| format!("bad posts JSON: {e}"))
 }
 
+/// The signed-in user's favorites in the order they were favorited (newest first), as e621's own
+/// Favorites page shows them - `posts.json?tags=fav:<name>` sorts by post id instead, which buries
+/// a fresh favorite of an old post. Numbered pages only; no tag filtering server-side.
+#[tauri::command]
+pub async fn get_favorites(
+    state: tauri::State<'_, AppState>,
+    site: Site,
+    limit: Option<i64>,
+    page: Option<String>,
+) -> Result<PostsResponse, String> {
+    let mut query: Vec<(&str, String)> = vec![("limit", limit.unwrap_or(50).to_string())];
+    if let Some(p) = page {
+        query.push(("page", p));
+    }
+    let response = request(&state, site, Method::GET, "favorites.json")
+        .await?
+        .query(&query)
+        .send_retry(&state, site)
+        .await
+        .map_err(|e| error_chain(&e))?;
+    let response = ensure_success(response).await?;
+    let body = response.bytes().await.map_err(|e| error_chain(&e))?;
+    serde_json::from_slice::<PostsResponse>(&body).map_err(|e| format!("bad favorites JSON: {e}"))
+}
+
 /// reqwest reports both a failed body read and a serde mismatch as just "error decoding response
 /// body"; the real reason (e.g. `missing field` / `invalid type` with a line and column, or a
 /// connection reset) is only in the `source()` chain, so spell it out.
