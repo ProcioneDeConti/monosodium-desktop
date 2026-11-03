@@ -16,6 +16,7 @@ const SUPPORTED = [
   /^\/$/,
   /^\/posts\/?$/,
   /^\/posts\/\d+\/?$/,
+  /^\/post\/show\/\d+\/?$/, // legacy post URL (SauceNAO still links these); e621 301s it server-side
   /^\/pools\/\d+\/?$/,
   /^\/users\/\d+\/?$/,
   /^\/favorites\/?$/,

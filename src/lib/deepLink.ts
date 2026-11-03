@@ -61,6 +61,12 @@ export function parseSiteUrl(raw: string): DeepLinkTarget | null {
       if (!arg) return { kind: "search", site, query: (u.searchParams.get("tags") ?? "").trim() };
       return null;
     }
+    case "post": {
+      // Legacy `/post/show/<id>` - still what SauceNAO hands back for e621 matches; e621 itself
+      // redirects it to /posts/<id>.
+      const id = arg === "show" ? num(parts[2]) : null;
+      return id !== null ? { kind: "post", site, id } : null;
+    }
     case "explore":
       return arg === "posts" && parts[2] === "popular" ? { kind: "popular", site } : null;
     case "pools": {

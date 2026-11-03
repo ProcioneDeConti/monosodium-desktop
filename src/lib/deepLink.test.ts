@@ -10,6 +10,8 @@ describe("deep links", () => {
 
   it("maps e621 pages to in-app targets", () => {
     expect(parseSiteUrl("https://e621.net/posts/42")).toEqual({ kind: "post", site: "e621", id: 42 });
+    expect(parseSiteUrl("https://e621.net/post/show/42")).toEqual({ kind: "post", site: "e621", id: 42 });
+    expect(parseSiteUrl("https://e621.net/post/index")).toBeNull();
     expect(parseSiteUrl("https://e6ai.net/posts?tags=wolf+rating%3As")).toEqual({ kind: "search", site: "e6ai", query: "wolf rating:s" });
     expect(parseSiteUrl("https://e621.net/pools/7")).toEqual({ kind: "pool", site: "e621", id: 7 });
     expect(parseSiteUrl("https://e621.net/users/99")).toEqual({ kind: "user", site: "e621", id: 99 });

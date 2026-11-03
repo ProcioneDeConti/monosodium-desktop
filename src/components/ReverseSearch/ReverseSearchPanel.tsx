@@ -13,6 +13,8 @@ interface ReverseSearchPanelProps {
   apiKey: string | null;
   onClose: () => void;
   onOpenSettings: () => void;
+  /** Opens an e621/e6AI result in the app; returns false for anything the app can't show. */
+  onOpenSiteUrl: (url: string) => boolean;
 }
 
 /** Drag-and-drop a local image file onto the window (see App.tsx's onDragDropEvent listener) to
@@ -20,7 +22,7 @@ interface ReverseSearchPanelProps {
  *  (drag-and-drop isn't a mobile interaction at all). An API key is required (SauceNAO rejects
  *  anonymous API requests outright, confirmed live - see src-tauri/src/saucenao.rs's doc
  *  comment), so this checks for one up front rather than firing a request guaranteed to fail. */
-export function ReverseSearchPanel({ filePath, apiKey, onClose, onOpenSettings }: ReverseSearchPanelProps) {
+export function ReverseSearchPanel({ filePath, apiKey, onClose, onOpenSettings, onOpenSiteUrl }: ReverseSearchPanelProps) {
   const search = useReverseImageSearch();
   const hasKey = !!apiKey;
 
@@ -94,7 +96,9 @@ export function ReverseSearchPanel({ filePath, apiKey, onClose, onOpenSettings }
                         <button
                           key={url}
                           type="button"
-                          onClick={() => void openUrl(url)}
+                          onClick={() => {
+                            if (!onOpenSiteUrl(url)) void openUrl(url);
+                          }}
                           className="flex items-center gap-1 truncate text-left text-xs text-[rgb(var(--accent))] hover:underline"
                         >
                           <ExternalLink size={10} className="shrink-0" />

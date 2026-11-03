@@ -789,6 +789,9 @@ function App() {
   // A post link runs an `id:` search and opens the viewer once that single result lands. State
   // (with a nonce) rather than a ref so re-clicking the same link re-runs the open effect even
   // when the query and its cached data are unchanged.
+  // `status:any` because e621 drops deleted posts from searches by default, even `id:` ones -
+  // and links from SauceNAO often point at deleted posts (the viewer can recover those).
+  const postLinkQuery = (id: number) => `id:${id} status:any`;
   const [pendingPost, setPendingPost] = useState<{ id: number; nonce: number } | null>(null);
   function openDeepLink(raw: string) {
     const url = unwrapDeepLink(raw);
@@ -803,7 +806,7 @@ function App() {
     switch (target.kind) {
       case "post":
         setPendingPost({ id: target.id, nonce: Date.now() });
-        runNewSearch(`id:${target.id}`);
+        runNewSearch(postLinkQuery(target.id));
         break;
       case "search":
         runNewSearch(target.query);
@@ -829,7 +832,7 @@ function App() {
     if (!pendingPost) return;
     // The user searched for something else before it landed - drop it so a later, unrelated
     // `id:` search doesn't pop the viewer open.
-    if (activeQuery !== `id:${pendingPost.id}`) {
+    if (activeQuery !== postLinkQuery(pendingPost.id)) {
       setPendingPost(null);
       return;
     }
@@ -1284,6 +1287,14 @@ function App() {
           onOpenSettings={() => {
             setDroppedImagePath(null);
             navigate({ settingsOpen: true });
+          }}
+          onOpenSiteUrl={(url) => {
+            // e621/e6AI matches open in-app (SauceNAO links e621 as legacy /post/show/<id>);
+            // other sources (FA, Pixiv...) still go to the browser.
+            if (!parseSiteUrl(url)) return false;
+            setDroppedImagePath(null);
+            openDeepLink(url);
+            return true;
           }}
         />
       )}

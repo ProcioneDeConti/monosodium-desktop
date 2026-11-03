@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Open in Monosodium Desktop",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Opens e621 / e6AI links in the Monosodium Desktop app instead of the browser.",
   "icons": { "32": "icons/32.png", "128": "icons/128.png" },
   "action": { "default_title": "Monosodium Desktop: ON (click to pause)", "default_icon": { "32": "icons/32.png" } },
