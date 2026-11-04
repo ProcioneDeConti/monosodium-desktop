@@ -2213,5 +2213,6 @@ live call before implementing (per user instruction - no more guessing).
   applies when it fit none (`bingoMissPenalty`); bests moved to `bingo2:` keys. MascotStage's
   motion wrapper and ConfettiBurst both used `key={active.id}` - duplicate sibling keys left a
   stale second Gus under the companion after a gameWin; keys now prefixed (m/c/b). Tested.
-- Dropped two music tracks (glitchart - Night Club Chill Mix, oglsdl - Hyperpulse Generator) and
+- Dropped three music tracks (glitchart - Night Club Chill Mix, oglsdl - Hyperpulse Generator,
+  Alex McCulloch - Chill Jazz) and
   their CREDITS.md rows.
