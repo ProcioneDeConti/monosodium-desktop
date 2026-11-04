@@ -6,7 +6,6 @@ use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
-use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tauri::AppHandle;
@@ -120,8 +119,7 @@ fn verify_password(password: &str) -> Result<[u8; 32], String> {
 fn store_serialize(cache: &HashMap<String, JsonValue>) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     let plaintext = serde_json::to_vec(cache)?;
     let key = current_key().ok_or("vault is locked")?;
-    let mut iv = [0u8; 12];
-    rand::thread_rng().fill_bytes(&mut iv);
+    let iv: [u8; 12] = rand::random(); // fresh random nonce per write
     let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
     let ciphertext = cipher
         .encrypt(Nonce::from_slice(&iv), plaintext.as_slice())
