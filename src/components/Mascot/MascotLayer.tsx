@@ -153,7 +153,9 @@ function MascotStage({
 
   return (
     <div className="relative" style={{ width: size + (backdrop ? 12 : 0), height: size + (backdrop ? 12 : 0) }}>
-      <div key={active?.id ?? "idle"} className={`mascot-motion ${motionClass}`}>
+      {/* Keys are prefixed per element (m/c/b) - siblings sharing a raw `active.id` key confused
+          React's reconciliation and left a stale second Gus in the frame after a gameWin. */}
+      <div key={active ? `m${active.id}` : "idle"} className={`mascot-motion ${motionClass}`}>
         {backdrop ? (
           <div className="mascot-bob">
             <div
@@ -188,7 +190,7 @@ function MascotStage({
       )}
 
       {(active?.kind === "milestone" || active?.kind === "gameWin") && !reduced && (
-        <ConfettiBurst key={active.id} variant={active.kind === "gameWin" ? "rainbow" : "confetti"} />
+        <ConfettiBurst key={`c${active.id}`} variant={active.kind === "gameWin" ? "rainbow" : "confetti"} />
       )}
 
       {sleeping && !active && (

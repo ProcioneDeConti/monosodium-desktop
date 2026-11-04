@@ -9,6 +9,7 @@ import {
   bingoCard,
   bingoDeckTags,
   bingoFits,
+  bingoMissPenalty,
   bingoWin,
   dailyBingoCard,
   gameImageUrl,
@@ -33,8 +34,10 @@ import {
 
 type Mode = "daily" | "random";
 
-/** A 3x3 card of tags and a stream of posts: claim a post for a square it fits, skip the rest.
- *  First line wins (or, in blackout mode, the whole card); fewer posts is better. A wrong claim costs an extra post. Every post dealt
+/** A 3x3 card of tags and a stream of posts: claim a post (it fills every open square it fits),
+ *  skip the rest.
+ *  First line wins (or, in blackout mode, the whole card); fewer posts is better. Claiming a post
+ *  that fits no open square costs an extra post (picking the wrong one of its squares doesn't). Every post dealt
  *  carries at least one open square's tag, and after each one the squares it fit are shown, so
  *  it's a test of spotting tags rather than of luck. */
 export function TagBingo({ site }: { site: Site }) {
@@ -104,7 +107,8 @@ export function TagBingo({ site }: { site: Site }) {
           site={site}
           card={card}
           blackout={blackout}
-          bestKey={`bingo:${blackout ? "blackout" : "line"}:${mode === "daily" ? `daily:${dayKey}` : "random"}:${site}${favUser ? ":fav" : ""}`}
+          // "bingo2": since a post fills every square it fits, older (pre-multi-fill) bests aren't comparable.
+          bestKey={`bingo2:${blackout ? "blackout" : "line"}:${mode === "daily" ? `daily:${dayKey}` : "random"}:${site}${favUser ? ":fav" : ""}`}
           favUser={favUser}
           onRestart={() => setRun(run + 1)}
         />
@@ -162,14 +166,16 @@ function BingoRun({
     if (!post || line || marked[i]) return;
     const fits = bingoFits(card, post).filter((j) => !marked[j]);
     if (fits.includes(i)) {
-      setClaims(claims.map((c, j) => (j === i ? post : c)));
+      // Clicking any square the post fits fills every open square it fits - no guessing which
+      // one it "belongs" to.
+      setClaims(claims.map((c, j) => (fits.includes(j) ? post : c)));
       setMissed(null);
       setLastFits(null);
       setCount(count + 1);
     } else {
       setMissed(i);
       setLastFits(fits);
-      setCount(count + 1 + BINGO_MISS_PENALTY);
+      setCount(count + 1 + bingoMissPenalty(fits));
     }
     setPost(null);
   }
@@ -188,7 +194,9 @@ function BingoRun({
         <span className="font-bold tabular-nums">
           {count} <span className="font-normal opacity-50">posts</span>
         </span>
-        <span className="text-xs opacity-60">Wrong claims cost +{BINGO_MISS_PENALTY}</span>
+        <span className="text-xs opacity-60">
+          Claiming a post that fits nothing costs +{BINGO_MISS_PENALTY}
+        </span>
         <span className="ml-auto flex items-center gap-1 rounded-full bg-yellow-500/15 px-2.5 py-0.5 text-xs font-semibold text-yellow-400">
           <Trophy size={12} /> Best {best ?? "-"}
         </span>
@@ -225,7 +233,7 @@ function BingoRun({
                 >
                   <SkipForward size={14} /> Skip
                 </button>
-                <span className="text-xs opacity-60">or click a square this post fits</span>
+                <span className="text-xs opacity-60">or click a square it fits - it fills all of them</span>
               </div>
               {/* Always rendered (blank when there's nothing to say) so the layout never jumps. */}
               <p
@@ -301,9 +309,17 @@ function BingoRun({
 
       {line && (
         <div className="flex flex-wrap justify-center gap-2">
-          {claims.flatMap((c, i) =>
-            c ? [<ViewPostButton key={c.id} site={site} post={c} label={displayTagName(card[i])} />] : [],
-          )}
+          {/* One button per post - a post that filled several squares lists them all. */}
+          {[...new Set(claims.filter((c): c is Post => c !== null))].map((c) => (
+            <ViewPostButton
+              key={c.id}
+              site={site}
+              post={c}
+              label={card
+                .flatMap((tag, i) => (claims[i] === c ? [displayTagName(tag)] : []))
+                .join(" + ")}
+            />
+          ))}
         </div>
       )}
     </div>

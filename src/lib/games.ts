@@ -346,12 +346,80 @@ export function bingoWin(marked: readonly boolean[], blackout: boolean): number[
 const NON_VISUAL_TAG =
   /(^|_)(text|dialogue|signature|watermark|url|artist_name|background|res|media|artwork|fingers|toes|digits|number|date|character_name|logo|border|edit|comic|sketch|monochrome|greyscale|version|meme)(_|$)|\(artwork\)|^\d|_(by|at)_/;
 
+/** Tags that are unfair as squares even though they're visual:
+ *  - near-universal details that taggers often leave off (you can see the teeth, but the post
+ *    isn't tagged `teeth`, so a correct-looking claim misses);
+ *  - e621 taxonomy/clothing jargon (`felid`, `topwear`) - the plain member of the family
+ *    (`domestic_cat`, `shirt`) stays in;
+ *  - judgements rather than things you can point at (`ambiguous_gender`, `looking_pleasured`);
+ *  (`young*` tags are dropped separately by YOUNG_TAG.) */
+const UNFAIR_BINGO_TAG = new Set([
+  // often present, often untagged
+  "teeth", "claws", "tuft", "biped", "standing", "navel", "eyebrows", "eyelashes", "markings",
+  "black_nose", "pawpads", "paws", "fangs", "vein", "feet", "belly", "tongue", "open_mouth",
+  "narrowed_eyes", "wide_hips", "thick_thighs", "sweat", "saliva", "heart_symbol", "spreading",
+  "holding_object", "furniture", "plant", "solo_focus",
+  // jargon / clades
+  "felid", "felis", "canis", "canid", "equid", "scalie", "mythological_scalie",
+  "mythological_creature", "lagomorph", "leporid", "humanoid", "humanoid_genitalia",
+  "animal_genitalia", "penile", "topwear", "bottomwear", "legwear", "headgear", "handwear",
+  "anthro_on_anthro", "interspecies", "bovid", "pantherine", "mythological_equine", "hybrid",
+  "canine_genitalia", "accessory", "countershading", "toe_claws", "hyper", "gynomorph",
+  "equine_genitalia", "animal_humanoid", "not_furry", "pupils", "pose", "glistening",
+  "slightly_chubby",
+  // judgement calls
+  "ambiguous_gender", "intersex", "looking_pleasured", "size_difference", "dominant", "submissive",
+  "seductive", "femboy", "fluffy", "orgasm",
+]);
+
+/** `young`, `young_anthro`, ... - excluded outright, not left to the player's blacklist. */
+const YOUNG_TAG = /(^|_)young(_|$)/;
+
+/** Groups of tags that overlap so much that two on one card make it unclear which square a post
+ *  belongs to. A card takes at most one tag per family. */
+const BINGO_FAMILIES: readonly (readonly string[])[] = [
+  ["feline", "domestic_cat", "lion", "tiger"],
+  ["canine", "domestic_dog", "wolf", "fox"],
+  ["equine", "horse", "pony"],
+  ["rabbit", "bunny"],
+  ["reptile", "lizard", "snake"],
+  ["big_breasts", "huge_breasts", "hyper_breasts"],
+  ["big_penis", "huge_penis", "humanoid_penis", "animal_penis", "canine_penis", "veiny_penis",
+    "erection", "knot", "foreskin"],
+  ["big_balls", "huge_balls"],
+  ["big_butt", "huge_butt"],
+  ["muscular", "muscular_male", "muscular_anthro", "muscular_female", "abs", "pecs"],
+  ["penetration", "penile_penetration", "male_penetrating", "male_penetrating_female",
+    "female_penetrated", "male_penetrated", "anthro_penetrated", "vaginal", "vaginal_penetration",
+    "anal", "anal_penetration", "oral", "fellatio", "penis_in_vagina", "male_penetrating_male",
+    "anthro_penetrating", "anthro_penetrating_anthro", "from_behind_position", "masturbation"],
+  ["cum", "cum_inside", "cum_in_vagina", "ejaculation"],
+  ["footwear", "shoes"],
+  ["headwear", "hat"],
+  ["eyewear", "glasses"],
+  ["piercing", "ear_piercing", "jewelry"],
+  ["spread_legs", "presenting", "on_back", "lying"],
+];
+
+const FAMILY_OF = new Map(BINGO_FAMILIES.flatMap((group, i) => group.map((t) => [t, `family:${i}`] as const)));
+
+/** The family a square tag belongs to - `white_body` and `white_fur` share one (same colour), as
+ *  does each explicit group above; anything else is its own family. */
+export function bingoFamily(tag: string): string {
+  const colour = /^([a-z]+)_(body|fur|scales|feathers)$/.exec(tag);
+  if (colour) return `colour:${colour[1]}`;
+  return FAMILY_OF.get(tag) ?? tag;
+}
+
 /** Bingo square candidates: general/species tags common enough to turn up within a few dozen random
  *  posts and recognisable from the picture alone. Sorted by size, the top `skip` are dropped
  *  (`mammal`, `anthro` - a free square in all but name) and the next `take` kept. */
 export function bingoCandidates(pool: readonly PoolTag[], skip = 25, take = 150): string[] {
   return [...pool]
-    .filter((t) => (t.category === 0 || t.category === 5) && !NON_VISUAL_TAG.test(t.name))
+    .filter(
+      (t) => (t.category === 0 || t.category === 5) && !NON_VISUAL_TAG.test(t.name) && !UNFAIR_BINGO_TAG.has(t.name) &&
+        !YOUNG_TAG.test(t.name),
+    )
     .sort((a, b) => b.post_count - a.post_count || a.name.localeCompare(b.name))
     .slice(skip, skip + take)
     .map((t) => t.name);
@@ -369,12 +437,20 @@ export function bingoDeckTags(card: readonly string[], open: readonly number[]):
   return open.map((i) => `~${card[i]}`).join(" ");
 }
 
-/** A card: BINGO_SIZE² distinct tags (no free square - on a 3x3 card it made a line too easy).
- *  Null if there aren't enough. */
+/** A card: BINGO_SIZE² distinct tags, at most one per `bingoFamily` (no free square - on a 3x3
+ *  card it made a line too easy). Null if there aren't enough. */
 export function bingoCard(candidates: readonly string[], rand: () => number): string[] | null {
   const squares = BINGO_SIZE * BINGO_SIZE;
-  const picked = shuffle([...new Set(candidates)].sort(), rand).slice(0, squares);
-  return picked.length < squares ? null : picked;
+  const families = new Set<string>();
+  const picked: string[] = [];
+  for (const tag of shuffle([...new Set(candidates)].sort(), rand)) {
+    const family = bingoFamily(tag);
+    if (families.has(family)) continue;
+    families.add(family);
+    picked.push(tag);
+    if (picked.length === squares) return picked;
+  }
+  return null;
 }
 
 export function dailyBingoCard(candidates: readonly string[], site: string, dayKey: string): string[] | null {
@@ -383,3 +459,10 @@ export function dailyBingoCard(candidates: readonly string[], site: string, dayK
 
 /** Posts counted against a wrong claim, on top of the post itself. */
 export const BINGO_MISS_PENALTY = 1;
+
+/** Extra posts charged for a wrong claim: none if the post did fit some other open square (you
+ *  spotted a match, just picked the wrong one - the post is spent either way), the full penalty
+ *  if it fit nothing open and Skip was the right call. `openFits` = `bingoFits` minus marked. */
+export function bingoMissPenalty(openFits: readonly number[]): number {
+  return openFits.length > 0 ? 0 : BINGO_MISS_PENALTY;
+}

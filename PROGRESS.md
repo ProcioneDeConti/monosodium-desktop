@@ -2205,3 +2205,13 @@ live call before implementing (per user instruction - no more guessing).
   gets cheeky building, wall-event and phase pools plus a much bigger results pool; the panel
   serves them ~70% cheeky (SPICY_SHARE) when spicyAllowed. Same rules: innuendo, never explicit;
   tests check placeholders, duplicates and no guessed pronouns for other users.
+- [x] **Tag Bingo fairness pass + duplicate-Gus fix** (unreleased) Cards now skip tags that are
+  visible but routinely untagged (`teeth`, `claws`, `navel`...), e621 jargon (`felid`, `topwear`),
+  judgement calls (`dominant`, `ambiguous_gender`) and anything `young` (`UNFAIR_BINGO_TAG`,
+  `YOUNG_TAG`); at most one tag per overlap family (`bingoFamily`: explicit groups + same-colour
+  `_body`/`_fur`). A claimed post fills every open square it fits, and the +1 miss penalty only
+  applies when it fit none (`bingoMissPenalty`); bests moved to `bingo2:` keys. MascotStage's
+  motion wrapper and ConfettiBurst both used `key={active.id}` - duplicate sibling keys left a
+  stale second Gus under the companion after a gameWin; keys now prefixed (m/c/b). Tested.
+- Dropped two music tracks (glitchart - Night Club Chill Mix, oglsdl - Hyperpulse Generator) and
+  their CREDITS.md rows.

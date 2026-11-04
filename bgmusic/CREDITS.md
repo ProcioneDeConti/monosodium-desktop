@@ -42,13 +42,11 @@ All free to use without attribution - credited here anyway.
 
 | File | Source |
 |---|---|
-| house/glitchart - Night Club Chill Mix | https://opengameart.org/content/jumping-cyborg-welcome-mix-night-club-chill-tricksntraps-remixed |
 | trance/MintoDog - Ocean Trance | https://opengameart.org/content/ocean-trance |
 | trance/MintoDog - Sky Trance | https://opengameart.org/content/sky-trance |
 | trance/MintoDog - Trance City | https://opengameart.org/content/trance-city |
 | trance/MintoDog - Trance Adventure | https://opengameart.org/content/trance-adventure |
 | trance/Of Far Different Nature - Liquid Flame | https://opengameart.org/content/liquid-flame |
-| trance/oglsdl - Hyperpulse Generator | https://opengameart.org/content/hyperpulse-generator |
 | trance/oglsdl - Unstable Pulse | https://opengameart.org/content/unstable-pulse |
 | trance/iamoneabe - Starlight Might | https://opengameart.org/content/starlight-might |
 | trance/Liq_mmry - Lucid Trigger | https://opengameart.org/content/lucid-trigger |

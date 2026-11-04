@@ -368,7 +368,7 @@ const SECTIONS: HelpSection[] = [
           <Game name="Tag Hopper" how="Get from one tag to another by hopping through tags that share posts. Daily plus endless." />
           <Game name="Sus" how="Three posts share a tag and one doesn't. Spot the impostor." />
           <Game name="Time Machine" how="Guess the upload year. The closer you are, the more points." />
-          <Game name="Tag Bingo" how="Claim posts that match squares on your card. Finish a line in as few posts as you can." />
+          <Game name="Tag Bingo" how="Claim posts that match squares on your card - a post fills every square it fits. Finish a line in as few posts as you can." />
         </div>
       </>
     ),

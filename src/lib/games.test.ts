@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { makePost } from "../test/makePost";
 import {
+  BINGO_MISS_PENALTY,
   bingoCandidates,
   bingoCard,
+  bingoFamily,
+  bingoMissPenalty,
   bingoDeckTags,
   bingoFits,
   bingoLine,
@@ -228,6 +231,36 @@ describe("tag bingo", () => {
       (name) => ({ name, post_count: 10, category: 0 }),
     );
     expect(bingoCandidates(pool, 0)).toEqual(["hat"]);
+  });
+
+  it("drops under-tagged details, jargon and judgement-call tags", () => {
+    const pool: PoolTag[] = ["teeth", "felid", "topwear", "ambiguous_gender", "young", "young_anthro", "domestic_cat", "shirt"].map(
+      (name) => ({ name, post_count: 10, category: 0 }),
+    );
+    expect(bingoCandidates(pool, 0)).toEqual(["domestic_cat", "shirt"]);
+  });
+
+  it("groups overlapping tags into families", () => {
+    expect(bingoFamily("white_body")).toBe(bingoFamily("white_fur"));
+    expect(bingoFamily("white_body")).not.toBe(bingoFamily("black_body"));
+    expect(bingoFamily("feline")).toBe(bingoFamily("domestic_cat"));
+    expect(bingoFamily("big_breasts")).toBe(bingoFamily("huge_breasts"));
+    expect(bingoFamily("rain")).toBe("rain");
+  });
+
+  it("puts at most one tag per family on a card", () => {
+    const pool = [...names, "feline", "domestic_cat", "white_body", "white_fur", "big_breasts", "huge_breasts"];
+    for (let seed = 0; seed < 50; seed++) {
+      const card = bingoCard(pool, seededRandom(seed))!;
+      expect(new Set(card.map(bingoFamily)).size).toBe(9);
+    }
+    // Nine tags, but only eight families - not enough for a card.
+    expect(bingoCard([...names.slice(0, 7), "white_body", "white_fur"], seededRandom(1))).toBeNull();
+  });
+
+  it("only charges the miss penalty when the post fit no open square", () => {
+    expect(bingoMissPenalty([3])).toBe(0);
+    expect(bingoMissPenalty([])).toBe(BINGO_MISS_PENALTY);
   });
 
   it("finds the squares a post fits and ORs the open ones", () => {
