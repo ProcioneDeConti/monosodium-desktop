@@ -16,10 +16,24 @@ import { formatCount } from "../../lib/formatCount";
 import { EmptyState } from "../ui/EmptyState";
 import { mascotReact } from "../../state/mascotStore";
 import { Button } from "../ui/Button";
+import { useSettingsStore } from "../../state/settingsStore";
 
 /** At most this many "drop a term" buttons - past that it's a wall, not a suggestion. */
 const MAX_DROP_BUTTONS = 4;
 const MAX_CULPRITS = 3;
+
+const RATING_NAMES = { s: "Safe", q: "Questionable", e: "Explicit" } as const;
+
+/** Which ratings Settings is limiting searches to, or null when every rating is allowed. The
+ *  filter is appended to every query invisibly, so an empty result needs to say so - otherwise
+ *  e.g. a Safe post opened by id just looks missing. */
+function useRatingRestriction(): string | null {
+  const adult = useSettingsStore((s) => s.adultModeEnabled);
+  const enabled = useSettingsStore((s) => s.enabledRatings);
+  const effective = adult ? enabled : (["s"] as const);
+  if (effective.length === 0 || effective.length === 3) return null;
+  return effective.map((r) => RATING_NAMES[r]).join(" and ");
+}
 
 function reasonText(s: DropSuggestion): string | null {
   if (s.reason === "unknown") return "no such tag";
@@ -49,6 +63,7 @@ export function NoResultsHelp({
   const suggestions = useMemo(() => dropSuggestions(query, tags), [query, tags]);
   const unknown = suggestions.filter((s) => s.reason === "unknown");
   const canDrop = suggestions.length > 1;
+  const ratingOnly = useRatingRestriction();
 
   // One reaction per empty search, once we know whether a typo is the reason.
   const reacted = useRef(false);
@@ -66,13 +81,22 @@ export function NoResultsHelp({
         : query.trim()
           ? "Try a more general tag, or check your spelling."
           : "Your rating filters may be excluding everything - check Settings.";
+  const fullHint = ratingOnly && query.trim() ? (
+    <>
+      {hint}
+      <br />
+      Your rating filter is only showing <strong>{ratingOnly}</strong> posts - change it in Settings.
+    </>
+  ) : (
+    hint
+  );
 
   return (
     <EmptyState
       mascot="sad"
       icon={<SearchX />}
       title="No posts matched"
-      hint={hint}
+      hint={fullHint}
       action={
         canDrop && (
           <div className="flex max-w-md flex-wrap justify-center gap-1.5">

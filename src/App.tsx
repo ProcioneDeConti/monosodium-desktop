@@ -25,6 +25,7 @@ import { UploadPanel } from "./components/Upload/UploadPanel";
 import { ForumPanel } from "./components/Forum/ForumPanel";
 import { PoolPanel } from "./components/Pool/PoolPanel";
 import { PopularPanel } from "./components/Popular/PopularPanel";
+import { ForYouPanel } from "./components/ForYou/ForYouPanel";
 import { ArtistPanel } from "./components/Artist/ArtistPanel";
 import { WikiPanel } from "./components/Wiki/WikiPanel";
 import { SetsPanel } from "./components/Sets/SetsPanel";
@@ -58,6 +59,7 @@ import { loadCollections } from "./state/collectionsStore";
 import { loadSearchHistory, useSearchHistoryStore } from "./state/searchHistoryStore";
 import { flushSeen, loadSeen, useSeenIds, useSeenStore } from "./state/seenStore";
 import { loadFavoritesAnalysisCache } from "./state/favoritesAnalysisCache";
+import { loadTasteProfiles } from "./state/tasteProfileStore";
 import { loadStats, flushStats, useStatsStore } from "./state/statsStore";
 import { startUsageSession } from "./lib/usageSession";
 import { useApiMetricsFold } from "./queries/useApiMetricsFold";
@@ -93,6 +95,8 @@ interface NavState {
   forumOpen: boolean;
   poolTarget: number | null;
   popularOpen: boolean;
+  /** "me" or a username/id - see ForYouPanel. */
+  forYouTarget: string | null;
   artistTarget: string | null;
   wikiTarget: string | null;
   setsOpen: boolean;
@@ -114,6 +118,7 @@ const INITIAL_NAV: NavState = {
   forumOpen: false,
   poolTarget: null,
   popularOpen: false,
+  forYouTarget: null,
   artistTarget: null,
   wikiTarget: null,
   setsOpen: false,
@@ -185,6 +190,7 @@ function App() {
     forumOpen,
     poolTarget,
     popularOpen,
+    forYouTarget,
     artistTarget,
     wikiTarget,
     setsOpen,
@@ -266,6 +272,7 @@ function App() {
       loadSeen(),
       loadStats(),
       loadFavoritesAnalysisCache(),
+      loadTasteProfiles(),
       useSaucenaoStore.getState().load(),
     ]).finally(() => {
       setBooted(true);
@@ -732,6 +739,7 @@ function App() {
     forumOpen ||
     poolTarget !== null ||
     popularOpen ||
+    forYouTarget !== null ||
     artistTarget !== null ||
     wikiTarget !== null ||
     setsOpen ||
@@ -776,6 +784,7 @@ function App() {
       forumOpen: false,
       poolTarget: null,
       popularOpen: false,
+      forYouTarget: null,
       artistTarget: null,
       wikiTarget: null,
       setsOpen: false,
@@ -962,6 +971,7 @@ function App() {
       onOpenForum={() => navigate({ forumOpen: true })}
       forumUnread={forumUnread}
       onOpenPopular={() => navigate({ popularOpen: true })}
+      onOpenForYou={account?.username ? () => navigate({ forYouTarget: "me" }) : null}
       onOpenCollections={() => navigate({ collectionsOpen: true })}
       onOpenSavedSearches={() => navigate({ savedSearchesOpen: true })}
       onOpenGames={() => navigate({ gamesOpen: true })}
@@ -1119,6 +1129,7 @@ function App() {
           userId={profileTarget}
           onClose={goBack}
           onSearch={runNewSearch}
+          onSuggestFor={(name) => navigate({ forYouTarget: name })}
         />
       )}
 
@@ -1176,6 +1187,19 @@ function App() {
         <PoolPanel
           site={site}
           poolId={poolTarget}
+          onClose={goBack}
+          onSearch={runNewSearch}
+          onOpenProfile={(id) => navigate({ profileTarget: id })}
+          onOpenArtist={(tag) => navigate({ artistTarget: tag })}
+          onOpenWiki={(tag) => navigate({ wikiTarget: tag })}
+        />
+      )}
+
+      {forYouTarget !== null && (
+        <ForYouPanel
+          key={forYouTarget}
+          site={site}
+          initialUser={forYouTarget}
           onClose={goBack}
           onSearch={runNewSearch}
           onOpenProfile={(id) => navigate({ profileTarget: id })}

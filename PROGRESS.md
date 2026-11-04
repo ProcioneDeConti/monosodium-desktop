@@ -2148,3 +2148,52 @@ live call before implementing (per user instruction - no more guessing).
   and tip callouts. New sections: Uploading, Games (how to play each), Gus. Updated for seen
   posts, smart empty states, favorites order, video controls, wrapped card, browser extension,
   fav->upvote setting.
+- [x] **"For you" suggestions** (unreleased) Menu > For you (signed in), or "Suggest posts for
+  <name>" on any profile. e621's own `posts/{id}/similar/{artist,tags}.json` was evaluated first:
+  per-post only, not personalised, and tags mode returned empty in production (Nov 2026), so
+  this is our own content-based recommender. `lib/tasteProfile.ts`: tf x idf over
+  artist/character/copyright/species/general tags from fav:<name> (Recent 960 or All), plus
+  the signed-in user's votedup/voteddown (others' votes aren't public); idf from one batched
+  `get_tags_by_names`; downvote-dominated tags become avoid tags. `lib/recommend.ts`: ~6
+  candidate searches (artist OR-groups, characters, species+general, last-90-days, seeded
+  random discovery), each `-fav:<target>` + rating filter + top avoid tags, numbered pages;
+  ranked client-side (weight sum / sqrt(tag count) + small score prior) with an artist
+  diversity window. "Suggest more" pages every source, rotating to lower-ranked tag groups when
+  dry. Profiles saved 7 days in `taste-profile.json` (`state/tasteProfileStore.ts`, 30s gap
+  between builds). The Dashboard's paging loop moved to `lib/favoritePages.ts`, shared by both.
+  Loading screen is `ForYou/BrickWall.tsx`: top tags as category-colored bricks that slide in
+  (vertical ones drop), bump touching neighbours on landing and stack around the target's
+  avatar (skyline packing with a keep-out hole in `lib/brickWall.ts`; static under reduced
+  motion). Not live-tested.
+- [x] **Rainbow loaders** (unreleased) Matches the Android app's RainbowSpinner /
+  RainbowLinearIndicator (`ui/components/RainbowRefreshIndicator.kt`): same seven ROYGBIV
+  stripes (`RAINBOW_STRIPES` in `components/ui/RainbowBar.tsx`). `ui/Spinner.tsx` is now a
+  spinning, breathing arc of seven solid bands (pure CSS: `@property --rb-sweep` in index.css,
+  each band's dash derived from it). `RainbowBar`: indeterminate = 24px bands sliding right
+  (transform-only), determinate = fixed red-to-violet meter clipped to the fraction. Used by
+  TopProgressBar and the Dashboard analysis bar; the uploader's direct `Loader2`s now use Spinner.
+  Not changed: the shell's spinning refresh icon, video playback/buffer bars (not loaders).
+- [x] **Gus on For you** (unreleased) `lib/mascotForYou.ts` (tested), same pattern as
+  mascotPopular: `forYouFacts` (top artist/character/series/species, themes, fresh artists in the
+  suggestions, votes used, avoid tags, rating/animation mix) feeds ~70 lines across building
+  (while the wall goes up), results, cheeky (spicyAllowed only), empty/private/no-results and an
+  occasional "Suggest more" nod. Separate wording for your own profile ("you") vs someone else's
+  (their name / "they" - a test bans gendered pronouns). Reaction kind `forYouComment`. Gus now
+  stays visible during the wall; petting him serves the next line.
+- [x] **Vote/favorite patches reach every list** (unreleased) `updatePostInCache` only patched
+  `["posts"]` infinite queries, so hearts/votes made from For you (local hook state), Popular,
+  pools, sets and collections didn't update on screen. Now it walks every cached query and
+  patches any post list shape (`Post[]`, `{pages:[{posts}]}`, `{posts}`), and out-of-cache lists
+  subscribe via `subscribePostUpdates` (useForYou does). Tested (`queries/postCache.test.ts`).
+- [x] **More Gus** (unreleased) Live commentary while the For you wall builds: BrickWall emits
+  `WallEvent`s (first brick, big brick, upright, avatar bonked, raccoon tag, progress marks, top
+  row) and the panel picks a line (`forYouWallRemarks`), throttled to one per ~4s with per-event
+  odds and no repeats; plus phase lines (waiting / now shopping) and a doubled building pool.
+  Everywhere else: `lib/mascotExtraLines.ts` adds 3-6 clean lines to nearly every reaction
+  (merged at load in lib/mascot.ts) - ~500 regular lines total, up from ~160. Tested.
+- [x] **Lots more cheeky Gus** (unreleased) `lib/mascotSpicyExtra.ts` merged into SPICY_LINES at
+  load (lib/mascotSpicy.ts): 3-6 more cheeky lines for nearly every reaction, including kinds that
+  had no cheeky pool (squint, bigThumbs, homeSite, layouts, peekaboo, gameRight/Wrong...). For you
+  gets cheeky building, wall-event and phase pools plus a much bigger results pool; the panel
+  serves them ~70% cheeky (SPICY_SHARE) when spicyAllowed. Same rules: innuendo, never explicit;
+  tests check placeholders, duplicates and no guessed pronouns for other users.

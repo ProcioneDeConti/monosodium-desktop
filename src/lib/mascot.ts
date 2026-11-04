@@ -1,4 +1,5 @@
 import { SPICY_LINES } from "./mascotSpicy";
+import { EXTRA_LINES } from "./mascotExtraLines";
 import type { MascotMode, MascotTalk } from "../state/settingsStore";
 
 /** The raccoon's name - from monosodium **g**l**u**tamate. Used in Settings, the hide pill, the
@@ -79,6 +80,8 @@ export type ReactionKind =
   | "dashComment"
   // Popular page: the line comes from lib/mascotPopular.ts via vars.line
   | "popularComment"
+  // For you page: the line comes from lib/mascotForYou.ts via vars.line
+  | "forYouComment"
   | "analysisDone"
   // the cooter easter egg - the card is Procione (the owner's character), Gus just reacts to it
   | "eggSpotted"
@@ -350,6 +353,10 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
     motion: "look", emoji: ["🔥", "📈", "👀"], durationMs: 2600, cooldownMs: 0, minor: false, priority: 2, burst: 3,
     lines: ["{line}"], alwaysTalks: true, ignoreGap: true,
   },
+  forYouComment: {
+    motion: "nod", emoji: ["✨", "🔮", "💝"], durationMs: 2800, cooldownMs: 0, minor: false, priority: 2, burst: 3,
+    lines: ["{line}"], alwaysTalks: true, ignoreGap: true,
+  },
   analysisDone: {
     motion: "hop", emoji: ["📊", "✨", "🧮"], durationMs: 2600, cooldownMs: 0, minor: false, priority: 3, burst: 5,
     lines: ["{line}"], alwaysTalks: true, ignoreGap: true,
@@ -465,6 +472,11 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
     lines: ["Stats reset. Destroying the evidence?", "All my hard counting… gone."], alwaysTalks: true,
   },
 };
+
+// More regular lines per kind (lib/mascotExtraLines.ts), merged once at load.
+for (const [kind, extra] of Object.entries(EXTRA_LINES) as [ReactionKind, string[]][]) {
+  REACTIONS[kind].lines.push(...extra);
+}
 
 /** Odds that a favorite is a ✨shiny✨ one. */
 export const SHINY_ODDS = 1 / 500;

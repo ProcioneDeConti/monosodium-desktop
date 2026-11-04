@@ -467,6 +467,13 @@ const SECTIONS: HelpSection[] = [
       <UL>
         <li><B>Popular</B>: e621's most-favorited posts by day, week or month.</li>
         <li>
+          <B>For you</B> (signed in): suggested posts ranked against your taste, built from your{" "}
+          <B>Recent 960</B> or <B>All</B> favorites (plus your up/downvotes). Type any username to
+          suggest posts for someone else from their public favorites, or use{" "}
+          <B>Suggest posts for…</B> on a profile. <B>Suggest more</B> (or scrolling) keeps going.
+          The profile is saved for a week; the refresh button rebuilds it.
+        </li>
+        <li>
           <B>Dashboard</B>: your usage stats (time in app, posts viewed, data used, API calls, an
           activity heat-map) and a breakdown of your favorites. It can also analyze another user's
           favorites by name or ID. Each analysis can be exported as a <B>“wrapped” share card</B>,

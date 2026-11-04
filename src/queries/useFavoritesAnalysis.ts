@@ -8,6 +8,7 @@ import { SPICY_SHARE, spicyAllowed, spicyAnalysisRemark } from "../lib/mascotSpi
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { e621Api } from "../api/client";
+import { FAV_PAGE_LIMIT, fetchPostPages } from "../lib/favoritePages";
 import type { Site } from "../models/site";
 import {
   addToFavAccumulator,
@@ -21,7 +22,7 @@ import { analysisRemark } from "../lib/mascotDashboard";
 import { mascotReact, useMascotStore } from "../state/mascotStore";
 import { useAccountStore } from "../state/accountStore";
 
-export const FAV_PAGE_LIMIT = 320;
+export { FAV_PAGE_LIMIT };
 
 export interface ResolvedUser {
   id: number;
@@ -166,7 +167,6 @@ export function useFavoritesAnalysis(site: Site) {
       });
 
       const acc = createFavAccumulator();
-      let cursor: string | undefined;
 
       // `status:any` disables e621's default "hide deleted posts" filter, so favourites whose
       // post was later deleted are still counted (they keep their tags/score). Off by request.
@@ -175,21 +175,23 @@ export function useFavoritesAnalysis(site: Site) {
       const blacklist = useSettingsStore.getState().blacklistEntries;
 
       try {
-        while (!cancelRef.current) {
-          const resp = await e621Api.getPosts(site, tags, FAV_PAGE_LIMIT, cursor);
-          if (!alive()) return;
-          const room = want === "all" ? resp.posts.length : Math.max(0, want - acc.total);
-          addToFavAccumulator(acc, resp.posts.slice(0, room), blacklist);
-          setState((s) => ({
-            ...s,
-            fetched: acc.total,
-            requestsDone: s.requestsDone + 1,
-            elapsedMs: Date.now() - startedAtRef.current,
-          }));
-          if (resp.posts.length < FAV_PAGE_LIMIT) break;
-          if (want !== "all" && acc.total >= want) break;
-          cursor = `b${resp.posts[resp.posts.length - 1].id}`;
-        }
+        await fetchPostPages({
+          site,
+          tags,
+          want,
+          shouldStop: () => cancelRef.current,
+          alive,
+          onPage: (page) => {
+            addToFavAccumulator(acc, page, blacklist);
+            setState((s) => ({
+              ...s,
+              fetched: acc.total,
+              requestsDone: s.requestsDone + 1,
+              elapsedMs: Date.now() - startedAtRef.current,
+            }));
+          },
+        });
+        if (!alive()) return;
       } catch (e) {
         if (alive()) {
           setState((s) => ({ ...s, phase: "error", error: errorMessage(e, "Favourites fetch failed.") }));

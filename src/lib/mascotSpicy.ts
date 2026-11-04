@@ -1,4 +1,5 @@
 import type { ReactionKind } from "./mascot";
+import { SPICY_EXTRA } from "./mascotSpicyExtra";
 import type { DashboardFacts } from "./mascotDashboard";
 import { prettyTag } from "./mascotDashboard";
 import type { FavoritesAnalysis } from "./favoritesAnalysis";
@@ -245,6 +246,12 @@ export const SPICY_LINES: Partial<Record<ReactionKind, string[]>> = {
     "Evidence destroyed. I still remember, though.",
   ],
 };
+
+// More cheeky lines per kind (lib/mascotSpicyExtra.ts), merged once at load. Kinds with no pool
+// yet get one here.
+for (const [kind, extra] of Object.entries(SPICY_EXTRA) as [ReactionKind, string[]][]) {
+  (SPICY_LINES[kind] ??= []).push(...extra);
+}
 
 const n = (x: number) => x.toLocaleString();
 const HOUR = 3600_000;

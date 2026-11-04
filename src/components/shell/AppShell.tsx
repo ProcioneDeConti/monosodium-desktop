@@ -30,6 +30,7 @@ import {
   Shuffle,
   SquareStack,
   TrendingUp,
+  Sparkles,
   User,
   Gamepad2,
   Upload,
@@ -79,6 +80,8 @@ interface AppShellProps {
   onOpenForum: () => void;
   forumUnread: boolean;
   onOpenPopular: () => void;
+  /** Null when signed out (suggestions are built from your own favourites). */
+  onOpenForYou: (() => void) | null;
   onOpenCollections: () => void;
   onOpenSavedSearches: () => void;
   onOpenGames: () => void;
@@ -128,6 +131,7 @@ export function AppShell({
   onOpenForum,
   forumUnread,
   onOpenPopular,
+  onOpenForYou,
   onOpenCollections,
   onOpenSavedSearches,
   onOpenGames,
@@ -373,6 +377,11 @@ export function AppShell({
           <MenuItem icon={<TrendingUp size={15} />} onClick={onOpenPopular}>
             Popular
           </MenuItem>
+          {onOpenForYou && (
+            <MenuItem icon={<Sparkles size={15} />} onClick={onOpenForYou}>
+              For you
+            </MenuItem>
+          )}
           <MenuItem icon={<BookOpen size={15} />} onClick={onOpenWiki}>
             Wiki
           </MenuItem>

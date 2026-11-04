@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { CheckCircle2, Circle, FileUp, Film, Link2, Loader2, TriangleAlert, Upload, X, XCircle } from "lucide-react";
+import { CheckCircle2, Circle, FileUp, Film, Link2, TriangleAlert, Upload, X, XCircle } from "lucide-react";
+import { Spinner } from "../ui/Spinner";
 import type { Site } from "../../models/site";
 import type { UploadResult } from "../../models/upload";
 import { e621Api } from "../../api/client";
@@ -250,7 +251,7 @@ export function UploadPanel({ site, droppedPath, onClose, onOpenPost }: UploadPa
               {source && (
                 <div className="mt-3 flex items-center justify-center overflow-hidden rounded-[var(--radius-md)] bg-black/5 dark:bg-white/5">
                   {fileQ.isLoading ? (
-                    <Loader2 className="my-10 animate-spin opacity-50" />
+                    <Spinner size={24} className="my-10" />
                   ) : previewQ.data ? (
                     <img src={previewQ.data} alt="" className="max-h-72 object-contain" />
                   ) : isVideo ? (
@@ -369,7 +370,7 @@ export function UploadPanel({ site, droppedPath, onClose, onOpenPost }: UploadPa
                 className="flex w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[rgb(var(--accent))] px-4 py-2.5
                            text-sm font-semibold text-white transition-opacity disabled:opacity-35"
               >
-                {submitting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                {submitting ? <Spinner size={16} /> : <Upload size={16} />}
                 {submitting ? "Uploading…" : "Upload"}
               </button>
             </div>
@@ -414,7 +415,7 @@ const STATUS_ICON: Record<CheckStatus, React.ReactNode> = {
   fail: <XCircle size={16} className="text-red-500" />,
   warn: <TriangleAlert size={16} className="text-amber-500" />,
   pending: <Circle size={16} className="opacity-30" />,
-  running: <Loader2 size={16} className="animate-spin opacity-60" />,
+  running: <Spinner size={16} />,
 };
 
 function ChecklistRow({ item, children }: { item: CheckItem; children?: React.ReactNode }) {

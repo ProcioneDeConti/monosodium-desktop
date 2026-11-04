@@ -14,6 +14,7 @@ import {
   PencilLine,
   ScrollText,
   ShieldCheck,
+  Sparkles,
   Upload,
   UserRound,
   X,
@@ -39,6 +40,8 @@ interface ProfilePanelProps {
   userId: number | "me";
   onClose: () => void;
   onSearch: (query: string) => void;
+  /** Open "For you" suggestions built from this user's favourites. */
+  onSuggestFor?: (name: string) => void;
 }
 
 type StatDef = { key: keyof UserProfile; label: string; icon: typeof Heart };
@@ -60,7 +63,7 @@ const STATS: StatDef[] = [
   { key: "flag_count", label: "Flags", icon: Flag },
 ];
 
-export function ProfilePanel({ site, userId, onClose, onSearch }: ProfilePanelProps) {
+export function ProfilePanel({ site, userId, onClose, onSearch, onSuggestFor }: ProfilePanelProps) {
   const { data: profile, isLoading, isError, error, refetch } = useUserProfileQuery(site, userId);
   const { data: avatarUrl } = useAvatarUrl(site, profile?.avatar_id ?? null);
   const overlay = useRef<OverlayHandle>(null);
@@ -104,6 +107,8 @@ export function ProfilePanel({ site, userId, onClose, onSearch }: ProfilePanelPr
               avatarUrl={avatarUrl ?? null}
               onOpenPosts={openPosts}
               onOpenFavorites={openFavorites}
+              onSuggest={onSuggestFor && profile.favorite_count !== 0 ? () => onSuggestFor(profile.name) : null}
+              isSelf={userId === "me"}
             />
           )}
         </div>
@@ -117,12 +122,16 @@ function ProfileContent({
   avatarUrl,
   onOpenPosts,
   onOpenFavorites,
+  onSuggest,
+  isSelf,
 }: {
   site: Site;
   profile: UserProfile;
   avatarUrl: string | null;
   onOpenPosts: () => void;
   onOpenFavorites: () => void;
+  onSuggest: (() => void) | null;
+  isSelf: boolean;
 }) {
   const levelLabel = profile.level_string ?? userLevelLabel(profile.level);
   const karma = profile.upload_karma;
@@ -248,6 +257,14 @@ function ProfileContent({
             hint={profile.favorite_count != null ? `${formatCount(profile.favorite_count)} posts` : "Their favorites"}
             onClick={onOpenFavorites}
           />
+          {onSuggest && (
+            <BigAction
+              icon={<Sparkles size={17} />}
+              label={isSelf ? "Suggest posts for you" : `Suggest posts for ${profile.name}`}
+              hint={isSelf ? "Ranked from your favorites" : "Ranked from their favorites"}
+              onClick={onSuggest}
+            />
+          )}
         </div>
 
         {showContribution && (

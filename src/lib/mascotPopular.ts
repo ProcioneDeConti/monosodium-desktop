@@ -27,9 +27,9 @@ export interface PopularFacts {
   animatedShare: number;
 }
 
-const NOT_ARTISTS = new Set(["conditional_dnp", "sound_warning", "unknown_artist", "anonymous_artist", "third-party_edit", "epilepsy_warning"]);
+export const NOT_ARTISTS = new Set(["conditional_dnp", "sound_warning", "unknown_artist", "anonymous_artist", "third-party_edit", "epilepsy_warning"]);
 /** Too generic to be a "theme of the day". */
-const BORING_GENERAL = new Set(["solo", "male", "female", "anthro", "nude", "hi_res", "absurd_res", "simple_background", "digital_media_(artwork)", "clothing", "smile", "looking_at_viewer", "fur", "tail", "text", "duo", "genitals", "breasts", "penis", "white_background", "standing", "open_mouth", "hair", "mammal", "teeth", "tongue", "biped", "blush", "bodily_fluids", "eyes_closed", "humanoid_genitalia", "big_breasts", "nipples", "pussy", "balls", "erection", "anus", "butt", "female_penetrated", "male_penetrated", "sex", "penetration", "male/female", "male/male", "female/female"]);
+export const BORING_GENERAL = new Set(["solo", "male", "female", "anthro", "nude", "hi_res", "absurd_res", "simple_background", "digital_media_(artwork)", "clothing", "smile", "looking_at_viewer", "fur", "tail", "text", "duo", "genitals", "breasts", "penis", "white_background", "standing", "open_mouth", "hair", "mammal", "teeth", "tongue", "biped", "blush", "bodily_fluids", "eyes_closed", "humanoid_genitalia", "big_breasts", "nipples", "pussy", "balls", "erection", "anus", "butt", "female_penetrated", "male_penetrated", "sex", "penetration", "male/female", "male/male", "female/female"]);
 
 function topOf(counts: Map<string, number>): [string, number] | null {
   let best: [string, number] | null = null;

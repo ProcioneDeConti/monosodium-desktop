@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { RainbowBar } from "../ui/RainbowBar";
 import { BarChart3, Infinity as InfinityIcon, TriangleAlert, X } from "lucide-react";
 import type { Site } from "../../models/site";
 import { SITE_DISPLAY_NAME } from "../../models/site";
@@ -224,14 +225,7 @@ export function FavoritesAnalysisRunner({
           <span className="tabular-nums text-xs opacity-55">{formatDuration(state.elapsedMs)}</span>
         </div>
 
-        <div className="h-2 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-          <div
-            className={`h-full rounded-full bg-[rgb(var(--accent))] ${
-              pct != null ? "transition-[width] duration-300" : "animate-pulse"
-            }`}
-            style={{ width: pct != null ? `${pct}%` : "100%" }}
-          />
-        </div>
+        <RainbowBar progress={pct != null ? pct / 100 : null} className="h-2 w-full rounded-full" />
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-60">
           <span className="tabular-nums">

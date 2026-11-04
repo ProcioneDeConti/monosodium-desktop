@@ -151,6 +151,11 @@ src/
                                way as Favorites/Profile; the shell's Mail button shows an unread
                                badge from `users/me.json`'s `unread_dmail_count`, polled the same
                                way as the connection dot
+    ForYou/ForYouPanel.tsx    full-screen "For you" suggestions (own account or any user): taste
+                               profile from favourites (lib/tasteProfile.ts) -> candidate searches
+                               + client-side ranking (lib/recommend.ts), driven by
+                               queries/useForYou.ts; BrickWall.tsx is the loading animation
+                               (layout in lib/brickWall.ts)
     Upload/UploadPanel.tsx    full-screen e621 uploader: form on the left, compliance checklist
                                on the right (rules in lib/uploadChecks.ts, network in
                                queries/useUploadChecks.ts); Submit locked until blocking items pass

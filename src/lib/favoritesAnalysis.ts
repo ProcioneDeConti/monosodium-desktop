@@ -54,7 +54,7 @@ const SCORE_BUCKET_ORDER = ["≤ 0", "1–24", "25–49", "50–99", "100–249"
 
 /** Tags that are technically artist/species/meta tags but aren't meaningful "who / what" signal -
  *  excluded from the artist and character/series tallies so they don't crowd out real results. */
-const EXCLUDED_TAGS = new Set(["sound_warning", "conditional_dnp"]);
+export const EXCLUDED_TAGS = new Set(["sound_warning", "conditional_dnp"]);
 
 export interface FavAccumulator {
   total: number;
