@@ -45,7 +45,7 @@ mod tests {
     #[test]
     fn derive_key_matches_buffer_api() {
         // Existing vaults/backups were keyed via the out-buffer API - must stay byte-identical.
-        let salt = [7u8; SALT_LEN];
+        let salt: [u8; SALT_LEN] = rand::random();
         let mut expected = [0u8; 32];
         pbkdf2::pbkdf2_hmac::<Sha256>(b"hunter2", &salt, PBKDF2_ITERATIONS, &mut expected);
         assert_eq!(derive_key("hunter2", &salt), expected);
