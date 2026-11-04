@@ -1864,6 +1864,14 @@ live call before implementing (per user instruction - no more guessing).
       - Background music in the games sheet (`GameMusic.tsx`): royalty-free tracks from
         `/bgmusic`, bundled by Vite via `import.meta.glob`; play/pause/skip/volume persisted in
         games.json. Not yet live-tested in a release build.
+      - Music revamp: 38 instrumental tracks (Pixabay + CC0 OpenGameArt) in
+        `bgmusic/{house,trance,jazz}/Artist - Title.opus`, re-encoded to Opus 112k (237MB ->
+        105MB); sources in `bgmusic/CREDITS.md`. Player shows album art (same-named image
+        beside the track, else `Mascot mood="listening"` - Gus in headphones), title/artist ·
+        genre, and a decorative 4-bar spectrum (`.eq-bar` in index.css) that bounces only
+        while audio is actually playing.
+        Files are now `Artist - Title.mp3|ogg` (shown as "Title - Artist"); sources and
+        licenses are in `bgmusic/CREDITS.md`. Folder is ~153MB (it was 92MB).
 - [x] **Visual polish pass + frameless window** (v1.22.0)
       - Frameless window (`decorations: false` - tauri.conf.json + `lib/postWindow.ts`):
         `shell/WindowFrame.tsx` draws a 30px title bar with macOS-style traffic-light buttons

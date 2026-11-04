@@ -649,6 +649,33 @@ h3 {
   }
 }
 
+/* Games music player's 4-bar "now playing" spectrum (GameMusic.tsx). Decorative - doesn't follow
+   the audio. Each bar runs the same uneven bounce at its own speed/offset (--eq-d / --eq-delay) so
+   they never line up; paused, they ease down to a low rest. */
+@keyframes eq-bounce {
+  0% { transform: scaleY(0.3); }
+  18% { transform: scaleY(0.95); }
+  37% { transform: scaleY(0.5); }
+  55% { transform: scaleY(1); }
+  74% { transform: scaleY(0.35); }
+  88% { transform: scaleY(0.7); }
+  100% { transform: scaleY(0.3); }
+}
+.eq-bar {
+  transform-origin: bottom;
+  transform: scaleY(0.2);
+  transition: transform 0.4s ease-out;
+}
+.eq-playing .eq-bar {
+  animation: eq-bounce var(--eq-d) ease-in-out var(--eq-delay) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .eq-playing .eq-bar {
+    animation: none;
+    transform: scaleY(var(--eq-rest));
+  }
+}
+
 /* Rainbow loaders (components/ui/Spinner.tsx, RainbowBar.tsx), matching the Android app's
    RainbowSpinner / RainbowLinearIndicator. */
 

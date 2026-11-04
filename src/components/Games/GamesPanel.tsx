@@ -210,9 +210,13 @@ export function GamesPanel({ site, onClose, onSearch, onOpenPopular }: GamesPane
         )}
         <h1 className="text-base font-black tracking-tight">{game ? game.name : "Games"}</h1>
         {/* Every game but Tagdle (whose site-wide tag counts don't narrow to a favorites list). */}
-        <div className="ml-auto flex items-center gap-1.5">
-          {selected === "gusChat" && <GusChatSettings />}
+        {/* The music player sits centered in whatever space is left between the title and the
+            toggles, and is the part that gives way if the bar gets tight. */}
+        <div className="flex min-w-0 flex-1 justify-center px-2">
           <GameMusic />
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {selected === "gusChat" && <GusChatSettings />}
           {!isGus && <BlacklistToggle />}
           {selected !== "tagdle" && !isGus && <FavoritesToggle site={site} />}
         </div>
@@ -267,7 +271,7 @@ function FavoritesToggle({ site }: { site: Site }) {
       disabled={!signedIn}
       onClick={() => setOn(!on)}
       title={signedIn ? "Play with posts from your favorites only" : "Sign in (Settings) to play with your favorites"}
-      className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors
+      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition-colors
                   disabled:opacity-40 ${
                     active
                       ? "border-pink-400 bg-pink-500/20 text-pink-500 dark:text-pink-300"
@@ -292,7 +296,7 @@ function BlacklistToggle() {
       type="button"
       onClick={() => setShowing(!showing)}
       title={showing ? "Blacklisted posts are showing - click to hide them again" : "Show blacklisted posts"}
-      className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
         showing
           ? "border-amber-400 bg-amber-500/20 text-amber-600 dark:text-amber-300"
           : "border-black/10 dark:border-white/15 opacity-70 hover:opacity-100"

@@ -8,7 +8,7 @@ import { useSettingsStore } from "../../state/settingsStore";
 /** Fired by "Forget me" - GusChat resets its log and session state when it hears it. */
 export const GUS_FORGET_EVENT = "gus:forget";
 
-/** Talk to Gus's settings, as a menu in the Games panel's top bar (left of the music), so the
+/** Talk to Gus's settings, as a menu in the Games panel's top bar (right of the music), so the
  *  chat itself only shows the conversation. */
 export function GusChatSettings() {
   const [open, setOpen] = useState(false);

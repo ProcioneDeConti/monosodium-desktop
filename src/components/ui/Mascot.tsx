@@ -6,8 +6,9 @@ interface MascotProps {
   size?: number;
   /** "happy" for loading/greeting; "sad" tilts him and gives him an anime-style gloom face
    *  (blue, vertically striped shading over the top of his face) for errors / empty results;
-   *  "asleep" puts a sleep mask over his eyes (Pocket Gus's bed). */
-  mood?: "happy" | "sad" | "asleep";
+   *  "asleep" puts a sleep mask over his eyes (Pocket Gus's bed); "listening" puts headphones on
+   *  him (the Games panel's music player album-art fallback). */
+  mood?: "happy" | "sad" | "asleep" | "listening";
   /** Idle bob (default on). Off when a parent bobs a larger unit, e.g. the companion's backdrop. */
   bob?: boolean;
   className?: string;
@@ -39,11 +40,11 @@ export function Mascot({ size = 96, mood = "happy", bob = true, className = "" }
       className={`select-none drop-shadow-[0_6px_14px_rgb(0_0_0/0.25)] ${cls}`}
     />
   );
-  if (mood === "asleep") {
+  if (mood === "asleep" || mood === "listening") {
     return (
       <span className={`relative inline-block ${bob ? "mascot-bob" : ""} ${className}`} style={{ width: size, height: size }}>
         {img("block")}
-        <SleepMask />
+        {mood === "asleep" ? <SleepMask /> : <Headphones />}
       </span>
     );
   }
@@ -77,6 +78,26 @@ function SleepMask() {
         <path d="M60 16 Q68 23 76 16" />
         <path d="M27 19.5 l-2 3 M32 21 v3.5 M37 19.5 l2 3 M63 19.5 l-2 3 M68 21 v3.5 M73 19.5 l2 3" strokeWidth="1.5" />
       </g>
+    </svg>
+  );
+}
+
+/** Over-ear headphones: a band arching over his crown (between the ears, which peak at roughly
+ *  28% / 72% across, 18% down) down to a cup on each side of his head at cheek height (~53%). */
+function Headphones() {
+  return (
+    <svg aria-hidden viewBox="0 0 100 100" className="pointer-events-none absolute inset-0 h-full w-full drop-shadow-[0_2px_2px_rgb(0_0_0/0.35)]">
+      {/* Band, with a lighter padded strip along its top. */}
+      <path d="M19 50 C16 14 84 14 81 50" stroke="#1f2430" strokeWidth="5.5" fill="none" strokeLinecap="round" />
+      <path d="M27 30 C38 18 62 18 73 30" stroke="#4a5263" strokeWidth="2" fill="none" strokeLinecap="round" />
+      {/* Cups: dark shell, accent-colored outer plate. */}
+      {[17, 83].map((cx) => (
+        <g key={cx}>
+          <rect x={cx - 7} y={42} width={14} height={23} rx={6} fill="#1f2430" stroke="#0d1017" strokeWidth="1.2" />
+          <rect x={cx - 4} y={46} width={8} height={15} rx={3.5} fill="rgb(var(--accent))" />
+          <rect x={cx - 2.5} y={48} width={2} height={7} rx={1} fill="white" opacity="0.45" />
+        </g>
+      ))}
     </svg>
   );
 }
