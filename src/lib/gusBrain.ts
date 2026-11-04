@@ -660,7 +660,7 @@ function nudes(text: string, ctx: BrainCtx, rnd: () => number): BrainOut | null 
 }
 
 /** "More" / "another" / yes to his "Want more?" after a pic. */
-const MORE_PIC_RE = /^(?:(?:yes|yeah|yep|yup|ok|okay|sure|please|pls|mhm|mm+|hell yes|fuck yes)[,!.]*\s*)*(?:(?:send |show me |gimme |give me )?(?:more|another(?: one)?|one more|moar|again|seconds)(?: pics?| please| pls)?|keep (?:them|em|'em) coming|(?:i )?want more|don'?t stop)\b/i;
+const MORE_PIC_RE = /^(?:(?:yes|yeah|yep|yup|ok|okay|sure|please|pls|mhm|mm+|hell yes|fuck yes)(?:[,!.]+\s*|\s+))*(?:(?:send |show me |gimme |give me )?(?:more|another(?: one)?|one more|moar|again|seconds)(?: pics?| please| pls)?|keep (?:them|em|'em) coming|(?:i )?want more|don'?t stop)\b/i;
 
 /** A pic of himself, rated to the tier. `again` = you asked for another. */
 function sendNude(ctx: BrainCtx, rnd: () => number, again = false): BrainOut {
