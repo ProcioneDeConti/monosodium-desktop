@@ -106,10 +106,64 @@ fn remove_strays(dir: &Path, set: &RecoveredSet) {
     let Ok(entries) = std::fs::read_dir(dir) else { return };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if valid_file_name(&name) && !set.items.iter().any(|i| i.file == name) {
+        let stray = if let Some(md5) = thumb_md5(&name) {
+            !set.items.iter().any(|i| i.md5.eq_ignore_ascii_case(md5))
+        } else {
+            valid_file_name(&name) && !set.items.iter().any(|i| i.file == name)
+        };
+        if stray {
             let _ = std::fs::remove_file(entry.path());
         }
     }
+}
+
+/// Longest side of a grid thumbnail. Grid cells are a few hundred CSS px wide; this leaves room for
+/// high-DPI screens while keeping decode cost near an e621 preview's (recovered originals are
+/// often 2-4K and several MB - decoding those per cell made scrolling lag).
+const THUMB_MAX: u32 = 480;
+
+/// `<md5>.thumb.jpg` / `<md5>.thumb.png` -> the md5.
+fn thumb_md5(name: &str) -> Option<&str> {
+    let md5 = name.strip_suffix(".thumb.jpg").or_else(|| name.strip_suffix(".thumb.png"))?;
+    (md5.len() == 32 && md5.bytes().all(|b| b.is_ascii_hexdigit())).then_some(md5)
+}
+
+/// The cached thumbnail of a recovered file, if one was made.
+fn existing_thumb(dir: &Path, md5: &str) -> Option<PathBuf> {
+    ["jpg", "png"].iter().map(|ext| dir.join(format!("{md5}.thumb.{ext}"))).find(|p| p.is_file())
+}
+
+/// Makes (or finds) the small grid copy of a recovered image: JPEG, or PNG when the image has
+/// transparency (a JPEG would turn it black). `None` for videos and formats the image crate here
+/// doesn't decode (AVIF) - the grid then shows a placeholder / the file itself. Blocking: decodes
+/// the full file, so call it off the async runtime.
+fn make_thumb(dir: &Path, item: &RecoveredImage) -> Option<PathBuf> {
+    if item.is_video {
+        return None;
+    }
+    if let Some(existing) = existing_thumb(dir, &item.md5) {
+        return Some(existing);
+    }
+    let img = image::open(dir.join(&item.file)).ok()?;
+    let small = if img.width() > THUMB_MAX || img.height() > THUMB_MAX { img.thumbnail(THUMB_MAX, THUMB_MAX) } else { img };
+    let (ext, bytes) = if small.color().has_alpha() {
+        let mut out = std::io::Cursor::new(Vec::new());
+        small.write_to(&mut out, image::ImageFormat::Png).ok()?;
+        ("png", out.into_inner())
+    } else {
+        let mut out = Vec::new();
+        let rgb = small.to_rgb8();
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 85).encode_image(&rgb).ok()?;
+        ("jpg", out)
+    };
+    let path = dir.join(format!("{}.thumb.{ext}", item.md5));
+    paths::write_atomic(&path, &bytes).ok()?;
+    Some(path)
+}
+
+/// The user's pick for a post (or the best match).
+fn picked(set: &RecoveredSet) -> Option<&RecoveredImage> {
+    set.selected.as_ref().and_then(|s| set.items.iter().find(|i| &i.file == s)).or(set.items.first())
 }
 
 pub fn load(site: Site, post_id: i64) -> Option<RecoveredSet> {
@@ -173,6 +227,8 @@ pub fn get_recovered(site: Site, post_id: i64) -> Option<RecoveredSet> {
 pub struct RecoveredThumb {
     /// The picked file; `None` for a post searched without result (see `not_found_at`).
     pub path: Option<String>,
+    /// Its small grid copy, once made (`make_thumb`); the grid falls back to `path` until then.
+    pub thumb: Option<String>,
     pub is_video: bool,
     pub not_found_at: Option<i64>,
 }
@@ -188,14 +244,56 @@ pub fn list_recovered(site: Site) -> HashMap<i64, RecoveredThumb> {
         let pick = set.selected.as_ref().and_then(|s| set.items.iter().find(|i| &i.file == s));
         match pick.or(set.items.first()) {
             Some(item) => {
-                out.insert(id, RecoveredThumb { path: Some(item.path.clone()), is_video: item.is_video, not_found_at: None });
+                let dir = post_dir(site, id);
+                let thumb = existing_thumb(&dir, &item.md5).map(|p| p.to_string_lossy().into_owned());
+                out.insert(id, RecoveredThumb { path: Some(item.path.clone()), thumb, is_video: item.is_video, not_found_at: None });
             }
             None => {
-                out.insert(id, RecoveredThumb { path: None, is_video: false, not_found_at: set.not_found_at });
+                out.insert(id, RecoveredThumb { path: None, thumb: None, is_video: false, not_found_at: set.not_found_at });
             }
         }
     }
     out
+}
+
+/// The grid thumbnail for one recovered post's pick, made now if missing (after a recovery or a
+/// new pick).
+#[tauri::command]
+pub async fn recovered_thumb(site: Site, post_id: i64) -> Option<String> {
+    tokio::task::spawn_blocking(move || {
+        let set = load(site, post_id)?;
+        let item = picked(&set)?;
+        make_thumb(&post_dir(site, post_id), item).map(|p| p.to_string_lossy().into_owned())
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/// Makes the missing grid thumbnails for every recovered post of `site` (posts recovered before
+/// thumbnails existed). Runs once per site per app session from the frontend; returns
+/// post id -> thumbnail path for the ones it made.
+#[tauri::command]
+pub async fn build_recovered_thumbs(site: Site) -> HashMap<i64, String> {
+    tokio::task::spawn_blocking(move || {
+        let mut out = HashMap::new();
+        let Ok(entries) = std::fs::read_dir(root().join(site_key(site))) else { return out };
+        for entry in entries.flatten() {
+            let Some(id) = entry.file_name().to_str().and_then(|n| n.parse::<i64>().ok()) else { continue };
+            let Some(set) = load(site, id) else { continue };
+            let Some(item) = picked(&set) else { continue };
+            let dir = post_dir(site, id);
+            if item.is_video || existing_thumb(&dir, &item.md5).is_some() {
+                continue;
+            }
+            if let Some(path) = make_thumb(&dir, item) {
+                out.insert(id, path.to_string_lossy().into_owned());
+            }
+        }
+        out
+    })
+    .await
+    .unwrap_or_default()
 }
 
 /// Remembers which candidate the user picked.
@@ -254,6 +352,41 @@ pub fn save_recovered_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn thumbnail_names() {
+        assert_eq!(thumb_md5("0123456789abcdef0123456789abcdef.thumb.jpg"), Some("0123456789abcdef0123456789abcdef"));
+        assert_eq!(thumb_md5("0123456789abcdef0123456789abcdef.thumb.png"), Some("0123456789abcdef0123456789abcdef"));
+        assert_eq!(thumb_md5("0123456789abcdef0123456789abcdef.png"), None);
+        assert_eq!(thumb_md5("index.json"), None);
+        // A thumbnail is never mistaken for a candidate file (and so never served as one).
+        assert!(!valid_file_name("0123456789abcdef0123456789abcdef.thumb.jpg"));
+    }
+
+    #[test]
+    fn makes_small_thumbnails() {
+        let dir = std::env::temp_dir().join(format!("monosodium-thumb-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let md5 = "0123456789abcdef0123456789abcdef";
+        let mut item: RecoveredImage = serde_json::from_value(serde_json::json!({
+            "file": format!("{md5}.png"), "md5": md5, "source_url": "", "image_url": "", "mime": "image/png",
+            "size_bytes": 0, "via_archive": false, "grade": "exact", "md5_match": true, "width": 1200, "height": 600,
+            "expected_width": 0, "expected_height": 0, "expected_size": 0, "notes": []
+        }))
+        .unwrap();
+        // Opaque -> JPEG, scaled to fit THUMB_MAX.
+        image::RgbImage::new(1200, 600).save(dir.join(&item.file)).unwrap();
+        let thumb = make_thumb(&dir, &item).unwrap();
+        assert!(thumb.to_string_lossy().ends_with(".thumb.jpg"));
+        assert_eq!(image::image_dimensions(&thumb).unwrap(), (480, 240));
+        // Transparent -> PNG.
+        std::fs::remove_file(&thumb).unwrap();
+        image::RgbaImage::new(100, 300).save(dir.join(&item.file)).unwrap();
+        assert!(make_thumb(&dir, &item).unwrap().to_string_lossy().ends_with(".thumb.png"));
+        item.is_video = true;
+        assert!(make_thumb(&dir, &item).is_none(), "videos get no thumbnail");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn only_md5_file_names_are_accepted() {

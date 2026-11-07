@@ -3,7 +3,7 @@ import { makePost } from "../test/makePost";
 import type { Post } from "../models/post";
 
 // The store pulls in Tauri-backed modules; only the pure selection logic is under test here.
-vi.mock("../api/client", () => ({ e621Api: {} }));
+vi.mock("../api/client", () => ({ e621Api: { recoveredThumb: () => Promise.resolve(null) } }));
 vi.mock("../lib/notifications", () => ({ notify: vi.fn() }));
 vi.mock("./mascotStore", () => ({ mascotReact: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ convertFileSrc: (p: string) => `asset://${p}` }));

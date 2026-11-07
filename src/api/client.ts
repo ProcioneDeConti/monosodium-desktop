@@ -64,6 +64,8 @@ export interface RecoveredSet {
 export interface RecoveredThumb {
   /** null for a post that was searched without result. */
   path: string | null;
+  /** The pick's small grid copy (src-tauri/src/recovered.rs `make_thumb`), once made. */
+  thumb?: string | null;
   is_video: boolean;
   not_found_at: number | null;
 }
@@ -483,6 +485,14 @@ export const e621Api = {
   /** What's cached for a deleted post from an earlier recovery, or null. No network. */
   getRecovered(site: Site, postId: number): Promise<RecoveredSet | null> {
     return invoke("get_recovered", { site, postId });
+  },
+  /** The grid thumbnail for a post's picked file, made now if missing. */
+  recoveredThumb(site: Site, postId: number): Promise<string | null> {
+    return invoke("recovered_thumb", { site, postId });
+  },
+  /** Makes missing grid thumbnails for a site's recovered posts; resolves to post id -> path. */
+  buildRecoveredThumbs(site: Site): Promise<Record<string, string>> {
+    return invoke("build_recovered_thumbs", { site });
   },
   /** Every recovered post of a site (post id -> picked file), for grid thumbnails. */
   listRecovered(site: Site): Promise<Record<string, RecoveredThumb>> {

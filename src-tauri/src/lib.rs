@@ -245,6 +245,8 @@ pub fn run() {
             source_fetch::check_source_key,
             recovered::get_recovered,
             recovered::list_recovered,
+            recovered::recovered_thumb,
+            recovered::build_recovered_thumbs,
             recovered::select_recovered,
             recovered::forget_recovered,
             recovered::save_recovered_file,

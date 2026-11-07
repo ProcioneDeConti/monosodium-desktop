@@ -2330,3 +2330,25 @@ live call before implementing (per user instruction - no more guessing).
         burst 2; all of archive.org one slower allowance, 1 per 1.5s); a 429 from archive.org pauses
         the Wayback steps for 5 minutes ("Skipped - Wayback is rate-limiting" in the report).
       - Live-tested by the user (2026-11-06): works.
+
+- [x] **Deleted-post recovery: Weasyl adult click-through**
+      - Weasyl's "I am at least 18 - View anyway" button only sets a `ro=<submission id>` cookie and
+        reloads (`/js/rating-override-*.js`); recovery now sends that cookie to Weasyl submission
+        pages (`session_cookie_for`). With it the page has the `#detail-art` Download link - the full
+        original (`cdn.weasyl.com/~user/submissions/<id>/<hash>/<file>`), checked live - which
+        `parse_weasyl` takes first, `og:image` preview after. Works without an API key; with one the
+        API is tried first and the page is the fallback. Archived (Wayback) adult pages are still
+        gated, so they only give the preview. Page shape checked live; not yet confirmed in the app.
+
+- [x] **Recovered-post grid thumbnails (scroll lag)**
+      - Grid tiles of recovered posts showed the full recovered file (dev cache: 98 files, median
+        870 KB, max 10 MB, often 2-4K px) and recovered videos as a `<video>` per cell, so scrolling
+        over many of them lagged decoding full-resolution images.
+      - `recovered.rs` now makes a small grid copy of the pick (`<md5>.thumb.jpg`, or `.png` when the
+        image has alpha; max 480 px; `image` crate, jpeg/png/gif/webp) - right after a recovery or a
+        new pick (`recovered_thumb`), and once per session for posts recovered before this
+        (`build_recovered_thumbs`). Grid + filmstrip use it, falling back to the file until it exists.
+        Recovered videos get a still placeholder tile instead of a `<video>`. Thumbnails are removed
+        with their file (stray cleanup). Unit-tested (sizes, PNG for alpha, none for video).
+        Live-tested by the user (2026-11-06): scrolling is smooth again.
+

@@ -139,7 +139,12 @@ function PostThumbnailImpl({
   // A deleted post has no preview of its own; one recovered from its sources (cached on disk by
   // the viewer's "Try to load from source") stands in, marked with a faded trash can.
   const recoveredThumb = useRecoveredThumb(site, post.id, isDeleted(post));
-  const thumbUrl = recoveredThumb?.src ?? post.preview.url ?? post.sample.url ?? post.file.url;
+  // The recovered copy's small grid version, not the full file (see recoveredStore's thumbSrc).
+  const thumbUrl =
+    (recoveredThumb?.isVideo ? null : (recoveredThumb?.thumbSrc ?? recoveredThumb?.src)) ??
+    post.preview.url ??
+    post.sample.url ??
+    post.file.url;
   // Searched for a copy, none found anywhere.
   const notFound = !recoveredThumb?.src && recoveredThumb?.notFoundAt != null ? recoveredThumb.notFoundAt : null;
   const rating = RATING_STYLE[post.rating] ?? RATING_STYLE.e;
@@ -213,16 +218,12 @@ function PostThumbnailImpl({
                   ${selected ? "ring-2 ring-[rgb(var(--accent))] ring-offset-1 ring-offset-transparent" : ""}
                   ${blacklisted ? "caution-stripe" : "border-black/5 dark:border-white/10"}`}
     >
-      {recoveredThumb?.src && recoveredThumb.isVideo && !errored ? (
-        // First frame of a recovered video (there's no still to show).
-        <video
-          src={recoveredThumb.src}
-          muted
-          playsInline
-          preload="metadata"
-          onError={() => setErrored(true)}
-          className={`h-full w-full object-cover ${seen && !selected ? "saturate-[.35] brightness-[.6] group-hover:saturate-100 group-hover:brightness-100" : ""}`}
-        />
+      {recoveredThumb?.src && recoveredThumb.isVideo ? (
+        // A recovered video: a still placeholder - a <video> element per cell (even metadata-only)
+        // is far heavier than an image, and grids of these made scrolling lag.
+        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/[0.07] to-transparent">
+          <Clapperboard size={Math.round(Math.min(40, Math.max(18, cellWidthPx / 6)))} strokeWidth={1.5} className="opacity-30" />
+        </div>
       ) : thumbUrl && !errored ? (
         <>
           {!loaded && <div className="absolute inset-0 skeleton-shimmer" />}

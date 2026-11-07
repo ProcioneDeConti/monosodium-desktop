@@ -50,6 +50,7 @@ pbkdf2 = "0.12.2"
 sha2 = "0.10.9"
 md-5 = "0.10"
 imagesize = "0.13"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
 rand = "0.8.5"
 winreg = "0.56.0"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }

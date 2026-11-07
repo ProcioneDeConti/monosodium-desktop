@@ -31,9 +31,9 @@ function StripThumb({ post, site }: { post: Post; site: Site }) {
     return (
       <span className="relative block h-full w-full">
         {recovered.isVideo ? (
-          <video src={recovered.src} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+          <span className="block h-full w-full bg-white/[0.06]" />
         ) : (
-          <img src={recovered.src} alt="" draggable={false} loading="lazy" className="h-full w-full object-cover" />
+          <img src={recovered.thumbSrc ?? recovered.src} alt="" draggable={false} loading="lazy" className="h-full w-full object-cover" />
         )}
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <Trash2 size={20} strokeWidth={1.75} className="text-white opacity-50 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]" />
