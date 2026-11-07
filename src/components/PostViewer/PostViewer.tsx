@@ -657,7 +657,7 @@ export function PostViewer({
           )}
         </div>
         {!slideshowActive && !isFullscreen && posts.length > 1 && (
-          <Filmstrip posts={posts} index={index} onSelect={onIndexChange} />
+          <Filmstrip posts={posts} site={site} index={index} onSelect={onIndexChange} />
         )}
         </div>
 

@@ -9,7 +9,7 @@ use crate::api::AppState;
 /// mirrors the reference Android app's default of separate Pictures/e621 vs Movies/e621
 /// locations, falling back to the Downloads folder if neither is available (unusual, but some
 /// minimal/server Windows configurations lack per-category known folders).
-fn default_download_dir(is_video: bool) -> Result<PathBuf, String> {
+pub(crate) fn default_download_dir(is_video: bool) -> Result<PathBuf, String> {
     let base = if is_video { dirs::video_dir() } else { dirs::picture_dir() }
         .or_else(dirs::download_dir)
         .ok_or("Could not resolve a default downloads folder")?;

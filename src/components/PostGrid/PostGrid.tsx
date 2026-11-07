@@ -290,6 +290,7 @@ export function PostGrid({
       return (
         <PostThumbnail
           post={data}
+          site={site}
           blacklisted={blacklisted}
           seen={!!dimIds?.has(data.id)}
           onClick={(e) => {

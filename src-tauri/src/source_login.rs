@@ -8,7 +8,7 @@
 //!   `capabilities/default.json`), and runs in its own throwaway WebView2 profile, so the site
 //!   never shares storage with the app's own webview and the profile can simply be deleted.
 //! - Cookies are only ever read by `source_fetch` and sent only to the site's own host; the
-//!   frontend only learns "signed in or not".
+//!   frontend only learns the session's state (`LoginStatus`).
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -78,18 +78,20 @@ fn session_cookie(window: &WebviewWindow, s: &LoginSite) -> Option<String> {
     Some(parts.join("; "))
 }
 
-async fn verify_logged_in(s: &LoginSite, cookie: &str) -> bool {
-    let Ok(client) = reqwest::Client::builder()
-        .timeout(Duration::from_secs(20))
-        .build()
-    else {
-        return false;
-    };
+/// Asks the site whether `cookie` is a live session: `Some(true)` signed in, `Some(false)` the site
+/// answered as logged out (expired or signed out elsewhere), `None` couldn't reach it.
+async fn check_session(s: &LoginSite, cookie: &str) -> Option<bool> {
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(20)).build().ok()?;
     let ua = format!("MonosodiumDesktop/{} (source recovery for deleted e621 posts)", env!("CARGO_PKG_VERSION"));
-    let Ok(response) = client.get(s.check_url).header(COOKIE, cookie).header(USER_AGENT, ua).send().await else {
-        return false;
-    };
-    response.text().await.is_ok_and(|body| body.contains(s.logged_in_marker))
+    let response = client.get(s.check_url).header(COOKIE, cookie).header(USER_AGENT, ua).send().await.ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    response.text().await.ok().map(|body| body.contains(s.logged_in_marker))
+}
+
+async fn verify_logged_in(s: &LoginSite, cookie: &str) -> bool {
+    check_session(s, cookie).await == Some(true)
 }
 
 /// Captures and verifies the session. On success stores it and closes the window; returns
@@ -183,9 +185,30 @@ pub async fn open_source_login(app: AppHandle, site_id: String) -> Result<(), St
     Ok(())
 }
 
+/// State of a saved site session, as shown in Settings > Source logins.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoginStatus {
+    SignedIn,
+    /// A session is saved but the site no longer accepts it (it expired, or the user signed out
+    /// or changed their password on the site) - it needs signing in again.
+    Expired,
+    SignedOut,
+    /// A session is saved but the site couldn't be reached to check it.
+    Unverified,
+}
+
+/// Checks a saved session with the site itself (one request) rather than just whether a cookie is
+/// stored - a stored cookie can be long dead, and then recovery silently hits the login wall.
 #[tauri::command]
-pub fn source_login_status(site_id: String) -> Result<bool, String> {
-    Ok(credentials::source_cookie(site(&site_id)?.host).is_some())
+pub async fn source_login_status(site_id: String) -> Result<LoginStatus, String> {
+    let s = site(&site_id)?;
+    let Some(cookie) = credentials::source_cookie(s.host) else { return Ok(LoginStatus::SignedOut) };
+    Ok(match check_session(s, &cookie).await {
+        Some(true) => LoginStatus::SignedIn,
+        Some(false) => LoginStatus::Expired,
+        None => LoginStatus::Unverified,
+    })
 }
 
 #[tauri::command]

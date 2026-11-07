@@ -16,6 +16,36 @@ export function spicyAllowed(s: { adultModeEnabled: boolean; enabledRatings: str
 }
 
 export const SPICY_LINES: Partial<Record<ReactionKind, string[]>> = {
+  recoverStart: [
+    "Rummaging through the trash for your smut. The things I do for you.",
+    "Deleted, huh? Must've been REALLY good.",
+    "They deleted it? Oh, now I HAVE to see it.",
+    "Going in deep. Hold my tail.",
+    "Forbidden fruit, coming right up.",
+    "Dumpster diving for porn. Just another Tuesday.",
+  ],
+  recoverExact: [
+    "Exact match. Fresh out of the bin and still warm.",
+    "Got it, every last pixel. You owe me.",
+    "Back from the dead and dirtier than ever.",
+    "Pristine. Like it never left. Unlike your dignity.",
+    "Some things are too good to stay buried.",
+    "Fully restored. Try not to wear it out this time.",
+  ],
+  recoverFound: [
+    "Not the original, but it'll still get the job done.",
+    "A little rough around the edges. Some people like that.",
+    "Secondhand, but still plenty filthy.",
+    "Close enough. It's what's inside that counts. 😏",
+    "Bit grainy. Squint. Use your imagination for the rest.",
+  ],
+  recoverFail: [
+    "Nothing. Some sins really do get erased.",
+    "Gone. You'll have to use your imagination.",
+    "Couldn't get it out. That's what he said.",
+    "Dead end. Maybe it's for the best? …Nah.",
+    "Not even the trash had it. Must've been REALLY bad. Or really good.",
+  ],
   // "¦" = a smaller aside under the main line (SpeechBubble).
   eggClose: ["Ooh! You're getting close! ¦ same!"],
   intro: ["Hi, I'm Gus! I'll be watching. Not in a weird way. Mostly.", "Hi, I'm Gus. I see everything you browse. Everything."],

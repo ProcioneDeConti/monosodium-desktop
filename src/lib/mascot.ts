@@ -112,6 +112,11 @@ export type ReactionKind =
   | "adultOff"
   | "wipeSeen"
   | "wipeStats"
+  // deleted-post recovery (DeletedPostRecovery) - a raccoon going through the trash
+  | "recoverStart"
+  | "recoverExact"
+  | "recoverFound"
+  | "recoverFail"
   // typing the magic word
   | "eggClose";
 
@@ -470,6 +475,46 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
   wipeStats: {
     motion: "droop", emoji: ["🗑️", "😶"], durationMs: 1600, cooldownMs: 60_000, minor: false, priority: 3,
     lines: ["Stats reset. Destroying the evidence?", "All my hard counting… gone."], alwaysTalks: true,
+  },
+  recoverStart: {
+    motion: "look", emoji: ["🗑️", "🔍"], durationMs: 1400, cooldownMs: 30_000, minor: false, priority: 2, burst: 3,
+    lines: [
+      "Ooh, trash diving! My specialty.",
+      "Leave it to me - I know my way around a bin.",
+      "Deleted? Pfft. Nothing's ever really gone.",
+      "Let me rummage around for that.",
+      "Into the dumpster I go!",
+    ],
+  },
+  recoverExact: {
+    motion: "hop", emoji: ["✨", "🗑️", "🦝"], durationMs: 2000, cooldownMs: 10_000, minor: false, priority: 3, burst: 7,
+    lines: [
+      "Found it! The real thing, byte for byte.",
+      "Pristine! Straight out of the trash.",
+      "One raccoon's trash is another raccoon's treasure.",
+      "Exact match. I'm a professional.",
+      "Good as new. Better, even - it's been rescued.",
+    ],
+    alwaysTalks: true,
+  },
+  recoverFound: {
+    motion: "nod", emoji: ["🗑️", "👍"], durationMs: 1600, cooldownMs: 10_000, minor: false, priority: 3, burst: 4,
+    lines: [
+      "Got something! Not mint, but close.",
+      "A little dusty, but it's back.",
+      "Found a copy. Slightly secondhand.",
+      "Recovered! Don't ask where I found it.",
+    ],
+    alwaysTalks: true,
+  },
+  recoverFail: {
+    motion: "droop", emoji: ["🗑️", "😔"], durationMs: 1600, cooldownMs: 10_000, minor: false, priority: 2, burst: 2,
+    lines: [
+      "Nothing. Even I couldn't dig that one up.",
+      "Gone for good, I'm afraid.",
+      "Empty bin. Sorry.",
+      "Someone took the trash out properly this time.",
+    ],
   },
 };
 

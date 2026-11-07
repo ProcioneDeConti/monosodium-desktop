@@ -19,12 +19,21 @@ import type { PostNote } from "../models/note";
 import type { PostVersion } from "../models/postVersion";
 import type { TagInfo, TagRelations, WikiPage } from "../models/wiki";
 import type { SauceResult } from "../models/saucenao";
+import type { SearchReport } from "../lib/recoveryReport";
 
+/** One recovered file, kept in the post's on-disk cache (src-tauri/src/recovered.rs). Show it via
+ *  `convertFileSrc(path)` (Tauri's asset protocol, scoped to that cache folder). */
 export interface RecoveredImage {
-  data_url: string;
+  /** `<md5>.<ext>` inside the post's cache folder - the id the other recovery commands take. */
+  file: string;
+  /** Absolute path of the cached file. */
+  path: string;
+  md5: string;
   source_url: string;
   image_url: string;
+  /** The file's real type, sniffed from its bytes. */
   mime: string;
+  is_video: boolean;
   size_bytes: number;
   via_archive: boolean;
   /** How closely the file matches the deleted post's original (judged against e621's kept md5,
@@ -38,6 +47,25 @@ export interface RecoveredImage {
   expected_size: number;
   /** Human-readable differences from the original. */
   notes: string[];
+  score: number;
+}
+
+/** Everything recovered for one post, best match first, plus the user's pick. */
+export interface RecoveredSet {
+  selected: string | null;
+  items: RecoveredImage[];
+  /** Unix seconds of a search that found nothing (items is then empty). */
+  not_found_at: number | null;
+  /** The latest search's report (where it looked without result); null for older caches. */
+  report: SearchReport | null;
+}
+
+/** A recovered post's picked file, for the grid's thumbnail. */
+export interface RecoveredThumb {
+  /** null for a post that was searched without result. */
+  path: string | null;
+  is_video: boolean;
+  not_found_at: number | null;
 }
 
 export type RecoveryGrade = "exact" | "same_dimensions" | "rescaled" | "mismatch";
@@ -47,6 +75,15 @@ export interface RecoverProgress {
   stage: "fetching" | "downloading" | "comparing" | "scored" | "failed" | "archive" | "done";
   message: string;
 }
+
+export type SourceKeySite = "gelbooru" | "rule34" | "weasyl";
+
+export interface SourceKeyCheck {
+  state: "valid" | "rejected" | "unverified" | "missing";
+  message: string | null;
+}
+
+export type SourceLoginStatus = "signed_in" | "expired" | "signed_out" | "unverified";
 
 export interface SiteCredentials {
   username: string;
@@ -400,25 +437,66 @@ export const e621Api = {
   openSourceLogin(siteId: string): Promise<void> {
     return invoke("open_source_login", { siteId });
   },
-  sourceLoginStatus(siteId: string): Promise<boolean> {
+  /** Checks the saved session with the site itself (one request to it). */
+  sourceLoginStatus(siteId: string): Promise<SourceLoginStatus> {
     return invoke("source_login_status", { siteId });
+  },
+  /** Optional API keys for recovery sources (Gelbooru/Rule34.xxx: user id + key; Weasyl: key). */
+  saveSourceKey(site: SourceKeySite, userId: string, apiKey: string): Promise<void> {
+    return invoke("save_source_key", { site, userId, apiKey });
+  },
+  /** Which sites have a key saved - the keys themselves never come back from the backend. */
+  sourceKeyStatus(): Promise<SourceKeySite[]> {
+    return invoke("source_key_status");
+  },
+  /** Tries the saved key against the site (one request). */
+  checkSourceKey(site: SourceKeySite): Promise<SourceKeyCheck> {
+    return invoke("check_source_key", { site });
+  },
+  deleteSourceKey(site: SourceKeySite): Promise<void> {
+    return invoke("delete_source_key", { site });
   },
   sourceLogout(siteId: string): Promise<void> {
     return invoke("source_logout", { siteId });
   },
 
-  /** Deleted posts: tries each source URL, grades every image found against the post's kept file
-   *  metadata (md5/size/dimensions/format) and resolves to every usable image, best match
-   *  first, each as a `data:` URL.
-   *  `onProgress` receives status lines as it works. Rejects with a per-source failure list. */
+  /** Deleted posts: tries each source URL (and the Wayback Machine), grades every file found
+   *  against the post's kept file metadata (md5/size/dimensions/format), caches them on disk and
+   *  resolves to everything recovered for the post so far (merged with earlier runs), best match
+   *  first. `onProgress` receives status lines as it works. `token` identifies the run for
+   *  `cancelRecovery`. Rejects with a per-source failure list, or "Cancelled.". */
   recoverFromSources(
+    site: Site,
+    postId: number,
     sources: string[],
     expected: { md5: string | null; size: number; width: number; height: number; ext: string },
+    token: number,
     onProgress: (p: RecoverProgress) => void,
-  ): Promise<RecoveredImage[]> {
+  ): Promise<RecoveredSet> {
     const channel = new Channel<RecoverProgress>();
     channel.onmessage = onProgress;
-    return invoke("recover_from_sources", { sources, expected, onProgress: channel });
+    return invoke("recover_from_sources", { site, postId, sources, expected, token, onProgress: channel });
+  },
+  cancelRecovery(token: number): Promise<void> {
+    return invoke("cancel_recovery", { token });
+  },
+  /** What's cached for a deleted post from an earlier recovery, or null. No network. */
+  getRecovered(site: Site, postId: number): Promise<RecoveredSet | null> {
+    return invoke("get_recovered", { site, postId });
+  },
+  /** Every recovered post of a site (post id -> picked file), for grid thumbnails. */
+  listRecovered(site: Site): Promise<Record<string, RecoveredThumb>> {
+    return invoke("list_recovered", { site });
+  },
+  selectRecovered(site: Site, postId: number, file: string): Promise<void> {
+    return invoke("select_recovered", { site, postId, file });
+  },
+  forgetRecovered(site: Site, postId: number): Promise<void> {
+    return invoke("forget_recovered", { site, postId });
+  },
+  /** Copies a recovered file into the download folder; resolves to the written path. */
+  saveRecoveredFile(site: Site, postId: number, file: string, fileName: string, targetDir: string | null): Promise<string> {
+    return invoke("save_recovered_file", { site, postId, file, fileName, targetDir });
   },
 
   /** Small CDN image → `data:` URL, so a canvas can read it without the CDN's CORS blocking it.

@@ -9,6 +9,7 @@ mod export;
 mod models;
 mod paths;
 mod rate_limit;
+mod recovered;
 mod saucenao;
 mod site;
 mod source_fetch;
@@ -103,6 +104,17 @@ pub fn run() {
         .manage(api::AppState::new())
         .setup(|app| {
             let window = app.get_webview_window("main").expect("main window");
+
+            // The asset protocol (`convertFileSrc` in the frontend) serves recovered deleted-post
+            // files from their on-disk cache - and nothing else: its static scope in
+            // tauri.conf.json is empty, and this is the only folder ever allowed.
+            {
+                let dir = recovered::root();
+                let _ = std::fs::create_dir_all(&dir);
+                if let Err(e) = app.asset_protocol_scope().allow_directory(&dir, true) {
+                    eprintln!("recovered-file cache not served: {e}");
+                }
+            }
 
             // Claim monosodium:// for this exe under HKCU. The installer registers it too, but
             // this also covers the portable build and dev runs - and re-points the scheme at
@@ -229,6 +241,13 @@ pub fn run() {
             downloads::download_post_file,
             downloads::fetch_image_data_url,
             source_fetch::recover_from_sources,
+            source_fetch::cancel_recovery,
+            source_fetch::check_source_key,
+            recovered::get_recovered,
+            recovered::list_recovered,
+            recovered::select_recovered,
+            recovered::forget_recovered,
+            recovered::save_recovered_file,
             source_login::open_source_login,
             source_login::source_login_status,
             source_login::source_logout,
@@ -241,6 +260,9 @@ pub fn run() {
             credentials::save_saucenao_key,
             credentials::load_saucenao_key,
             credentials::delete_saucenao_key,
+            credentials::save_source_key,
+            credentials::source_key_status,
+            credentials::delete_source_key,
             saucenao::reverse_image_search,
             paths::get_data_dir,
             paths::storage_location,

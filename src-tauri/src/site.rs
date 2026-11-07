@@ -18,6 +18,14 @@ impl Site {
         }
     }
 
+    /// The CDN host for post files (`/data/<md5[0..2]>/<md5[2..4]>/<md5>.<ext>`).
+    pub fn static_host(&self) -> &'static str {
+        match self {
+            Site::E621 => "static1.e621.net",
+            Site::E6ai => "static1.e6ai.net",
+        }
+    }
+
     pub fn base_url(&self) -> &'static str {
         match self {
             Site::E621 => "https://e621.net",

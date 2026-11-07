@@ -43,6 +43,9 @@ pub fn bootstrap() {
 
     if root.join(CLEAR_MARKER_FILE).exists() {
         let _ = std::fs::remove_dir_all(&webview2);
+        // Recovered deleted-post files (recovered.rs) go with it - the webview may hold them open
+        // too, so this is the same safe point.
+        let _ = std::fs::remove_dir_all(crate::recovered::root());
         let _ = std::fs::remove_file(root.join(CLEAR_MARKER_FILE));
     }
 
@@ -79,6 +82,9 @@ fn dir_size(path: &Path) -> u64 {
 #[derive(Debug, Clone, Serialize)]
 pub struct CacheInfo {
     pub used_bytes: u64,
+    /// Recovered deleted-post files (recovered.rs) - not counted in `used_bytes`, and not subject
+    /// to the size limit (that's a WebView2 flag), but cleared along with it.
+    pub recovered_bytes: u64,
     /// `None` = unlimited (see `read_limit_mb`).
     pub limit_mb: Option<i64>,
 }
@@ -88,6 +94,7 @@ pub fn get_cache_info() -> Result<CacheInfo, String> {
     let root = app_data_root();
     Ok(CacheInfo {
         used_bytes: dir_size(&webview2_dir(&root)),
+        recovered_bytes: dir_size(&crate::recovered::root()),
         limit_mb: read_limit_mb(&root),
     })
 }

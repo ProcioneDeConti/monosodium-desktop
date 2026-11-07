@@ -72,6 +72,14 @@ export function CacheSection() {
         </button>
       </div>
 
+      {!!data?.recovered_bytes && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="w-36 shrink-0">Recovered posts</span>
+          <span className="tabular-nums opacity-80">{formatCacheBytes(data.recovered_bytes)}</span>
+          <span className="text-xs opacity-50">deleted posts loaded from their sources - not size-limited, cleared with the cache</span>
+        </div>
+      )}
+
       <div className="flex items-center gap-2">
         <span className="w-36 shrink-0 text-sm">Size limit</span>
         <input

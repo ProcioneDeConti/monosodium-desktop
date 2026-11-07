@@ -2216,3 +2216,103 @@ live call before implementing (per user instruction - no more guessing).
 - Dropped three music tracks (glitchart - Night Club Chill Mix, oglsdl - Hyperpulse Generator,
   Alex McCulloch - Chill Jazz) and
   their CREDITS.md rows.
+
+- [ ] **Deleted-post recovery: robustness pass (plan phases A+B), Tumblr + SoFurry, grid thumbnails** (uncommitted)
+      - **On-disk cache** (`src-tauri/src/recovered.rs`): candidates are written to
+        `data/recovered/<site>/<id>/<md5>.<ext>` + `index.json` (grading metadata, best first, the
+        user's pick) instead of travelling as base64 `data:` URLs. Served to the webview by Tauri's
+        asset protocol (`protocol-asset` feature, empty static scope, `lib.rs` allows only that
+        folder at startup; frontend uses `convertFileSrc`). Cached posts open with no network;
+        "Search again" merges new results into the cache by md5. Viewer gains Cancel, Search again,
+        Download (`save_recovered_file`, copies into the download folder) and Remove. Settings >
+        Cache shows its size; "Clear" deletes it at next launch alongside WebView2's cache (the size
+        limit doesn't apply to it).
+      - **Grid thumbnails**: a deleted post with a recovered copy shows the picked file (first frame
+        for videos) with a faded trash can over it (`state/recoveredStore.ts`, `PostThumbnail`).
+      - **Videos** (webm/mp4) are now recoverable: file type comes from sniffing the bytes, not the
+        Content-Type; videos are graded by md5 only (`exact` or `rescaled`), a still image of a
+        video post grades `mismatch`. X resolver now returns the best mp4 variant for video tweets.
+        Cap raised to 100 MB (e621's own).
+      - **Speed/limits**: sources on different hosts run in parallel (3 hosts at a time, each host's
+        sources in order); per-request timeouts (pages 20s, media 120s, 20s read-idle); 120s budget
+        for live sources and another for Wayback, keeping whatever was found; one retry on
+        429/502/503/504/timeout (Retry-After, clamped 1-5s). Cancel via `cancel_recovery(token)`
+        (aborts the task); leaving the post cancels.
+      - **Wayback**: CDX index (`collapse=digest`, 200s only), up to 4 captures spread oldest to
+        newest, falling back to the availability API. Archived pages are scraped with the site's own
+        parser (FA `data-fullview-src` etc.), not just `og:image`. The md5 CDN path now uses the
+        post's own site (`Site::static_host` - was hardcoded to e621 for e6AI posts too).
+      - **URL upgrades** before fetching (and on every scraped/resolved URL): Twitter
+        `name=orig`, Pixiv master -> `img-original`, Tumblr presets -> `s2048x3072` and legacy
+        `_1280`, FA `t.furaffinity.net` thumbnails -> the `/view/<id>/` page, Bluesky CDN ->
+        `com.atproto.sync.getBlob` on the author's PDS (the original upload; CDN copy as fallback).
+      - **Tumblr** (reported 403): checked live - `<blog>.tumblr.com/post/<id>` answers 403 to any
+        non-browser client, so it's rewritten to `www.tumblr.com/<blog>/<id>` (public, has
+        `og:image`); Tumblr's media CDN returns an HTML viewer page when `Accept` includes
+        `text/html`, so file fetches now send an image/video-only Accept; `.pnj` is a JPEG
+        re-encode - the same URL with `.png` is the real PNG.
+      - **SoFurry** (reported failing): the new site's `/s/<id>` pages have no `og:image`; the file
+        is the `displayUrl` in the embedded route data (`parse_sofurry`), a full-resolution WebP
+        (checked live on one post: same dimensions as the original). The 18+ click-through is
+        client-side only - the page is served in full. Not done: the site's
+        `/api/submission-download/<id>` route (seen in its JS) might give the original file; untested.
+      - Entity decoding handles numeric entities (`&#x2F;`). Unit tests added for sniffing, video
+        grading, entities, every URL upgrade, SoFurry parsing, CDX selection, host grouping, cache
+        file-name validation. **Not live-tested in the app.**
+
+- [ ] **Deleted-post recovery Phase C: md5 mirrors, Inkbunny/Itaku/Weasyl, optional API keys; fixes from testing** (uncommitted)
+      - **md5 lookups on other boorus** run alongside the sources (one request each; a hit is a
+        byte-identical copy): Danbooru (`tags=md5:`, keyless - was down for everyone when built, so
+        **not verified live**), rule34.paheal (Shimmie's Danbooru-compatible XML; works keyless; a
+        miss is `count='1'` with no `<post>`), and Gelbooru / Rule34.xxx only with a saved key (both
+        refuse anonymous API use - checked live; **key path not verified live**).
+      - **New resolvers**: Inkbunny (guest API session with every rating switched on via its own
+        `api_userrating.php`; files come with their md5, so the matching file goes first - found an
+        exact match live), Itaku (public API, original `image` + `_xl` fallback; checked live),
+        Weasyl (API only with a key; its API blocks keyless clients - without a key the page's
+        `og:image` preview is used; **key path not verified live**).
+      - **Settings > Source logins > API keys**: optional Gelbooru/Rule34.xxx (user id + key) and
+        Weasyl (key), stored encrypted in credentials.dat (`source_keys`), never sent back to the
+        frontend (only which are set). Lookup errors are stripped of their URL so a key can't leak
+        into the UI.
+      - **From live testing**: bare front-page sources (`https://forge.sofurry.com/`) are skipped
+        instead of fetched + Wayback'd. The FA "Signed in" badge only checked that a cookie was
+        stored - it now asks FA (signed in / session expired / couldn't verify / not signed in),
+        and recovery says "your saved sign-in has expired" when a saved session hits the login wall.
+      - **Gus** reacts to recoveries (recoverStart/Exact/Found/Fail), clean + cheeky "raccoon in the
+        trash" lines.
+      - **X age-restricted tweets** (post 2643500): X's embed endpoint answers a sensitive tweet
+        with a `TweetTombstone` for logged-out clients (checked live, also with the right token).
+        The X resolver now falls back to the FxTwitter then vxTwitter APIs, which return its media
+        (`pbs.twimg.com` URLs, fetched from X's CDN as before).
+      - **From post 1447459** (deleted everywhere - nothing to recover, but the run wasted time):
+        artist profile/gallery pages (FA `/user/`, X profile, Bluesky profile, Pixiv `/users/`,
+        DeviantArt profile) are now skipped like front pages; FA's "not in our database" is reported
+        as "deleted from Fur Affinity"; FA/HentaiVox/SoFurry pages are no longer fetched a second
+        time by the generic scraper after their own parser fails; Wayback tries direct file URLs
+        before pages; FA's old `d.facdn.net` file URLs also try `d.furaffinity.net` (live + Wayback).
+      - Source API keys are checked against the site on save and when Settings opens ("Key works" /
+        "Key rejected" / "couldn't verify"); rejection shapes checked live with a bogus key, the
+        "works" path is untested.
+      - **Searched-but-not-found marker**: a search that ends with nothing records `not_found_at`
+        in the post's cache index (`recovered::mark_not_found`; skipped if older copies are cached,
+        cleared by any later find). Grid shows a "Not found" tile (faded `SearchX`, date on hover),
+        the deleted-post panel says when it was searched and offers "Search again".
+      - **Filmstrip** shows recovered copies (faded trash can) and not-found marks for deleted posts.
+      - Deleted posts with no sources but an md5 get a "Search for a copy" button (md5 lookups +
+        Wayback of e621's own file) instead of "no web sources".
+      - **Readable "nothing found" report** (was a wall of red URLs): the command's error is now a
+        structured `RecoverFailure { message, cancelled, no_sources, attempts[] }` (each attempt:
+        stage source/skipped/mirror/archive/limit, site label, URL, raw reason). `RecoveryReport.tsx`
+        groups it (Post's sources / Identical-file search / Wayback Machine / Time limits), one row
+        per place with an icon, short clickable path, and plain words from `lib/recoveryReport.ts`
+        ("Site down (503)", "Never archived", "Deleted from Fur Affinity", login/key hints); raw
+        reason on hover, "Copy details" for bug reports. md5 lookups that found nothing are listed
+        too. Unit-tested against reasons seen live.
+      - **Report for successful recoveries too**: the latest search's report (`report: {searched_at,
+        attempts}`) is cached in the post's index - for finds and misses - so it survives restarts.
+        Over a recovered post the card starts closed ("Report" button opens it, × closes it) and lists the found files in their section (green, with grade) ahead of the misses; a
+        cached miss shows its card again when the post is reopened.
+      - Not done: Newgrounds (every non-member gets "NG Guard", a JS challenge - would need a sign-in
+        window like FA); Weasyl's adult click-through without a key (it's a `ro=<id>` cookie).
+

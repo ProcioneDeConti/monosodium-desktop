@@ -1,6 +1,8 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import type { Post } from "../../models/post";
+import { ChevronDown, ChevronUp, SearchX, Trash2 } from "lucide-react";
+import { isDeleted, type Post } from "../../models/post";
+import type { Site } from "../../models/site";
+import { searchedOn, useRecoveredThumb } from "../../state/recoveredStore";
 
 /** How many posts either side of the current one to render - the strip is a window onto the
  *  (potentially thousands-long) result list, not the whole thing. */
@@ -12,6 +14,8 @@ let collapsedPref = false;
 
 interface FilmstripProps {
   posts: Post[];
+  /** Which site's recovered-file cache deleted posts' thumbnails come from. */
+  site: Site;
   index: number;
   onSelect: (index: number) => void;
 }
@@ -19,7 +23,36 @@ interface FilmstripProps {
 /** Horizontal strip of neighbouring thumbnails under the viewer's media - jump around the result
  *  list without closing the viewer. Thumbnails are the same CDN `preview` URLs the grid already
  *  loaded, so they come straight from the browser cache. */
-function FilmstripImpl({ posts, index, onSelect }: FilmstripProps) {
+/** A strip thumbnail's picture: the CDN preview, or - for a deleted post - its recovered copy
+ *  (faded trash can, like the grid) or a "not found" mark. */
+function StripThumb({ post, site }: { post: Post; site: Site }) {
+  const recovered = useRecoveredThumb(site, post.id, isDeleted(post));
+  if (recovered?.src) {
+    return (
+      <span className="relative block h-full w-full">
+        {recovered.isVideo ? (
+          <video src={recovered.src} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+        ) : (
+          <img src={recovered.src} alt="" draggable={false} loading="lazy" className="h-full w-full object-cover" />
+        )}
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <Trash2 size={20} strokeWidth={1.75} className="text-white opacity-50 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]" />
+        </span>
+      </span>
+    );
+  }
+  if (recovered?.notFoundAt != null) {
+    return (
+      <span className="flex h-full w-full items-center justify-center" title={`searched ${searchedOn(recovered.notFoundAt)}, no copy found`}>
+        <SearchX size={18} strokeWidth={1.5} className="text-white opacity-35" />
+      </span>
+    );
+  }
+  const src = post.preview.url ?? post.sample.url;
+  return src ? <img src={src} alt="" draggable={false} loading="lazy" className="h-full w-full object-cover" /> : null;
+}
+
+function FilmstripImpl({ posts, site, index, onSelect }: FilmstripProps) {
   const [collapsed, setCollapsed] = useState(collapsedPref);
   const activeRef = useRef<HTMLButtonElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
@@ -59,7 +92,6 @@ function FilmstripImpl({ posts, index, onSelect }: FilmstripProps) {
           {posts.slice(start, end).map((p, i) => {
             const at = start + i;
             const active = at === index;
-            const src = p.preview.url ?? p.sample.url;
             const ratio = p.preview.width && p.preview.height ? p.preview.width / p.preview.height : 1;
             return (
               <button
@@ -75,7 +107,7 @@ function FilmstripImpl({ posts, index, onSelect }: FilmstripProps) {
                     : "opacity-55 hover:opacity-100"
                 }`}
               >
-                {src && <img src={src} alt="" draggable={false} loading="lazy" className="h-full w-full object-cover" />}
+                <StripThumb post={p} site={site} />
               </button>
             );
           })}

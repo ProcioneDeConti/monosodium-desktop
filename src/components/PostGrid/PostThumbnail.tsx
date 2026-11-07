@@ -8,9 +8,13 @@ import {
   Image as ImageIcon,
   ImagePlay,
   Star,
+  SearchX,
   ThumbsUp,
+  Trash2,
 } from "lucide-react";
-import { aspectRatio, isAnimated, isVideo, previewVideoUrl, type Post } from "../../models/post";
+import { aspectRatio, isAnimated, isDeleted, isVideo, previewVideoUrl, type Post } from "../../models/post";
+import type { Site } from "../../models/site";
+import { searchedOn, useRecoveredThumb } from "../../state/recoveredStore";
 import { useReleaseVideo } from "../../lib/useReleaseVideo";
 import { LINGER_HOVER_MS } from "../../lib/mascot";
 import { mascotReact } from "../../state/mascotStore";
@@ -21,6 +25,8 @@ import { Burst, useReactionFx } from "../ui/Burst";
 
 interface PostThumbnailProps {
   post: Post;
+  /** Which site's recovered-file cache to look in for a deleted post's thumbnail. */
+  site: Site;
   blacklisted: boolean;
   /** Already opened in the viewer before - rendered dimmed (undimmed on hover/selection). */
   seen?: boolean;
@@ -110,6 +116,7 @@ function HoverPreviewVideo({ src }: { src: string }) {
 
 function PostThumbnailImpl({
   post,
+  site,
   blacklisted,
   seen = false,
   onClick,
@@ -129,7 +136,12 @@ function PostThumbnailImpl({
     enteredIds.add(post.id);
   }, [post.id]);
   const fx = useReactionFx(post.id, post.is_favorited, post.vote_by);
-  const thumbUrl = post.preview.url ?? post.sample.url ?? post.file.url;
+  // A deleted post has no preview of its own; one recovered from its sources (cached on disk by
+  // the viewer's "Try to load from source") stands in, marked with a faded trash can.
+  const recoveredThumb = useRecoveredThumb(site, post.id, isDeleted(post));
+  const thumbUrl = recoveredThumb?.src ?? post.preview.url ?? post.sample.url ?? post.file.url;
+  // Searched for a copy, none found anywhere.
+  const notFound = !recoveredThumb?.src && recoveredThumb?.notFoundAt != null ? recoveredThumb.notFoundAt : null;
   const rating = RATING_STYLE[post.rating] ?? RATING_STYLE.e;
   const mediaKind = mediaKindOf(post);
   const artistText = formatArtists(post);
@@ -201,7 +213,17 @@ function PostThumbnailImpl({
                   ${selected ? "ring-2 ring-[rgb(var(--accent))] ring-offset-1 ring-offset-transparent" : ""}
                   ${blacklisted ? "caution-stripe" : "border-black/5 dark:border-white/10"}`}
     >
-      {thumbUrl && !errored ? (
+      {recoveredThumb?.src && recoveredThumb.isVideo && !errored ? (
+        // First frame of a recovered video (there's no still to show).
+        <video
+          src={recoveredThumb.src}
+          muted
+          playsInline
+          preload="metadata"
+          onError={() => setErrored(true)}
+          className={`h-full w-full object-cover ${seen && !selected ? "saturate-[.35] brightness-[.6] group-hover:saturate-100 group-hover:brightness-100" : ""}`}
+        />
+      ) : thumbUrl && !errored ? (
         <>
           {!loaded && <div className="absolute inset-0 skeleton-shimmer" />}
           <img
@@ -220,10 +242,32 @@ function PostThumbnailImpl({
                         ${seen && !selected ? "saturate-[.35] brightness-[.6] group-hover:saturate-100 group-hover:brightness-100" : ""}`}
           />
         </>
+      ) : notFound != null ? (
+        <div
+          className="flex h-full w-full flex-col items-center justify-center gap-1 text-xs"
+          title={`Deleted post - searched ${searchedOn(notFound)}, no copy found`}
+        >
+          <SearchX
+            size={Math.round(Math.min(44, Math.max(20, cellWidthPx / 5)))}
+            strokeWidth={1.5}
+            className="opacity-35"
+          />
+          <span className="opacity-45">Not found</span>
+        </div>
       ) : (
         <div className="flex h-full w-full items-center justify-center text-xs opacity-50">
           unavailable
         </div>
+      )}
+
+      {recoveredThumb?.src && (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center" title="Deleted post - recovered copy">
+          <Trash2
+            size={Math.round(Math.min(56, Math.max(24, cellWidthPx / 4)))}
+            strokeWidth={1.75}
+            className="text-white opacity-45 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] transition-opacity duration-150 group-hover:opacity-20"
+          />
+        </span>
       )}
 
       {previewing &&

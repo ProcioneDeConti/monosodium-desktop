@@ -32,7 +32,22 @@ pub(crate) struct CredentialsFile {
     /// `Cookie:` header value. Never sent to the frontend - only `source_fetch` reads them.
     #[serde(default)]
     source_cookies: HashMap<String, String>,
+    /// Optional API keys for sites deleted-post recovery queries (see `SOURCE_KEY_SITES`), keyed by
+    /// site id. Like the cookies, never sent back to the frontend - it only learns whether one is set.
+    #[serde(default)]
+    source_keys: HashMap<String, SourceKey>,
 }
+
+/// An API key for a recovery source. `user_id` is empty for sites that only take a key.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub(crate) struct SourceKey {
+    pub user_id: String,
+    pub api_key: String,
+}
+
+/// Sites whose recovery lookups accept an API key: Gelbooru and Rule34.xxx refuse anonymous API
+/// requests (user id + key from the account's Options page); Weasyl's API blocks keyless clients.
+pub(crate) const SOURCE_KEY_SITES: [&str; 3] = ["gelbooru", "rule34", "weasyl"];
 
 #[derive(Serialize, Deserialize)]
 struct Envelope {
@@ -198,5 +213,40 @@ pub(crate) fn save_source_cookie(host: &str, cookie: String) -> Result<(), Strin
 pub(crate) fn delete_source_cookie(host: &str) -> Result<(), String> {
     let mut data = read_all();
     data.source_cookies.remove(host);
+    write_all(&data)
+}
+
+pub(crate) fn source_key(site: &str) -> Option<SourceKey> {
+    read_all().source_keys.get(site).cloned()
+}
+
+fn check_key_site(site: &str) -> Result<(), String> {
+    if SOURCE_KEY_SITES.contains(&site) { Ok(()) } else { Err(format!("unknown site: {site}")) }
+}
+
+#[tauri::command]
+pub fn save_source_key(site: String, user_id: String, api_key: String) -> Result<(), String> {
+    check_key_site(&site)?;
+    let (user_id, api_key) = (user_id.trim().to_string(), api_key.trim().to_string());
+    if api_key.is_empty() {
+        return Err("API key is empty".into());
+    }
+    let mut data = read_all();
+    data.source_keys.insert(site, SourceKey { user_id, api_key });
+    write_all(&data)
+}
+
+/// Which recovery sources have a key saved (the keys themselves never leave the backend).
+#[tauri::command]
+pub fn source_key_status() -> Vec<String> {
+    let data = read_all();
+    SOURCE_KEY_SITES.iter().filter(|s| data.source_keys.contains_key(**s)).map(|s| s.to_string()).collect()
+}
+
+#[tauri::command]
+pub fn delete_source_key(site: String) -> Result<(), String> {
+    check_key_site(&site)?;
+    let mut data = read_all();
+    data.source_keys.remove(&site);
     write_all(&data)
 }
