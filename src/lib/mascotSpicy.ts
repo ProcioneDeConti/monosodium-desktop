@@ -39,6 +39,12 @@ export const SPICY_LINES: Partial<Record<ReactionKind, string[]>> = {
     "Close enough. It's what's inside that counts. 😏",
     "Bit grainy. Squint. Use your imagination for the rest.",
   ],
+  recoverBatch: [
+    "Rescued {found} of {total}. Enjoy the reunion. 😏",
+    "{found} of {total} back from the dead. Somebody's busy tonight.",
+    "Dumpster dive done: {found} of {total}. I need a shower. You need a tissue.",
+    "{found} of {total} recovered. Your fav list is whole again. Mostly. Like your dignity.",
+  ],
   recoverFail: [
     "Nothing. Some sins really do get erased.",
     "Gone. You'll have to use your imagination.",

@@ -2217,7 +2217,7 @@ live call before implementing (per user instruction - no more guessing).
   Alex McCulloch - Chill Jazz) and
   their CREDITS.md rows.
 
-- [ ] **Deleted-post recovery: robustness pass (plan phases A+B), Tumblr + SoFurry, grid thumbnails** (uncommitted)
+- [x] **Deleted-post recovery: robustness pass (plan phases A+B), Tumblr + SoFurry, grid thumbnails** (9bc07d1)
       - **On-disk cache** (`src-tauri/src/recovered.rs`): candidates are written to
         `data/recovered/<site>/<id>/<md5>.<ext>` + `index.json` (grading metadata, best first, the
         user's pick) instead of travelling as base64 `data:` URLs. Served to the webview by Tauri's
@@ -2260,7 +2260,7 @@ live call before implementing (per user instruction - no more guessing).
         grading, entities, every URL upgrade, SoFurry parsing, CDX selection, host grouping, cache
         file-name validation. **Not live-tested in the app.**
 
-- [ ] **Deleted-post recovery Phase C: md5 mirrors, Inkbunny/Itaku/Weasyl, optional API keys; fixes from testing** (uncommitted)
+- [x] **Deleted-post recovery Phase C: md5 mirrors, Inkbunny/Itaku/Weasyl, optional API keys; fixes from testing** (9bc07d1)
       - **md5 lookups on other boorus** run alongside the sources (one request each; a hit is a
         byte-identical copy): Danbooru (`tags=md5:`, keyless - was down for everyone when built, so
         **not verified live**), rule34.paheal (Shimmie's Danbooru-compatible XML; works keyless; a
@@ -2316,3 +2316,17 @@ live call before implementing (per user instruction - no more guessing).
       - Not done: Newgrounds (every non-member gets "NG Guard", a JS challenge - would need a sign-in
         window like FA); Weasyl's adult click-through without a key (it's a `ro=<id>` cookie).
 
+- [x] **Deleted-post recovery Phase D: bulk un-delete**
+      - `state/recoveryQueueStore.ts`: session-only queue, one post at a time through the same
+        `recover_from_sources` command (cache, grid tiles, per-post report all apply). Max 15
+        queued/running; posts with a recovered copy are skipped, previously not-found ones retried;
+        Cancel all / Retry unfinished. Native notification when the batch ends (only if the window
+        isn't focused - lib/notifications.ts), Gus `recoverBatch` ("{found} of {total}") or
+        `recoverFail` for zero.
+      - Entry points: grid multi-select bar "Recover (N)" (disabled above 15), account menu
+        "Deleted favorites" (`fav:<you> status:deleted`). Progress card bottom-right
+        (`components/Recovery/RecoveryQueuePanel.tsx`).
+      - Backend politeness for every recovery: shared per-host limiter in source_fetch.rs (~1 req/s,
+        burst 2; all of archive.org one slower allowance, 1 per 1.5s); a 429 from archive.org pauses
+        the Wayback steps for 5 minutes ("Skipped - Wayback is rate-limiting" in the report).
+      - Live-tested by the user (2026-11-06): works.

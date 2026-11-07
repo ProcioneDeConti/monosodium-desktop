@@ -34,6 +34,7 @@ import {
   User,
   Gamepad2,
   Upload,
+  Trash2,
 } from "lucide-react";
 import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { errorMessage } from "../../lib/errors";
@@ -71,6 +72,8 @@ interface AppShellProps {
   onOpenDashboard: () => void;
   onOpenAbout: () => void;
   onOpenFavorites: (() => void) | null;
+  /** Your favourites that e621 has since deleted (`fav:<you> status:deleted`), for bulk un-delete. */
+  onOpenDeletedFavorites: (() => void) | null;
   onOpenProfile: (() => void) | null;
   onOpenMessages: (() => void) | null;
   /** e621 + signed in only; null hides the menu item. */
@@ -123,6 +126,7 @@ export function AppShell({
   onOpenDashboard,
   onOpenAbout,
   onOpenFavorites,
+  onOpenDeletedFavorites,
   onOpenProfile,
   onOpenMessages,
   onOpenUpload,
@@ -451,6 +455,9 @@ export function AppShell({
               </MenuItem>
               <MenuItem icon={<Heart size={15} />} onClick={onOpenFavorites ?? undefined}>
                 Your favorites
+              </MenuItem>
+              <MenuItem icon={<Trash2 size={15} />} onClick={onOpenDeletedFavorites ?? undefined}>
+                Deleted favorites
               </MenuItem>
               <MenuItem icon={<SquareStack size={15} />} onClick={onOpenSets ?? undefined}>
                 Your sets

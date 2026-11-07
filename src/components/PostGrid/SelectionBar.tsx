@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Check, Download, Heart, HeartOff, Library, SquareStack, X } from "lucide-react";
+import { ArchiveRestore, Check, Download, Heart, HeartOff, Library, SquareStack, X } from "lucide-react";
+import { MAX_RECOVERY_BATCH } from "../../state/recoveryQueueStore";
 import { Spinner } from "../ui/Spinner";
 
 export interface BulkProgress {
@@ -22,6 +23,9 @@ interface SelectionBarProps {
   onAddToSet: () => void;
   onAddToCollection: () => void;
   onDownload: () => void;
+  /** Deleted posts among the selection that bulk un-delete would take (no recovered copy yet). */
+  recoverableCount: number;
+  onRecoverDeleted: () => void;
   onExit: () => void;
 }
 
@@ -39,6 +43,8 @@ export function SelectionBar({
   onAddToSet,
   onAddToCollection,
   onDownload,
+  recoverableCount,
+  onRecoverDeleted,
   onExit,
 }: SelectionBarProps) {
   const busy = progress !== null;
@@ -115,6 +121,19 @@ export function SelectionBar({
           disabled={disabled}
         />
         <BarButton icon={<Download size={14} />} label="Download" onClick={onDownload} disabled={disabled} />
+        {recoverableCount > 0 && (
+          <BarButton
+            icon={<ArchiveRestore size={14} />}
+            label={`Recover (${recoverableCount})`}
+            onClick={onRecoverDeleted}
+            disabled={busy || recoverableCount > MAX_RECOVERY_BATCH}
+            title={
+              recoverableCount > MAX_RECOVERY_BATCH
+                ? `Up to ${MAX_RECOVERY_BATCH} deleted posts at a time - select fewer`
+                : "Try to recover the selected deleted posts from their sources"
+            }
+          />
+        )}
 
         <div className="mx-0.5 h-5 w-px bg-black/10 dark:bg-white/15" />
 

@@ -33,6 +33,9 @@ import { CollectionsPanel } from "./components/Collections/CollectionsPanel";
 import { CollectionPicker } from "./components/Collections/CollectionPicker";
 import { CollectionPickerDialog } from "./components/Collections/CollectionPickerDialog";
 import { DownloadsPanel } from "./components/Downloads/DownloadsPanel";
+import { RecoveryQueuePanel } from "./components/Recovery/RecoveryQueuePanel";
+import { recoverablePosts, useRecoveryQueueStore } from "./state/recoveryQueueStore";
+import { useRecoveredStore } from "./state/recoveredStore";
 import { KeyboardCheatsheet } from "./components/KeyboardCheatsheet";
 import { HelpPanel } from "./components/Help/HelpPanel";
 import { DashboardPanel } from "./components/Dashboard/DashboardPanel";
@@ -633,6 +636,13 @@ function App() {
     () => shownPosts.filter((p) => selectedIds.has(p.id)),
     [shownPosts, selectedIds],
   );
+  // Re-evaluated when a recovery lands (a recovered post stops counting).
+  const recoveredForSite = useRecoveredStore((s) => s.bySite[site]);
+  const recoverableSelected = useMemo(
+    () => recoverablePosts(site, selectedPosts),
+    [site, selectedPosts, recoveredForSite],
+  );
+  const enqueueRecovery = useRecoveryQueueStore((s) => s.enqueue);
 
   async function bulkFavorite() {
     const targets = selectedPosts.filter((p) => !p.is_favorited);
@@ -963,6 +973,7 @@ function App() {
       onOpenDashboard={() => navigate({ dashboardOpen: true })}
       onOpenAbout={() => setAboutOpen(true)}
       onOpenFavorites={account?.username ? () => runNewSearch(`fav:${account.username}`) : null}
+      onOpenDeletedFavorites={account?.username ? () => runNewSearch(`fav:${account.username} status:deleted`) : null}
       onOpenProfile={account?.username ? () => navigate({ profileTarget: "me" }) : null}
       onOpenMessages={account?.username ? () => navigate({ messagesOpen: true }) : null}
       onOpenUpload={site === "e621" && account?.username ? () => navigate({ uploadOpen: true }) : null}
@@ -1079,6 +1090,8 @@ function App() {
                   enqueueDownloads(selectedPosts, downloadDir);
                   navigate({ downloadsOpen: true });
                 }}
+                recoverableCount={recoverableSelected.length}
+                onRecoverDeleted={() => void enqueueRecovery(site, recoverableSelected)}
                 onExit={exitSelection}
               />
             )}
@@ -1271,6 +1284,7 @@ function App() {
       )}
 
       {downloadsOpen && <DownloadsPanel onClose={goBack} />}
+      <RecoveryQueuePanel />
 
       {dashboardOpen && (
         <DashboardPanel site={site} onClose={goBack} onSearch={runNewSearch} />

@@ -118,6 +118,7 @@ export function describeReason(a: RecoveryAttempt): Reason {
   const deleted = raw.match(/^deleted from ([^(]+?)\s*(\(|$)/i);
   if (deleted) return { text: `Deleted from ${deleted[1]}`, tone: "gone" };
   if (lower.includes("no wayback snapshot")) return { text: "Never archived", tone: "gone" };
+  if (lower.includes("asked us to slow down")) return { text: "Skipped - Wayback is rate-limiting", tone: "error" };
   const captures = raw.match(/^(\d+) captures?, none usable/);
   if (captures) {
     const n = Number(captures[1]);

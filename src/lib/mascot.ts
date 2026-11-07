@@ -117,6 +117,7 @@ export type ReactionKind =
   | "recoverExact"
   | "recoverFound"
   | "recoverFail"
+  | "recoverBatch"
   // typing the magic word
   | "eggClose";
 
@@ -504,6 +505,16 @@ export const REACTIONS: Record<ReactionKind, ReactionDef> = {
       "A little dusty, but it's back.",
       "Found a copy. Slightly secondhand.",
       "Recovered! Don't ask where I found it.",
+    ],
+    alwaysTalks: true,
+  },
+  recoverBatch: {
+    motion: "hop", emoji: ["🗑️", "🦝", "✨"], durationMs: 2000, cooldownMs: 10_000, minor: false, priority: 3, burst: 7,
+    lines: [
+      "Dug up {found} of {total}! Not bad for a trash panda.",
+      "{found} of {total} back from the bin.",
+      "Batch done - {found} of {total} rescued.",
+      "{found} out of {total}. The dumpster gave generously today.",
     ],
     alwaysTalks: true,
   },

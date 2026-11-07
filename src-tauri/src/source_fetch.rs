@@ -464,8 +464,62 @@ const ACCEPT_ANY: &str = "image/*,video/*,text/html;q=0.8,*/*;q=0.5";
 /// an HTML viewer page instead of the image (checked live, 2026-11), so file fetches never ask for it.
 const ACCEPT_MEDIA: &str = "image/*,video/*,*/*;q=0.5";
 
+/// Per-host politeness shared by every recovery (a bulk run is many recoveries back to back):
+/// about one request a second to any one site (burst 2). The Internet Archive throttles and
+/// temporarily blocks busy clients, so all of archive.org shares one slower allowance.
+fn host_limiter() -> &'static governor::DefaultKeyedRateLimiter<String> {
+    static LIMITER: OnceLock<governor::DefaultKeyedRateLimiter<String>> = OnceLock::new();
+    LIMITER.get_or_init(|| {
+        governor::RateLimiter::keyed(
+            governor::Quota::per_second(std::num::NonZeroU32::new(1).unwrap()).allow_burst(std::num::NonZeroU32::new(2).unwrap()),
+        )
+    })
+}
+
+fn archive_limiter() -> &'static governor::DefaultDirectRateLimiter {
+    static LIMITER: OnceLock<governor::DefaultDirectRateLimiter> = OnceLock::new();
+    LIMITER.get_or_init(|| {
+        let quota = governor::Quota::with_period(Duration::from_millis(1500)).expect("non-zero period");
+        governor::RateLimiter::direct(quota.allow_burst(std::num::NonZeroU32::new(2).unwrap()))
+    })
+}
+
+fn is_archive_host(url: &Url) -> bool {
+    url.host_str().is_some_and(|h| h == "archive.org" || h.ends_with(".archive.org"))
+}
+
+/// Waits for this host's turn (see `host_limiter`).
+async fn throttle(url: &Url) {
+    if is_archive_host(url) {
+        archive_limiter().until_ready().await;
+    } else if let Some(host) = url.host_str() {
+        host_limiter().until_key_ready(&host.trim_start_matches("www.").to_string()).await;
+    }
+}
+
+/// How long the Wayback steps stand down after archive.org answers 429.
+const WAYBACK_PAUSE: Duration = Duration::from_secs(300);
+
+fn wayback_pause() -> &'static Mutex<Option<std::time::Instant>> {
+    static PAUSE: OnceLock<Mutex<Option<std::time::Instant>>> = OnceLock::new();
+    PAUSE.get_or_init(Default::default)
+}
+
+/// Notes a 429 from archive.org, so the rest of a bulk run skips the Wayback Machine for a few
+/// minutes instead of each post hammering it and failing.
+fn note_status(url: &Url, status: reqwest::StatusCode) {
+    if status.as_u16() == 429 && is_archive_host(url) {
+        *lock(wayback_pause()) = Some(std::time::Instant::now() + WAYBACK_PAUSE);
+    }
+}
+
+fn wayback_paused() -> bool {
+    lock(wayback_pause()).is_some_and(|until| std::time::Instant::now() < until)
+}
+
 async fn get_timed(client: &Client, url: &Url, timeout: Option<Duration>, accept: &str) -> Result<Response, String> {
     check_url(url)?;
+    throttle(url).await;
     let referer = referer_for(url);
     let started = std::time::Instant::now();
     trace(format!("GET {url}"));
@@ -485,6 +539,7 @@ async fn get_timed(client: &Client, url: &Url, timeout: Option<Duration>, accept
         trace(format!("  request failed after {:?}: {e}", started.elapsed()));
         if e.is_timeout() { "timed out".to_string() } else { e.to_string() }
     })?;
+    note_status(url, response.status());
     trace(format!(
         "  {} after {:?} ({})",
         response.status(),
@@ -639,7 +694,9 @@ async fn get_lookup(
     query: &[(&str, &str)],
     headers: &[(&str, &str)],
 ) -> Result<Response, String> {
-    check_url(&Url::parse(url).map_err(|e| e.to_string())?)?;
+    let parsed = Url::parse(url).map_err(|e| e.to_string())?;
+    check_url(&parsed)?;
+    throttle(&parsed).await;
     let mut req = client.get(url).query(query).timeout(PAGE_TIMEOUT);
     for (name, value) in headers {
         req = req.header(*name, *value);
@@ -647,6 +704,7 @@ async fn get_lookup(
     let response = send_retry(req)
         .await
         .map_err(|e| if e.is_timeout() { "timed out".to_string() } else { e.without_url().to_string() })?;
+    note_status(&parsed, response.status());
     if !response.status().is_success() {
         return Err(format!("HTTP {}", response.status()));
     }
@@ -1840,6 +1898,10 @@ impl Session {
     /// Tries a few Wayback captures of `target` (a source URL, or e621's own CDN path for the md5).
     async fn try_archive(&self, order: usize, target: &str) {
         let Ok(page) = Url::parse(target) else { return };
+        if wayback_paused() {
+            self.fail("archive", host_of(&page), Some(target), "skipped - the Wayback Machine asked us to slow down; it's left alone for a few minutes");
+            return;
+        }
         self.progress("archive", format!("Checking the Wayback Machine for {}", host_of(&page)));
         let captures = match wayback_captures(&self.client, target).await {
             Ok(c) => c,
