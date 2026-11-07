@@ -231,6 +231,15 @@ pub struct RecoveredThumb {
     pub thumb: Option<String>,
     pub is_video: bool,
     pub not_found_at: Option<i64>,
+    /// When the copy was recovered (unix seconds): the latest search that found it, else - for
+    /// caches from before reports - when its index was last written.
+    pub recovered_at: Option<i64>,
+}
+
+/// Last-modified time of a post's index, in unix seconds.
+fn index_mtime(dir: &Path) -> Option<i64> {
+    let modified = std::fs::metadata(dir.join(INDEX_FILE)).ok()?.modified().ok()?;
+    modified.duration_since(std::time::UNIX_EPOCH).ok().map(|d| d.as_secs() as i64)
 }
 
 /// Every recovered post of `site` -> its selected file, for the grid's thumbnails.
@@ -246,10 +255,14 @@ pub fn list_recovered(site: Site) -> HashMap<i64, RecoveredThumb> {
             Some(item) => {
                 let dir = post_dir(site, id);
                 let thumb = existing_thumb(&dir, &item.md5).map(|p| p.to_string_lossy().into_owned());
-                out.insert(id, RecoveredThumb { path: Some(item.path.clone()), thumb, is_video: item.is_video, not_found_at: None });
+                let recovered_at = set.report.as_ref().map(|r| r.searched_at).or_else(|| index_mtime(&dir));
+                out.insert(
+                    id,
+                    RecoveredThumb { path: Some(item.path.clone()), thumb, is_video: item.is_video, not_found_at: None, recovered_at },
+                );
             }
             None => {
-                out.insert(id, RecoveredThumb { path: None, thumb: None, is_video: false, not_found_at: set.not_found_at });
+                out.insert(id, RecoveredThumb { path: None, thumb: None, is_video: false, not_found_at: set.not_found_at, recovered_at: None });
             }
         }
     }

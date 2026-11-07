@@ -25,6 +25,7 @@ import { UploadPanel } from "./components/Upload/UploadPanel";
 import { ForumPanel } from "./components/Forum/ForumPanel";
 import { PoolPanel } from "./components/Pool/PoolPanel";
 import { PopularPanel } from "./components/Popular/PopularPanel";
+import { RecoveredPanel } from "./components/Recovery/RecoveredPanel";
 import { ForYouPanel } from "./components/ForYou/ForYouPanel";
 import { ArtistPanel } from "./components/Artist/ArtistPanel";
 import { WikiPanel } from "./components/Wiki/WikiPanel";
@@ -98,6 +99,7 @@ interface NavState {
   forumOpen: boolean;
   poolTarget: number | null;
   popularOpen: boolean;
+  recoveredOpen: boolean;
   /** "me" or a username/id - see ForYouPanel. */
   forYouTarget: string | null;
   artistTarget: string | null;
@@ -121,6 +123,7 @@ const INITIAL_NAV: NavState = {
   forumOpen: false,
   poolTarget: null,
   popularOpen: false,
+  recoveredOpen: false,
   forYouTarget: null,
   artistTarget: null,
   wikiTarget: null,
@@ -193,6 +196,7 @@ function App() {
     forumOpen,
     poolTarget,
     popularOpen,
+    recoveredOpen,
     forYouTarget,
     artistTarget,
     wikiTarget,
@@ -749,6 +753,7 @@ function App() {
     forumOpen ||
     poolTarget !== null ||
     popularOpen ||
+    recoveredOpen ||
     forYouTarget !== null ||
     artistTarget !== null ||
     wikiTarget !== null ||
@@ -794,6 +799,7 @@ function App() {
       forumOpen: false,
       poolTarget: null,
       popularOpen: false,
+      recoveredOpen: false,
       forYouTarget: null,
       artistTarget: null,
       wikiTarget: null,
@@ -982,6 +988,7 @@ function App() {
       onOpenForum={() => navigate({ forumOpen: true })}
       forumUnread={forumUnread}
       onOpenPopular={() => navigate({ popularOpen: true })}
+      onOpenRecovered={() => navigate({ recoveredOpen: true })}
       onOpenForYou={account?.username ? () => navigate({ forYouTarget: "me" }) : null}
       onOpenCollections={() => navigate({ collectionsOpen: true })}
       onOpenSavedSearches={() => navigate({ savedSearchesOpen: true })}
@@ -1223,6 +1230,17 @@ function App() {
 
       {popularOpen && (
         <PopularPanel
+          site={site}
+          onClose={goBack}
+          onSearch={runNewSearch}
+          onOpenProfile={(id) => navigate({ profileTarget: id })}
+          onOpenArtist={(tag) => navigate({ artistTarget: tag })}
+          onOpenWiki={(tag) => navigate({ wikiTarget: tag })}
+        />
+      )}
+
+      {recoveredOpen && (
+        <RecoveredPanel
           site={site}
           onClose={goBack}
           onSearch={runNewSearch}

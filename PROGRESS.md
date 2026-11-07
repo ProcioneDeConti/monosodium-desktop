@@ -2352,3 +2352,13 @@ live call before implementing (per user instruction - no more guessing).
         with their file (stray cleanup). Unit-tested (sizes, PNG for alpha, none for video).
         Live-tested by the user (2026-11-06): scrolling is smooth again.
 
+- [x] **Recovered posts page**
+      - Main menu > "Recovered posts" (`components/Recovery/RecoveredPanel.tsx`, built like
+        PopularPanel): every post un-deleted on the current site, most recently recovered first.
+        Ids come from the local cache (`list_recovered`, now with `recovered_at` = the finding
+        search's time, or the index file's mtime for older caches); the posts are fetched with
+        `id:a,b,... status:any` in chunks of 100 (one rate-limited e621 request each; a 100-id list
+        checked live). Normal PostGrid/PostViewer, so recovered thumbnails and saved copies show;
+        a post removed from the cache drops out immediately. Not-found posts aren't listed.
+        Not live-tested yet.
+

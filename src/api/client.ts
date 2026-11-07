@@ -68,6 +68,8 @@ export interface RecoveredThumb {
   thumb?: string | null;
   is_video: boolean;
   not_found_at: number | null;
+  /** When the copy was recovered (unix seconds); only from `listRecovered`. */
+  recovered_at?: number | null;
 }
 
 export type RecoveryGrade = "exact" | "same_dimensions" | "rescaled" | "mismatch";

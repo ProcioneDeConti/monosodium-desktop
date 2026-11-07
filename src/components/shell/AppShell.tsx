@@ -83,6 +83,8 @@ interface AppShellProps {
   onOpenForum: () => void;
   forumUnread: boolean;
   onOpenPopular: () => void;
+  /** Everything un-deleted on this site (RecoveredPanel). */
+  onOpenRecovered: () => void;
   /** Null when signed out (suggestions are built from your own favourites). */
   onOpenForYou: (() => void) | null;
   onOpenCollections: () => void;
@@ -135,6 +137,7 @@ export function AppShell({
   onOpenForum,
   forumUnread,
   onOpenPopular,
+  onOpenRecovered,
   onOpenForYou,
   onOpenCollections,
   onOpenSavedSearches,
@@ -386,6 +389,9 @@ export function AppShell({
               For you
             </MenuItem>
           )}
+          <MenuItem icon={<Recycle size={15} />} onClick={onOpenRecovered}>
+            Recovered posts
+          </MenuItem>
           <MenuItem icon={<BookOpen size={15} />} onClick={onOpenWiki}>
             Wiki
           </MenuItem>
