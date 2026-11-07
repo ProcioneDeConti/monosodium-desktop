@@ -2338,7 +2338,7 @@ live call before implementing (per user instruction - no more guessing).
         original (`cdn.weasyl.com/~user/submissions/<id>/<hash>/<file>`), checked live - which
         `parse_weasyl` takes first, `og:image` preview after. Works without an API key; with one the
         API is tried first and the page is the fallback. Archived (Wayback) adult pages are still
-        gated, so they only give the preview. Page shape checked live; not yet confirmed in the app.
+        gated, so they only give the preview. Live-tested by the user (2026-11-06, post 6361895): works.
 
 - [x] **Recovered-post grid thumbnails (scroll lag)**
       - Grid tiles of recovered posts showed the full recovered file (dev cache: 98 files, median

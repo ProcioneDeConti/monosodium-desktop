@@ -10,7 +10,7 @@ import {
   Star,
   SearchX,
   ThumbsUp,
-  Trash2,
+  Recycle,
 } from "lucide-react";
 import { aspectRatio, isAnimated, isDeleted, isVideo, previewVideoUrl, type Post } from "../../models/post";
 import type { Site } from "../../models/site";
@@ -137,7 +137,7 @@ function PostThumbnailImpl({
   }, [post.id]);
   const fx = useReactionFx(post.id, post.is_favorited, post.vote_by);
   // A deleted post has no preview of its own; one recovered from its sources (cached on disk by
-  // the viewer's "Try to load from source") stands in, marked with a faded trash can.
+  // the viewer's "Try to load from source") stands in, marked with a faded recycling symbol.
   const recoveredThumb = useRecoveredThumb(site, post.id, isDeleted(post));
   // The recovered copy's small grid version, not the full file (see recoveredStore's thumbSrc).
   const thumbUrl =
@@ -263,7 +263,7 @@ function PostThumbnailImpl({
 
       {recoveredThumb?.src && (
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center" title="Deleted post - recovered copy">
-          <Trash2
+          <Recycle
             size={Math.round(Math.min(56, Math.max(24, cellWidthPx / 4)))}
             strokeWidth={1.75}
             className="text-white opacity-45 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] transition-opacity duration-150 group-hover:opacity-20"

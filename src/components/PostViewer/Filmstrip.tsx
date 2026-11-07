@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, SearchX, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, SearchX, Recycle } from "lucide-react";
 import { isDeleted, type Post } from "../../models/post";
 import type { Site } from "../../models/site";
 import { searchedOn, useRecoveredThumb } from "../../state/recoveredStore";
@@ -24,7 +24,7 @@ interface FilmstripProps {
  *  list without closing the viewer. Thumbnails are the same CDN `preview` URLs the grid already
  *  loaded, so they come straight from the browser cache. */
 /** A strip thumbnail's picture: the CDN preview, or - for a deleted post - its recovered copy
- *  (faded trash can, like the grid) or a "not found" mark. */
+ *  (faded recycling symbol, like the grid) or a "not found" mark. */
 function StripThumb({ post, site }: { post: Post; site: Site }) {
   const recovered = useRecoveredThumb(site, post.id, isDeleted(post));
   if (recovered?.src) {
@@ -36,7 +36,7 @@ function StripThumb({ post, site }: { post: Post; site: Site }) {
           <img src={recovered.thumbSrc ?? recovered.src} alt="" draggable={false} loading="lazy" className="h-full w-full object-cover" />
         )}
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <Trash2 size={20} strokeWidth={1.75} className="text-white opacity-50 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]" />
+          <Recycle size={20} strokeWidth={1.75} className="text-white opacity-50 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]" />
         </span>
       </span>
     );

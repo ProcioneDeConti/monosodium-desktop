@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ArchiveRestore, Check, Download, Heart, HeartOff, Library, SquareStack, X } from "lucide-react";
+import { Recycle, Check, Download, Heart, HeartOff, Library, SquareStack, X } from "lucide-react";
 import { MAX_RECOVERY_BATCH } from "../../state/recoveryQueueStore";
 import { Spinner } from "../ui/Spinner";
 
@@ -123,7 +123,7 @@ export function SelectionBar({
         <BarButton icon={<Download size={14} />} label="Download" onClick={onDownload} disabled={disabled} />
         {recoverableCount > 0 && (
           <BarButton
-            icon={<ArchiveRestore size={14} />}
+            icon={<Recycle size={14} />}
             label={`Recover (${recoverableCount})`}
             onClick={onRecoverDeleted}
             disabled={busy || recoverableCount > MAX_RECOVERY_BATCH}

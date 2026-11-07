@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleSlash, RotateCcw, SearchX, Trash2, TriangleAlert, X } from "lucide-react";
+import { CheckCircle2, CircleSlash, RotateCcw, SearchX, Recycle, TriangleAlert, X } from "lucide-react";
 import type { RecoveryGrade } from "../../api/client";
 import { useRecoveryQueueStore, type RecoveryJob } from "../../state/recoveryQueueStore";
 import { Spinner } from "../ui/Spinner";
@@ -74,7 +74,7 @@ export function RecoveryQueuePanel() {
   return (
     <div className="fixed bottom-4 right-4 z-40 w-80 overflow-hidden rounded-[var(--radius-md)] bg-black/80 text-white shadow-2xl ring-1 ring-white/10 backdrop-blur-sm">
       <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
-        <Trash2 size={15} className="shrink-0 text-white/60" />
+        <Recycle size={15} className="shrink-0 text-white/60" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">{active ? "Recovering deleted posts" : "Recovery finished"}</p>
           <p className="text-xs text-white/50">

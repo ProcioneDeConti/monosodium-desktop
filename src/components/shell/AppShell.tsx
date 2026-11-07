@@ -34,7 +34,7 @@ import {
   User,
   Gamepad2,
   Upload,
-  Trash2,
+  Recycle,
 } from "lucide-react";
 import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { errorMessage } from "../../lib/errors";
@@ -456,7 +456,7 @@ export function AppShell({
               <MenuItem icon={<Heart size={15} />} onClick={onOpenFavorites ?? undefined}>
                 Your favorites
               </MenuItem>
-              <MenuItem icon={<Trash2 size={15} />} onClick={onOpenDeletedFavorites ?? undefined}>
+              <MenuItem icon={<Recycle size={15} />} onClick={onOpenDeletedFavorites ?? undefined}>
                 Deleted favorites
               </MenuItem>
               <MenuItem icon={<SquareStack size={15} />} onClick={onOpenSets ?? undefined}>
