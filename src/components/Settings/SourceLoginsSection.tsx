@@ -66,7 +66,7 @@ const KEY_SITES: KeySite[] = [
     id: "weasyl",
     name: "Weasyl",
     needsUserId: false,
-    note: "Lets recovery fetch the full file of Weasyl submissions (without a key, only the page's preview). Create one under Settings > API Keys on Weasyl.",
+    note: "Optional - recovery already reads Weasyl submission pages without one. With a key it asks Weasyl's API first. Create one under Settings > API Keys on Weasyl.",
     url: "https://www.weasyl.com/control/apikeys",
   },
 ];

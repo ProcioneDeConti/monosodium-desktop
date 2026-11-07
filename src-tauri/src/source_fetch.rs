@@ -315,11 +315,26 @@ fn referer_for(url: &Url) -> String {
 
 /// The saved login cookie for `url`, if it's a page on a site the user has signed in to. Only the
 /// site's main pages qualify (not its image CDN subdomains, which don't need the session).
+///
+/// Also Weasyl's age click-through: its "I am at least 18 - View anyway" button only sets
+/// `ro=<submission id>` (a 15-minute cookie, `/js/rating-override-*.js`) and reloads, so a
+/// submission page is requested with that same cookie (checked live, 2026-11).
 fn session_cookie_for(url: &Url) -> Option<String> {
     match url.host_str()? {
         "www.furaffinity.net" | "furaffinity.net" => crate::credentials::source_cookie("furaffinity.net"),
+        "www.weasyl.com" | "weasyl.com" => weasyl_submission_id(url).map(|id| format!("ro={id}")),
         _ => None,
     }
+}
+
+/// The submission id in a Weasyl URL (`/~user/submissions/<id>/...`, `/submission/<id>`, `/view/<id>`).
+fn weasyl_submission_id(url: &Url) -> Option<String> {
+    let seg = path_segments(url);
+    seg.iter()
+        .position(|s| matches!(*s, "submissions" | "submission" | "view"))
+        .and_then(|i| seg.get(i + 1))
+        .and_then(|s| leading_id(s))
+        .map(str::to_string)
 }
 
 /// SSRF guard: source URLs are user-edited post data, so they must never reach loopback, LAN,
@@ -1127,6 +1142,32 @@ fn parse_sofurry(html: &str) -> Result<Vec<Url>, String> {
     }
 }
 
+/// Weasyl submission pages: the full original is the `#detail-art` "Download" link
+/// (`cdn.weasyl.com/~user/submissions/<id>/<hash>/<file>`); `og:image` is only a preview (often a
+/// WebP). An adult page fetched without the `ro` cookie (see `session_cookie_for`) - or an
+/// archived copy of one - has neither link nor art, just the age prompt.
+fn parse_weasyl(html: &str, page: &Url) -> Result<Vec<Url>, String> {
+    let mut out: Vec<Url> = tags(html, "a")
+        .into_iter()
+        .filter_map(|t| attr(t, "href"))
+        .filter(|h| h.starts_with("https://cdn.weasyl.com/~") && h.contains("/submissions/"))
+        .filter_map(|h| Url::parse(&h).ok())
+        .collect();
+    out.extend(find_meta_image(html, page));
+    let out = dedupe_urls(out);
+    if !out.is_empty() {
+        Ok(out)
+    } else if html.contains("rating-override") {
+        Err("Weasyl kept this submission behind its 18+ prompt".into())
+    } else {
+        Err("no submission file on the page (removed?)".into())
+    }
+}
+
+fn is_weasyl(url: &Url) -> bool {
+    matches!(url.host_str(), Some("www.weasyl.com" | "weasyl.com"))
+}
+
 fn is_sofurry(url: &Url) -> bool {
     matches!(url.host_str(), Some("sofurry.com" | "www.sofurry.com"))
 }
@@ -1148,6 +1189,8 @@ fn scrape_page(html: &str, page: &Url) -> Result<Vec<Url>, String> {
         parse_hentaivox(html, page)
     } else if is_sofurry(page) {
         parse_sofurry(html)
+    } else if is_weasyl(page) {
+        parse_weasyl(html, page)
     } else {
         find_meta_image(html, page).map(|u| vec![u]).ok_or_else(|| "no og:image on the page".into())
     }
@@ -1243,42 +1286,44 @@ async fn resolve_itaku(client: &Client, url: &Url) -> Result<Vec<Url>, String> {
     if out.is_empty() { Err("image not found (removed?)".into()) } else { Ok(out) }
 }
 
-/// Weasyl submissions (`/~user/submissions/<id>/...`, `/submission/<id>`) via its API - which
-/// only answers with an API key (keyless clients get a block page, checked 2026-11), so without
-/// one this returns `None` and the page/`og:image` path runs instead.
+/// Weasyl submissions: with a saved API key, its API (keyless API clients get a block page,
+/// checked 2026-11); otherwise - or if the API fails - the submission page itself, fetched with
+/// the 18+ click-through cookie and read by `parse_weasyl`.
 async fn resolve_weasyl(client: &Client, url: &Url) -> Option<Result<Vec<Url>, String>> {
-    let key = crate::credentials::source_key("weasyl")?;
-    let seg = path_segments(url);
-    let id = seg
-        .iter()
-        .position(|s| matches!(*s, "submissions" | "submission" | "view"))
-        .and_then(|i| seg.get(i + 1))
-        .and_then(|s| leading_id(s))?
-        .to_string();
-    let result = async {
-        let json = get_json_with(
-            client,
-            &format!("https://www.weasyl.com/api/submissions/{id}/view"),
-            &[],
-            &[("X-Weasyl-API-Key", key.api_key.as_str())],
-        )
-        .await
-        .map_err(|e| format!("Weasyl API: {e}"))?;
-        let out: Vec<Url> = json
-            .pointer("/media/submission")
-            .and_then(|m| m.as_array())
-            .into_iter()
-            .flatten()
-            .filter_map(|m| Url::parse(m.get("url")?.as_str()?).ok())
-            .collect();
-        if out.is_empty() {
-            Err("submission has no file (removed, or hidden by your Weasyl rating settings?)".to_string())
-        } else {
-            Ok(out)
+    let id = weasyl_submission_id(url)?;
+    let mut api_error = None;
+    if let Some(key) = crate::credentials::source_key("weasyl") {
+        let api = async {
+            let json = get_json_with(
+                client,
+                &format!("https://www.weasyl.com/api/submissions/{id}/view"),
+                &[],
+                &[("X-Weasyl-API-Key", key.api_key.as_str())],
+            )
+            .await?;
+            let out: Vec<Url> = json
+                .pointer("/media/submission")
+                .and_then(|m| m.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|m| Url::parse(m.get("url")?.as_str()?).ok())
+                .collect();
+            if out.is_empty() { Err("submission has no file".to_string()) } else { Ok(out) }
+        }
+        .await;
+        match api {
+            Ok(out) => return Some(Ok(out)),
+            Err(e) => api_error = Some(format!("Weasyl API: {e}")),
         }
     }
-    .await;
-    Some(result)
+    let page = match fetch_page(client, url).await {
+        Ok(html) => parse_weasyl(&html, url),
+        Err(e) => Err(e),
+    };
+    Some(page.map_err(|e| match api_error {
+        Some(api) => format!("{api}; page: {e}"),
+        None => e,
+    }))
 }
 
 /// A copy of the post found by md5 on another booru: its post page (shown as the "source") and file.
@@ -1688,7 +1733,7 @@ async fn find_images(client: &Client, source: &str, expected: &Expected) -> Resu
         Some(Ok(urls)) => return Ok(Found::Urls(upgrade_all(urls, expected))),
         Some(Err(e)) if e.starts_with(LOGIN_REQUIRED) => return Err(e),
         // These resolvers parse the page itself; the generic scrape would just fetch it again.
-        Some(Err(e)) if is_furaffinity(&url) || is_hentaivox(&url) || is_sofurry(&url) => return Err(e),
+        Some(Err(e)) if is_furaffinity(&url) || is_hentaivox(&url) || is_sofurry(&url) || is_weasyl(&url) => return Err(e),
         Some(Err(e)) => site_error = Some(e),
         None => {}
     }
@@ -2425,6 +2470,26 @@ mod tests {
 
     fn urls_of(list: Vec<Url>) -> Vec<String> {
         list.into_iter().map(String::from).collect()
+    }
+
+    #[test]
+    fn weasyl_pages_and_click_through() {
+        let page = Url::parse("https://www.weasyl.com/~sammyphan/submissions/2627424/halloween-2026").unwrap();
+        // The 18+ cookie goes to that submission's page only.
+        assert_eq!(session_cookie_for(&page).as_deref(), Some("ro=2627424"));
+        assert_eq!(session_cookie_for(&Url::parse("https://www.weasyl.com/~sammyphan").unwrap()), None);
+        assert_eq!(session_cookie_for(&Url::parse("https://cdn.weasyl.com/~x/submissions/1/a/b.jpg").unwrap()), None);
+        // Unlocked page (shape of the real one): the Download link first, og:image preview after.
+        let full = "https://cdn.weasyl.com/~sammyphan/submissions/2627424/772c5c/sammyphan-halloween-2026.jpg";
+        let html = format!(
+            r#"<meta property="og:image" content="https://cdn.weasyl.com/static/media/cf/c6/91/cfc6.webp" /><div id="detail-art"><a href="{full}" download><img src="https://cdn.weasyl.com/static/media/1c/64/ff/1c64.jpg"></a></div>"#
+        );
+        let urls = parse_weasyl(&html, &page).unwrap();
+        assert_eq!(urls[0].as_str(), full);
+        assert_eq!(urls.len(), 2);
+        // Still gated: no art, no preview.
+        let gated = r#"<form class="form skinny form-flow" id="rating-override" action="javascript:;" data-submitid="2627424"></form>"#;
+        assert!(parse_weasyl(gated, &page).unwrap_err().contains("18+"));
     }
 
     #[test]
