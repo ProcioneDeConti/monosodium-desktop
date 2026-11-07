@@ -40,6 +40,14 @@ export function BlacklistSection({ site }: BlacklistSectionProps) {
   }, [draft]);
   const canSort = sortedDraft !== draft.trim();
 
+  // Live counts for the draft, parsed exactly as the filter will see it (lowercased, blank lines
+  // dropped). A `-tag` counts as its own tag, since it's a distinct condition.
+  const counts = useMemo(() => {
+    const entries = parseBlacklist(draft);
+    const tags = entries.flat();
+    return { lines: entries.length, tags: tags.length, unique: new Set(tags).size };
+  }, [draft]);
+
   async function handleImport() {
     setBusy("import");
     setMessage(null);
@@ -84,6 +92,11 @@ export function BlacklistSection({ site }: BlacklistSectionProps) {
         className="resize-y rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/30 px-2 py-1.5 text-sm font-mono outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
         placeholder="rating:explicit&#10;young -age_difference"
       />
+      <p className="-mt-1 text-right text-xs tabular-nums opacity-60">
+        {counts.lines} {counts.lines === 1 ? "line" : "lines"} · {counts.tags}{" "}
+        {counts.tags === 1 ? "tag" : "tags"}
+        {counts.unique !== counts.tags && ` (${counts.unique} unique)`}
+      </p>
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
