@@ -93,6 +93,28 @@ export const sfx = {
   tap() {
     play([{ freq: 660, slideTo: 440, dur: 0.05, gain: 0.35 }]);
   },
+  /** One click of a rolling counter (Score Sniffer's slot reel, Time Machine's flip clock). */
+  tick(pitch = 1) {
+    play([{ freq: 1800 * pitch, dur: 0.025, type: "square", gain: 0.12 }]);
+  },
+  /** Horny Jail's verdict: a two-tone police wail. */
+  siren() {
+    const notes: Note[] = [];
+    for (let i = 0; i < 2; i++) {
+      notes.push({ freq: 660, slideTo: 990, at: i * 0.5, dur: 0.25, type: "sawtooth", gain: 0.12 });
+      notes.push({ freq: 990, slideTo: 660, at: i * 0.5 + 0.25, dur: 0.25, type: "sawtooth", gain: 0.12 });
+    }
+    play(notes);
+  },
+  /** Sunday School's verdict: a soft, rising "aah" of a chord. */
+  halo() {
+    play([0, 4, 7, 11, 14].map((s, i) => ({ freq: semis(784, s), at: i * 0.06, dur: 0.9, type: "sine" as const, gain: 0.22 })));
+  },
+  /** Bingo's dauber hitting a square: a soft wet splat. */
+  daub() {
+    noise(0.12, 1400, 300, 0.45);
+    play([{ freq: 300, slideTo: 140, dur: 0.1, type: "sine", gain: 0.5 }]);
+  },
   /** Something appearing (a stamp landing, a tile popping in). */
   pop() {
     play([{ freq: 380, slideTo: 900, dur: 0.07, type: "sine", gain: 0.5 }]);

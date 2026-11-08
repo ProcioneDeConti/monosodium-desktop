@@ -2362,3 +2362,24 @@ live call before implementing (per user instruction - no more guessing).
         a post removed from the cache drops out immediately. Not-found posts aren't listed.
         Not live-tested yet.
 
+
+- [x] **Games "sticker pop" overhaul (phases 1-3) + easier Sus**
+      - Phase 1 (2ea1e98): shared quiz pieces restyled (thick outlines, hard offset shadows, printed
+        photo frames, stamp verdicts, count-up scores) + synthesised SFX (`Games/sfx.ts`, toggle in
+        the music player). Phase 2 (a7a5678): launcher hero, arcade tiles, per-game `--game` colour.
+      - Phase 3, one signature moment per game (all one-shot, user-triggered, `.game-anim` so
+        reduced motion skips them; shared `Stamp` + `GameToggle` in `common.tsx`):
+        Score Sniffer slot-reel reveal + growing streak fire and milestone badges (Up/Down keys);
+        Whodunnit manila case file with SOLVED / COLD CASE stamps; Floof ray burst + "It's a ...!"
+        banner; Enhance! CSI viewfinder (brackets, crosshair, zoom readout, scan sweep per pull-back,
+        MATCH FOUND stamp); Horny Jail three themed buttons (1-3 keys) with siren lights / halo /
+        probation verdicts and sounds; Tag Hopper winning route replayed along a drawn rope with a
+        hopping rabbit; Sus EJECTED! / Sus! / Innocent stamps; Time Machine split-flap year that
+        rolls to the real year after lock-in; Tag Bingo printed card, ink-blot dauber, BINGO! stamp
+        and a results poster; Tagdle pills/VS/cards on the sticker shadows.
+      - Sus was too hard: rounds now only use visual tags (Bingo's fairness filters, shared via
+        `isFairVisualTag`, top 40 skipped and capped at 250), the odd post must lack the tag's
+        relatives too (`oddRelatedTags`: same Bingo family, e.g. `white_fur`/`white_body`,
+        `hat`/`headwear`), and an optional Hint shows the shared tag for half points. Scoring moved
+        to points (10, or 5 with the hint), so bests restart under `oddOneOut2:`. Unit-tested.
+        Not yet live-tested.

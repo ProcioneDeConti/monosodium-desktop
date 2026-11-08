@@ -13,6 +13,7 @@ import {
   RoundActions,
   RunHeader,
   RunSummary,
+  Stamp,
   useFavoritesUser,
   useGameSpecies,
   Verdict,
@@ -80,6 +81,7 @@ function ZoomRun({
       setResults([...results, 0]);
     } else {
       sfx.miss();
+      sfx.whoosh();
       setRuledOut(new Set([...ruledOut, choice]));
       setLevel(level + 1);
     }
@@ -131,10 +133,11 @@ function ZoomRun({
               className={`h-full w-full transition-transform duration-500 ease-out ${picked ? "object-contain" : "object-cover"}`}
               style={{ transform: `scale(${zoom})`, transformOrigin: `${origin.x}% ${origin.y}%` }}
             />
-            {!picked && (
-              <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-semibold text-white">
-                {ZOOM_LEVELS[level]}×
-              </span>
+            {!picked && <Viewfinder level={level} />}
+            {picked && (
+              <Stamp color={picked === answer ? "rgb(74 222 128)" : "rgb(248 113 113)"} tilt={-6} delay={0.25} size="text-3xl" silent>
+                <span className="font-mono">{picked === answer ? "Match found" : "No match"}</span>
+              </Stamp>
             )}
           </div>
           <ChoiceGrid choices={choices} answer={answer} picked={picked} disabled={ruledOut} onPick={pick} />
@@ -149,12 +152,45 @@ function ZoomRun({
               />
             </>
           ) : (
-            <Button onClick={() => setLevel(level + 1)} disabled={lastLevel} icon={<ZoomOut size={14} />}>
-              Zoom out (-1 pt)
-            </Button>
+            <button
+              type="button"
+              onClick={() => {
+                sfx.whoosh();
+                setLevel(level + 1);
+              }}
+              disabled={lastLevel}
+              className="game-sticker-sm game-press flex items-center gap-1.5 rounded-full bg-neutral-900/90 px-4 py-1.5 text-sm font-black text-white disabled:opacity-40"
+            >
+              <ZoomOut size={14} strokeWidth={2.5} /> Zoom out (-1 pt)
+            </button>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+/** CSI-style camera chrome over the zoomed photo: corner brackets, a crosshair, a readout of the
+ *  zoom, static scanlines, and one scan sweep each time the camera pulls back. */
+function Viewfinder({ level }: { level: number }) {
+  const corner = "absolute h-7 w-7 border-green-400/90";
+  return (
+    <span className="pointer-events-none absolute inset-0 text-green-400">
+      <span className="game-scanlines absolute inset-0" />
+      <span key={level} className="game-scanbar game-anim absolute inset-x-0 top-0 h-1/4 animate-[game-scan_0.8s_ease-in_both] opacity-0" />
+      <span className={`${corner} left-3 top-3 border-l-[3px] border-t-[3px]`} />
+      <span className={`${corner} right-3 top-3 border-r-[3px] border-t-[3px]`} />
+      <span className={`${corner} bottom-3 left-3 border-b-[3px] border-l-[3px]`} />
+      <span className={`${corner} bottom-3 right-3 border-b-[3px] border-r-[3px]`} />
+      <span className="absolute left-1/2 top-1/2 h-8 w-px -translate-x-1/2 -translate-y-1/2 bg-green-400/70" />
+      <span className="absolute left-1/2 top-1/2 h-px w-8 -translate-x-1/2 -translate-y-1/2 bg-green-400/70" />
+      <span className="absolute left-5 top-5 rounded bg-black/60 px-1.5 font-mono text-xs font-bold">
+        <span className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500" />
+        ZOOM {ZOOM_LEVELS[level].toFixed(1)}×
+      </span>
+      <span className="absolute bottom-5 right-5 rounded bg-black/60 px-1.5 font-mono text-[10px] font-bold">
+        {level === 0 ? "ENHANCING…" : `PULLBACK ${level}/${ZOOM_LEVELS.length - 1}`}
+      </span>
+    </span>
   );
 }

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, X } from "lucide-react";
+import { Check, Lightbulb, X } from "lucide-react";
 import { e621Api } from "../../api/client";
 import { visiblePosts } from "../../lib/blacklist";
 import {
@@ -8,6 +8,9 @@ import {
   gameImageUrl,
   oddOneOutCandidates,
   oddOneOutFromPosts,
+  oddRelatedTags,
+  ODD_HINT_POINTS,
+  ODD_POINTS,
   QUIZ_ROUNDS,
   shuffle,
   type OddOneOutRound,
@@ -19,6 +22,7 @@ import type { Site } from "../../models/site";
 import { useGamesStore } from "../../state/gamesStore";
 import { useEffectiveBlacklist } from "../../state/settingsStore";
 import { loadPool } from "../../state/tagdleStore";
+import { sfx } from "./sfx";
 import {
   CenteredSpinner,
   ErrorNote,
@@ -27,6 +31,7 @@ import {
   RoundActions,
   RunHeader,
   RunSummary,
+  Stamp,
   useFavoritesUser,
   useRatingFilter,
   Verdict,
@@ -76,13 +81,14 @@ function OddRun({
   favUser: string | null;
   onRestart: () => void;
 }) {
-  const bestKey = `oddOneOut:${site}${favUser ? ":fav" : ""}`;
+  const bestKey = `oddOneOut2:${site}${favUser ? ":fav" : ""}`;
   const best = useGamesStore((s) => s.best[bestKey] ?? 0);
   const recordBest = useGamesStore((s) => s.recordBest);
   const [previousBest] = useState(best);
   const [round, setRound] = useState(0);
   const [score, setScore] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
+  const [hinted, setHinted] = useState(false);
   const [results, setResults] = useState<RoundOutcome[]>([]);
 
   const searched = useSearchedRound(site, candidates, round, !favUser);
@@ -91,7 +97,7 @@ function OddRun({
 
   if (current.error) return <ErrorNote error={current.error} />;
   if (round >= QUIZ_ROUNDS) {
-    return <RunSummary score={score} max={QUIZ_ROUNDS} previousBest={previousBest} unit="correct" results={results} onRestart={onRestart} />;
+    return <RunSummary score={score} max={QUIZ_ROUNDS * ODD_POINTS} previousBest={previousBest} results={results} onRestart={onRestart} />;
   }
   if (current.isLoading) return <CenteredSpinner label="Picking a tag…" />;
   const data = current.data;
@@ -105,9 +111,18 @@ function OddRun({
 
   function pick(i: number) {
     if (picked !== null) return;
+    const right = i === data!.odd;
     setPicked(i);
-    setResults([...results, i === data!.odd ? 1 : 0]);
-    if (i === data!.odd) setScore(score + 1);
+    setResults([...results, right ? (hinted ? 0.5 : 1) : 0]);
+    if (right) {
+      setScore(score + (hinted ? ODD_HINT_POINTS : ODD_POINTS));
+      sfx.whoosh();
+    }
+  }
+
+  function hint() {
+    sfx.pop();
+    setHinted(true);
   }
 
   function next() {
@@ -115,55 +130,92 @@ function OddRun({
     if (nextRound >= QUIZ_ROUNDS) recordBest(bestKey, score);
     setRound(nextRound);
     setPicked(null);
+    setHinted(false);
   }
+
+  const right = picked === data.odd;
 
   return (
     <div>
-      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} unit="correct" results={results} />
+      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} results={results} />
       <div className="flex flex-col items-center gap-4">
-        <p className="text-sm font-semibold opacity-70">
-          {picked === null ? (
-            "Three of these share a tag. Which one doesn't?"
-          ) : (
+        <div className="flex min-h-8 flex-wrap items-center justify-center gap-2 text-sm font-semibold">
+          {picked === null && !hinted && (
             <>
-              The shared tag was <span className="text-[rgb(var(--accent))]">{displayTagName(data.tag)}</span>
+              <span className="opacity-70">Three of these share a tag. Which one doesn't?</span>
+              <button
+                type="button"
+                onClick={hint}
+                title={`Shows the shared tag - a right answer is then worth ${ODD_HINT_POINTS} instead of ${ODD_POINTS}`}
+                className="game-sticker-sm game-press flex items-center gap-1 rounded-full bg-amber-400 px-2.5 py-0.5 text-xs font-black text-black"
+              >
+                <Lightbulb size={13} strokeWidth={2.5} /> Hint (half points)
+              </button>
             </>
           )}
-        </p>
-        <div className="grid w-full max-w-2xl grid-cols-2 gap-2">
+          {(picked !== null || hinted) && (
+            <>
+              <span className="opacity-70">{picked === null ? "They share" : "The shared tag was"}</span>
+              <span
+                key={data.tag}
+                className="game-sticker-sm game-anim animate-[game-pop-in_0.35s_ease-out] rounded-full bg-[rgb(var(--game))] px-3 py-0.5 font-black text-white"
+              >
+                {displayTagName(data.tag)}
+              </span>
+              {picked === null && <span className="opacity-70">- which one doesn't?</span>}
+            </>
+          )}
+        </div>
+        <div className="grid w-full max-w-2xl grid-cols-2 gap-3">
           {data.posts.map((post, i) => {
+            const isOdd = i === data.odd;
             const ring =
               picked === null
-                ? "border-transparent hover:border-[rgb(var(--accent))]"
-                : i === data.odd
-                  ? "border-green-500"
+                ? "hover:ring-4 hover:ring-[rgb(var(--game))]"
+                : isOdd
+                  ? `ring-4 ${right ? "ring-green-500" : "ring-red-500"}`
                   : i === picked
-                    ? "border-red-500"
-                    : "border-transparent opacity-60";
+                    ? "ring-4 ring-amber-400"
+                    : "opacity-60";
             return (
               <button
                 key={post.id}
                 type="button"
                 disabled={picked !== null}
                 onClick={() => pick(i)}
-                className={`rounded-2xl border-[3px] transition-all ${ring}`}
+                className={`game-sticker-sm game-press relative rounded-2xl transition-[opacity,box-shadow] ${ring} ${
+                  picked !== null && isOdd && right ? "game-anim animate-[game-eject_0.7s_ease-in-out]" : ""
+                } ${picked === i && !right ? "game-anim animate-[game-shake_0.45s_ease-in-out]" : ""}`}
               >
                 <GameImage url={gameImageUrl(post)!} className="h-[26vh] w-full">
-                  {picked !== null && (i === data.odd || i === picked) && (
-                    <span
-                      className={`absolute right-2 top-2 rounded-full p-1 text-white ${i === data.odd ? "bg-green-500" : "bg-red-500"}`}
-                    >
-                      {i === data.odd ? <Check size={14} strokeWidth={3} /> : <X size={14} strokeWidth={3} />}
+                  {picked !== null && !isOdd && (
+                    <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white">
+                      <Check size={11} strokeWidth={3} className="text-green-400" /> {displayTagName(data.tag)}
+                    </span>
+                  )}
+                  {picked !== null && isOdd && (
+                    <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white">
+                      <X size={11} strokeWidth={3} className="text-red-400" /> no {displayTagName(data.tag)}
                     </span>
                   )}
                 </GameImage>
+                {picked !== null && isOdd && (
+                  <Stamp color={right ? "rgb(74 222 128)" : "rgb(248 113 113)"} tilt={-12} delay={right ? 0.35 : 0.3} silent>
+                    {right ? "Ejected!" : "Sus!"}
+                  </Stamp>
+                )}
+                {picked === i && !right && (
+                  <Stamp color="rgb(251 191 36)" tilt={8} size="text-xl" silent>
+                    Innocent
+                  </Stamp>
+                )}
               </button>
             );
           })}
         </div>
         {picked !== null && (
           <>
-            <Verdict ok={picked === data.odd} />
+            <Verdict ok={right}>{right ? `+${hinted ? ODD_HINT_POINTS : ODD_POINTS}${hinted ? " · with hint" : ""}` : undefined}</Verdict>
             <RoundActions
               site={site}
               posts={data.posts.map((post, i) => ({ post, label: i === data.odd ? "Odd one" : `#${i + 1}` }))}
@@ -198,7 +250,13 @@ function useSearchedRound(site: Site, candidates: string[], round: number, enabl
         const base = `score:>=20 ${ratingFilter} order:random`.replace(/\s+/g, " ").trim();
         const shared = usable((await e621Api.getPosts(site, `${tag} ${base}`, 20)).posts).slice(0, 3);
         if (shared.length < 3) continue;
-        const odd = usable((await e621Api.getPosts(site, `-${tag} ${base}`, 10)).posts)[0];
+        // The odd post lacks the tag and its relatives (white_fur -> white_body too), so it doesn't
+        // show the shared trait under another name.
+        const related = oddRelatedTags(tag, candidates);
+        const without = related.map((t) => `-${t}`).join(" ");
+        const odd = usable((await e621Api.getPosts(site, `${without} ${base}`, 10)).posts).find(
+          (p) => !related.some((t) => p.tags.general.includes(t)),
+        );
         if (odd) return assembleOddRound(tag, shared, odd);
       }
       return null;

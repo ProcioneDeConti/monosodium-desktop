@@ -40,13 +40,13 @@ export interface GameMeta {
 }
 export const GameMetaContext = createContext<GameMeta | null>(null);
 
-function prefersReducedMotion(): boolean {
+export function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 /** Runs `effect` once per mount, even under StrictMode's double-invoked effects - for one-shot
  *  sounds that would otherwise play twice in dev. */
-function useOnce(effect: () => void) {
+export function useOnce(effect: () => void) {
   const done = useRef(false);
   useEffect(() => {
     if (done.current) return;
@@ -58,7 +58,7 @@ function useOnce(effect: () => void) {
 
 /** `value`, animated from its previous value over `ms` (ease-out) - for scores ticking up.
  *  Animates only while it changes; instant under reduced motion. */
-function useCountUp(value: number, ms = 650): number {
+export function useCountUp(value: number, ms = 650): number {
   const [shown, setShown] = useState(value);
   const current = useRef(value);
   useEffect(() => {
@@ -674,6 +674,75 @@ export function CenteredSpinner({ label }: { label: string }) {
 
 export function ErrorNote({ error }: { error: unknown }) {
   return <p className="text-sm text-red-500">Couldn't load posts: {String(error)}</p>;
+}
+
+/** A sticker segmented toggle (difficulty, stat, mode) in the game's colour. */
+export function GameToggle<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: readonly { value: T; label: ReactNode; title?: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="game-sticker-sm flex rounded-full bg-neutral-900/90 p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          title={o.title}
+          onClick={() => {
+            if (o.value === value) return;
+            sfx.tap();
+            onChange(o.value);
+          }}
+          className={`flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-black transition-colors ${
+            value === o.value ? "bg-[rgb(var(--game))] text-white" : "text-white/60 hover:text-white"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A rubber stamp slammed across a card ("EJECTED!", "SOLVED", "BINGO!"): centred over the
+ *  nearest positioned parent, tilted, ink-coloured text in a double border, with a thump. */
+export function Stamp({
+  children,
+  color = "rgb(239 68 68)",
+  tilt = -10,
+  delay = 0,
+  size = "text-2xl",
+  silent = false,
+}: {
+  children: ReactNode;
+  /** Ink colour (any CSS colour). */
+  color?: string;
+  tilt?: number;
+  /** Seconds before it lands. */
+  delay?: number;
+  size?: string;
+  silent?: boolean;
+}) {
+  useOnce(() => {
+    if (silent) return;
+    if (delay > 0) setTimeout(() => sfx.thump(), delay * 1000);
+    else sfx.thump();
+  });
+  return (
+    <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+      <span
+        className={`game-anim game-rubber animate-[game-stamp_0.45s_ease-out_both] px-3 py-0.5 font-black uppercase tracking-widest ${size}`}
+        style={{ color, "--stamp-tilt": `${tilt}deg`, animationDelay: `${delay}s` } as CSSProperties}
+      >
+        {children}
+      </span>
+    </span>
+  );
 }
 
 const CHEERS = ["Correct!", "Nailed it!", "Yes!", "Bingo!", "Spot on!"];

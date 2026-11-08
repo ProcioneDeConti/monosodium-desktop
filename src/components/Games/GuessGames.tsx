@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Heart, Timer } from "lucide-react";
+import { FolderOpen, Heart, Timer } from "lucide-react";
+import type { ReactNode } from "react";
 import { allTags, type Post } from "../../models/post";
 import type { Site } from "../../models/site";
 import {
@@ -12,6 +13,7 @@ import {
   speedPoints,
   type RoundOutcome,
 } from "../../lib/games";
+import { displayTagName } from "../../lib/tagdle";
 import { loadArtistTier, useGamesStore, type ArtistTier } from "../../state/gamesStore";
 import { useEffectiveBlacklist } from "../../state/settingsStore";
 import { Button } from "../ui/Button";
@@ -21,6 +23,7 @@ import {
   ErrorNote,
   FavoritesExhausted,
   GameImage,
+  GameToggle,
   RunHeader,
   RoundActions,
   RunSummary,
@@ -30,6 +33,7 @@ import {
   useListRound,
   usePostDeck,
   useSpeciesRound,
+  Stamp,
   Verdict,
   type RoundResult,
 } from "./common";
@@ -81,20 +85,11 @@ export function ArtistGuesser({ site }: { site: Site }) {
         </p>
       ) : (
         <div className="mb-4 flex flex-col items-center gap-1.5">
-          <div className="flex rounded-full bg-neutral-900/75 p-0.5">
-            {(Object.keys(DIFFICULTY) as ArtistTier[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTier(t)}
-                className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors ${
-                  tier === t ? "bg-[rgb(var(--accent))] text-white shadow" : "opacity-60 hover:opacity-100"
-                }`}
-              >
-                {DIFFICULTY[t].label}
-              </button>
-            ))}
-          </div>
+          <GameToggle
+            options={(Object.keys(DIFFICULTY) as ArtistTier[]).map((t) => ({ value: t, label: DIFFICULTY[t].label }))}
+            value={tier}
+            onChange={setTier}
+          />
           <p className="text-xs opacity-80">{DIFFICULTY[tier].blurb}</p>
         </div>
       )}
@@ -206,14 +201,16 @@ function ArtistRun({
         )
       ) : (
         <div className="flex flex-col items-center gap-4">
-          <p className="text-sm font-semibold opacity-80">Who drew this?</p>
-          <GameImage
-            url={gameImageUrl(post)!}
-            className="h-[46vh] w-full max-w-xl"
-            hideEdges={picked === null}
-            photo
-            settled={picked !== null}
-          />
+          <CaseFile round={round} solved={picked === null ? null : picked === answer}>
+            <GameImage
+              url={gameImageUrl(post)!}
+              className="h-[42vh] w-full"
+              hideEdges={picked === null}
+              photo
+              settled={picked !== null}
+            />
+          </CaseFile>
+          <p className="text-sm font-semibold opacity-80">{picked === null ? "Who drew this? Pick a suspect." : `Culprit: ${answer.replace(/_/g, " ")}`}</p>
           <ChoiceGrid choices={choices} answer={answer} picked={picked} onPick={pick} />
           {picked && (
             <>
@@ -228,6 +225,30 @@ function ArtistRun({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Whodunnit's evidence folder: a manila case file with a numbered tab, the photo clipped in, and
+ *  "SOLVED" / "COLD CASE" stamped across it once the round's answered. */
+function CaseFile({ round, solved, children }: { round: number; solved: boolean | null; children: ReactNode }) {
+  return (
+    <div className="relative mt-6 w-full max-w-xl">
+      <span className="game-folder absolute -top-6 left-0 flex h-6 items-center gap-1.5 rounded-t-xl border-x-[2.5px] border-t-[2.5px] border-[rgb(10_8_12)] px-3 text-[11px] font-black uppercase tracking-widest">
+        <FolderOpen size={12} strokeWidth={2.5} /> Case #{String(round + 1).padStart(3, "0")}
+      </span>
+      <div className="game-folder game-sticker relative rounded-2xl rounded-tl-none p-3 pt-2">
+        <div className="mb-2 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.25em] opacity-60">
+          <span>Exhibit A</span>
+          <span>Artist unknown</span>
+        </div>
+        {children}
+        {solved !== null && (
+          <Stamp key={round} color={solved ? "rgb(220 38 38)" : "rgb(37 99 235)"} tilt={solved ? -12 : 9} delay={0.3} size="text-4xl" silent>
+            {solved ? "Solved" : "Cold case"}
+          </Stamp>
+        )}
+      </div>
     </div>
   );
 }
@@ -344,20 +365,36 @@ function SpeciesRun({
           <p className="flex items-center gap-2 text-sm font-semibold opacity-80">
             What species is this?
             {picked === null && (
-              <span className="flex items-center gap-1 rounded-full bg-[rgb(var(--accent))]/15 px-2 py-0.5 text-xs tabular-nums text-[rgb(var(--accent))]">
+              <span className="game-sticker-sm flex items-center gap-1 rounded-full bg-[rgb(var(--game))] px-2 py-0.5 text-xs font-black tabular-nums text-white">
                 <Timer size={12} /> {potential} pts
               </span>
             )}
           </p>
-          <GameImage
-            url={gameImageUrl(post)!}
-            className="h-[46vh] w-full max-w-xl"
-            photo
-            settled={picked !== null}
-            imgStyle={{ filter: `blur(${MAX_BLUR_PX * (1 - t)}px)`, transition: picked ? "filter 0.4s" : undefined }}
-          >
-            <img src={gameImageUrl(post)!} alt="" className="hidden" onLoad={start} />
-          </GameImage>
+          <div className="relative w-full max-w-xl">
+            {/* The reveal: rays burst out from behind the photo as it snaps into focus. */}
+            {picked && (
+              <span
+                key={round}
+                className="game-rays game-anim pointer-events-none absolute -inset-10 animate-[game-burst_0.9s_ease-out_both] rounded-full"
+              />
+            )}
+            <GameImage
+              url={gameImageUrl(post)!}
+              className={`h-[46vh] w-full ${picked ? "game-anim animate-[game-pop-in_0.4s_ease-out]" : ""}`}
+              photo
+              settled={picked !== null}
+              imgStyle={{ filter: `blur(${MAX_BLUR_PX * (1 - t)}px)`, transition: picked ? "filter 0.4s" : undefined }}
+            >
+              <img src={gameImageUrl(post)!} alt="" className="hidden" onLoad={start} />
+              {picked && (
+                <span className="absolute inset-x-0 bottom-3 flex justify-center">
+                  <span className="game-sticker-sm game-anim animate-[game-pop-in_0.35s_0.2s_ease-out_both] whitespace-nowrap rounded-xl bg-[rgb(var(--game))] px-4 py-1 text-lg font-black italic text-white">
+                    It's {/^[aeiou]/.test(answer) ? "an" : "a"} {displayTagName(answer)}!
+                  </span>
+                </span>
+              )}
+            </GameImage>
+          </div>
           <ChoiceGrid choices={choices} answer={answer} picked={picked} onPick={pick} />
           {picked && (
             <>

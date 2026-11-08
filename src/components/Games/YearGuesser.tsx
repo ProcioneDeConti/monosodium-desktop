@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarClock } from "lucide-react";
 import {
   FIRST_YEAR,
@@ -17,6 +17,7 @@ import {
   FavoritesExhausted,
   GameImage,
   NextButton,
+  prefersReducedMotion,
   RoundActions,
   RunHeader,
   RunSummary,
@@ -27,6 +28,7 @@ import {
   Verdict,
   type RoundResult,
 } from "./common";
+import { sfx } from "./sfx";
 
 /** A post, a year slider: when was it uploaded? 100 points for the right year, 25 less per year
  *  off. Rounds pick a random year first and then a post from it, so every era turns up equally
@@ -65,6 +67,8 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
   const [score, setScore] = useState(0);
   const [guess, setGuess] = useState(() => Math.round((minYear + maxYear) / 2));
   const [locked, setLocked] = useState(false);
+  /** The clock has finished travelling to the real year - the verdict waits for it. */
+  const [arrived, setArrived] = useState(false);
   const [results, setResults] = useState<RoundOutcome[]>([]);
   const query = useYearSource(site, years, round, favUser);
 
@@ -91,6 +95,7 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
     if (nextRound >= QUIZ_ROUNDS) recordBest(bestKey, score);
     setRound(nextRound);
     setLocked(false);
+    setArrived(false);
   }
 
   return (
@@ -100,12 +105,14 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
         <p className="text-sm font-semibold opacity-70">What year was this uploaded?</p>
         <GameImage url={gameImageUrl(post)!} className="h-[40vh] w-full max-w-xl" photo settled={locked} />
         <div className="w-full max-w-xl rounded-xl bg-neutral-900/80 px-4 py-3 backdrop-blur-sm">
-          <div className="mb-1 flex items-baseline justify-center gap-3">
-            <span className="text-3xl font-black tabular-nums">{guess}</span>
-            {locked && (
-              <span className="text-sm opacity-70">
-                actual <span className="font-bold text-[rgb(var(--accent))]">{actual}</span>
-              </span>
+          <div className="mb-2 flex flex-col items-center gap-1">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] opacity-60">
+              {!locked ? "Set the dial" : !arrived ? "Travelling…" : guess === actual ? "Arrived - right on time" : `You guessed ${guess}`}
+            </span>
+            {locked ? (
+              <TimeTravel key={round} from={guess} to={actual} onArrive={() => setArrived(true)} />
+            ) : (
+              <FlipYear year={guess} />
             )}
           </div>
           <input
@@ -116,7 +123,7 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
             value={guess}
             disabled={locked}
             onChange={(e) => setGuess(Number(e.target.value))}
-            className="w-full accent-[rgb(var(--accent))]"
+            className="w-full accent-[rgb(var(--game))]"
           />
           <div className="flex justify-between text-xs tabular-nums opacity-50">
             <span>{minYear}</span>
@@ -127,7 +134,7 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
           <NextButton onClick={lockIn}>
             <CalendarClock size={16} /> Lock in {guess}
           </NextButton>
-        ) : (
+        ) : !arrived ? null : (
           <>
             <Verdict ok={points === 100} close={points > 0}>
               {points === 100 ? "+100 pts" : `${Math.abs(guess - actual)} off, +${points} pts`}
@@ -143,4 +150,65 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
       </div>
     </div>
   );
+}
+
+/** The year as four split-flap digits; a digit flips whenever its value changes. */
+function FlipYear({ year, tone = "bg-neutral-800" }: { year: number; tone?: string }) {
+  return (
+    <span className="flex gap-1">
+      {String(year)
+        .split("")
+        .map((d, i) => (
+          <span
+            key={`${i}:${d}`}
+            className={`game-sticker-sm game-anim relative flex h-14 w-11 animate-[game-flip_0.28s_ease-out] items-center justify-center overflow-hidden rounded-lg font-mono text-4xl font-black tabular-nums text-white ${tone}`}
+          >
+            {d}
+            {/* The flap's hinge line. */}
+            <span className="absolute inset-x-0 top-1/2 h-px bg-black/50" />
+          </span>
+        ))}
+    </span>
+  );
+}
+
+/** After lock-in the clock rolls year by year from the guess to the real year (ticking, a bit
+ *  slower near the end, ~1.5s in all), then lands in the game's colour. Instant under reduced motion. */
+function TimeTravel({ from, to, onArrive }: { from: number; to: number; onArrive: () => void }) {
+  const [year, setYear] = useState(from);
+  const [landed, setLanded] = useState(false);
+  const arrive = useRef(onArrive);
+  arrive.current = onArrive;
+
+  useEffect(() => {
+    const land = () => {
+      setYear(to);
+      setLanded(true);
+      sfx.whoosh();
+      arrive.current();
+    };
+    if (from === to || prefersReducedMotion()) {
+      land();
+      return;
+    }
+    const dir = Math.sign(to - from);
+    const steps = Math.abs(to - from);
+    const timers: number[] = [];
+    let t = 120;
+    for (let i = 1; i < steps; i++) {
+      const y = from + dir * i;
+      // ~1.5s however far off the guess was; each step a little longer than the last.
+      t += (1400 / steps) * (0.6 + (i / steps) * 0.8);
+      timers.push(
+        window.setTimeout(() => {
+          setYear(y);
+          sfx.tick(0.9 + (i / steps) * 0.3);
+        }, t),
+      );
+    }
+    timers.push(window.setTimeout(land, t + 220));
+    return () => timers.forEach(clearTimeout);
+  }, [from, to]);
+
+  return <FlipYear year={year} tone={landed ? "bg-[rgb(var(--game))]" : "bg-neutral-800"} />;
 }

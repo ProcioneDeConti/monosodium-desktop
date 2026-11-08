@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MascotCue } from "../Mascot/MascotLayer";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Check, ChevronRight, Copy, Flag, Heart, Info, Link2, Shuffle, Trophy } from "lucide-react";
+import { ArrowRight, Check, ChevronRight, Copy, Flag, Heart, Info, Link2, Rabbit, Shuffle, Trophy } from "lucide-react";
 import { e621Api } from "../../api/client";
 import { visiblePosts } from "../../lib/blacklist";
 import {
@@ -23,7 +23,16 @@ import { loadPool } from "../../state/tagdleStore";
 import { ConfettiBurst } from "../Tagdle/Confetti";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
-import { CenteredSpinner, ErrorNote, NextButton, useFavoritesUser, useRatingFilter, ViewPostButton } from "./common";
+import {
+  CenteredSpinner,
+  ErrorNote,
+  NextButton,
+  prefersReducedMotion,
+  useFavoritesUser,
+  useRatingFilter,
+  ViewPostButton,
+} from "./common";
+import { sfx } from "./sfx";
 import { SixDegreesMap } from "./SixDegreesMap";
 import type { HopEdge, MapInput } from "../../lib/sixDegreesMap";
 
@@ -148,6 +157,7 @@ function SixDaily({ site, candidates }: { site: Site; candidates: ReturnType<typ
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
         <Endpoints puzzle={puzzle} />
+        {justFinished && saved !== null && map && <HopRoute path={map.finalPath} />}
         <p className="relative text-3xl font-black">
           {justFinished && saved !== null && <ConfettiBurst variant="rainbow" />}
           {justFinished && <MascotCue kind={saved !== null ? "gameWin" : "gameLose"} />}
@@ -227,6 +237,7 @@ function SixEndless({
       ) : (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
           <Endpoints puzzle={puzzle} />
+          {result.hops !== null && <HopRoute path={result.map.finalPath} />}
           <p className="relative text-3xl font-black">
             {result.hops !== null && <ConfettiBurst variant="rainbow" />}
             <MascotCue kind={result.hops !== null ? "gameWin" : "gameLose"} />
@@ -302,6 +313,7 @@ function SixPuzzle({
       return;
     }
     const existing = path.indexOf(tag);
+    sfx.pop();
     setPath(existing >= 0 ? path.slice(0, existing + 1) : [...path, tag]);
   }
 
@@ -324,8 +336,8 @@ function SixPuzzle({
               onClick={() => setPath(path.slice(0, i + 1))}
               className={`rounded-full px-2 py-0.5 ${
                 i === path.length - 1
-                  ? "bg-[rgb(var(--accent))] font-semibold text-white"
-                  : "bg-neutral-900/75 hover:bg-[rgb(var(--accent))]/20"
+                  ? "game-sticker-sm game-anim animate-[game-pop-in_0.3s_ease-out] bg-[rgb(var(--game))] font-bold text-white"
+                  : "bg-neutral-900/75 hover:bg-[rgb(var(--game))]/30"
               }`}
             >
               {displayTagName(tag)}
@@ -567,6 +579,63 @@ function TagInfoCard({ site, tag }: { site: Site; tag: string }) {
                 className="h-16 w-16 rounded-lg bg-black/20 object-cover"
               />
             ))}
+      </div>
+    </div>
+  );
+}
+
+/** Gap between route chips landing in the win animation. */
+const HOP_STEP_S = 0.32;
+
+/** The winning route, played back: chips land one by one along a sagging rope that draws itself
+ *  between them (a pop per chip), and the rabbit hops onto the target at the end. */
+function HopRoute({ path }: { path: string[] }) {
+  useEffect(() => {
+    if (prefersReducedMotion()) return;
+    const timers = path.map((_, i) => window.setTimeout(() => (i === path.length - 1 ? sfx.correct() : sfx.pop()), i * HOP_STEP_S * 1000));
+    return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const last = path.length - 1;
+  return (
+    <div className="max-w-full overflow-x-auto px-2 pb-1 pt-6">
+      <div className="flex w-max items-center">
+        {path.map((tag, i) => (
+          <span key={`${tag}:${i}`} className="flex items-center">
+            {i > 0 && (
+              <svg width="44" height="22" viewBox="0 0 44 22" className="-mx-0.5 shrink-0 overflow-visible">
+                <path
+                  d="M 0 8 Q 22 22 44 8"
+                  fill="none"
+                  stroke={`rgb(var(--game))`}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray="80"
+                  className="game-anim animate-[game-rope_0.3s_ease-out_both]"
+                  style={{ animationDelay: `${(i - 0.5) * HOP_STEP_S}s` }}
+                />
+              </svg>
+            )}
+            <span
+              className={`game-sticker-sm game-anim relative animate-[game-pop-in_0.3s_ease-out_both] whitespace-nowrap rounded-full px-3 py-1 text-sm font-black ${
+                i === last ? "bg-green-500 text-white" : i === 0 ? "bg-[rgb(var(--game))] text-white" : "bg-neutral-900/90"
+              }`}
+              style={{ animationDelay: `${i * HOP_STEP_S}s` }}
+            >
+              {i === last && (
+                <span className="absolute -top-6 left-1/2 -translate-x-1/2">
+                  <Rabbit
+                    size={20}
+                    strokeWidth={2.5}
+                    className="game-anim animate-[game-hop_0.5s_ease-in-out_both] text-white drop-shadow-[2px_2px_0_rgb(10_8_12)]"
+                    style={{ animationDelay: `${last * HOP_STEP_S + 0.1}s` }}
+                  />
+                </span>
+              )}
+              {displayTagName(tag)}
+            </span>
+          </span>
+        ))}
       </div>
     </div>
   );

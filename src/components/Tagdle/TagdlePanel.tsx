@@ -428,11 +428,11 @@ function EndlessGame({ site, categories }: { site: Site; categories: TagdleCateg
         {/* Shown as of the last finished race, so a pick's +1 doesn't land before its reveal. */}
         <span
           key={shownStreak}
-          className="tagdle-anim flex animate-[tagdle-pop_0.4s_ease-out] items-center gap-1.5 rounded-full bg-orange-500/15 px-3 py-1 font-bold text-orange-500"
+          className="game-sticker-sm tagdle-anim flex animate-[tagdle-pop_0.4s_ease-out] items-center gap-1.5 rounded-full bg-neutral-900/90 px-3 py-1 font-black text-orange-400"
         >
           <Flame size={15} /> {shownStreak}
         </span>
-        <span className="flex items-center gap-1.5 rounded-full bg-yellow-500/15 px-3 py-1 font-semibold text-yellow-600 dark:text-yellow-400">
+        <span className="game-sticker-sm flex items-center gap-1.5 rounded-full bg-neutral-900/90 px-3 py-1 font-bold text-yellow-400">
           <Trophy size={14} /> Best {Math.max(best, shownStreak)}
         </span>
       </div>
@@ -532,8 +532,8 @@ function RoundView({
       <div className="flex w-full items-center justify-center gap-4">
         {card(pair.left, "left")}
         <div
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--accent))]
-                     text-sm font-black italic text-white shadow-lg shadow-[rgb(var(--accent))]/40"
+          className="game-sticker-sm flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--accent))]
+                     text-sm font-black italic text-white"
         >
           VS
         </div>
@@ -596,10 +596,11 @@ function TagCard({
         type="button"
         disabled={revealed}
         onClick={() => onPick(side)}
-        style={{ boxShadow: finished ? undefined : `0 10px 30px -12px ${style.chipBg}` }}
+        // Hard offset shadow like the other games' stickers, tinted by the tag's category until revealed.
+        style={{ boxShadow: `5px 5px 0 ${finished ? "rgb(10 8 12 / 0.9)" : style.chipBg}` }}
         className={`group relative flex aspect-[5/7] w-full flex-col overflow-hidden rounded-2xl border-2
                     bg-gradient-to-b from-neutral-800/95 to-neutral-900/95 backdrop-blur-sm
-                    text-center shadow-lg shadow-black/25 dark:shadow-black/60 transition-all duration-200 ${ring} ${anim}`}
+                    text-center transition-all duration-200 ${ring} ${anim}`}
       >
         {/* Category colour stripe */}
         <div className="h-1.5 w-full shrink-0" style={{ background: style.chipBg }} />

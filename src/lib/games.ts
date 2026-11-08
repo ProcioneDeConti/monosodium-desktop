@@ -240,7 +240,7 @@ const LAUNCHER_BESTS: Partial<
   zoom: { prefix: "zoom", label: (n) => `Best ${n} pts` },
   rating: { prefix: "rating", label: (n) => `Best ${n}/${QUIZ_ROUNDS}` },
   sixDegrees: { prefix: "sixDegrees", lower: true, label: (n) => `Best ${n} hop${n === 1 ? "" : "s"}` },
-  oddOneOut: { prefix: "oddOneOut", label: (n) => `Best ${n}/${QUIZ_ROUNDS}` },
+  oddOneOut: { prefix: "oddOneOut2", label: (n) => `Best ${n} pts` },
   yearGuess: { prefix: "yearGuess", label: (n) => `Best ${n} pts` },
   bingo: {
     prefix: "bingo2",
@@ -363,16 +363,35 @@ export function favoriteEndpoints(posts: readonly Post[], minCount = 3): PoolTag
 
 // --- Odd One Out -----------------------------------------------------------------------------
 
-/** General tags an Odd One Out round may hinge on: the pool by size minus its top `skip` (`solo`,
- *  `hi_res` - on half the site, so they'd be on the odd post too often to read as "shared").
- *  Rank-based rather than a post-count band so it scales to e6AI's much smaller counts. */
-export function oddOneOutCandidates(pool: readonly PoolTag[], skip = 40): string[] {
+/** General tags an Odd One Out round may hinge on: visual ones only (the same filters as Bingo's
+ *  squares - no text/meta/resolution tags, nothing usually left untagged, no taxonomy jargon or
+ *  judgement calls), the pool by size minus its top `skip` (`solo`, `hi_res` - on half the site, so
+ *  they'd be on the odd post too often to read as "shared") and capped at `take`, so the tag is
+ *  common enough to be something you'd notice. Rank-based rather than a post-count band so it
+ *  scales to e6AI's much smaller counts. */
+export function oddOneOutCandidates(pool: readonly PoolTag[], skip = 40, take = 250): string[] {
   return [...pool]
-    .filter((t) => t.category === 0)
+    .filter((t) => t.category === 0 && isFairVisualTag(t.name))
     .sort((a, b) => b.post_count - a.post_count || a.name.localeCompare(b.name))
-    .slice(skip)
+    .slice(skip, skip + take)
     .map((t) => t.name);
 }
+
+/** Most related tags excluded from the odd post's search (each is one more search term). */
+const ODD_RELATED_MAX = 12;
+
+/** `tag` plus the candidates in its Bingo family (`white_fur` -> `white_body`, `hat` -> `headwear`):
+ *  the odd post must carry none of them, or it'd show the shared trait under another name. */
+export function oddRelatedTags(tag: string, candidates: readonly string[]): string[] {
+  const family = bingoFamily(tag);
+  const members = family === tag ? [] : (FAMILY_MEMBERS.get(family) ?? []);
+  const related = new Set([tag, ...members, ...candidates.filter((t) => t !== tag && bingoFamily(t) === family)]);
+  return [...related].slice(0, ODD_RELATED_MAX);
+}
+
+/** Odd One Out scoring: right answer, and right answer after taking the hint. */
+export const ODD_POINTS = 10;
+export const ODD_HINT_POINTS = 5;
 
 export interface OddOneOutRound {
   tag: string;
@@ -406,8 +425,15 @@ export function oddOneOutFromPosts(
   );
   const tag = tags[0];
   if (!tag) return null;
+  const related = oddRelatedTags(tag, [...allowed]);
   const shared = shuffle(withTag.get(tag)!, rand).slice(0, 3);
-  const without = shuffle(fresh.filter((p) => !p.tags.general.includes(tag)), rand)[0];
+  const without = shuffle(fresh.filter((p) => !related.some((t) => p.tags.general.includes(t))), rand)[0];
+  // Every post lacking the tag carries a relative of it - try the next tag rather than a muddy round.
+  if (!without) {
+    const rest = new Set(allowed);
+    rest.delete(tag);
+    return rest.size > 0 ? oddOneOutFromPosts(posts, rest, used, rand) : null;
+  }
   return assembleOddRound(tag, shared, without, rand);
 }
 
@@ -526,6 +552,14 @@ const BINGO_FAMILIES: readonly (readonly string[])[] = [
   ["spread_legs", "presenting", "on_back", "lying"],
 ];
 
+/** Fair to build a visual round on: not meta/text-ish, not usually left untagged, not jargon or
+ *  a judgement call, never `young*`. Shared by Bingo squares and Odd One Out tags. */
+function isFairVisualTag(name: string): boolean {
+  return !NON_VISUAL_TAG.test(name) && !UNFAIR_BINGO_TAG.has(name) && !YOUNG_TAG.test(name);
+}
+
+const FAMILY_MEMBERS = new Map<string, readonly string[]>(BINGO_FAMILIES.map((group, i) => [`family:${i}`, group]));
+
 const FAMILY_OF = new Map(BINGO_FAMILIES.flatMap((group, i) => group.map((t) => [t, `family:${i}`] as const)));
 
 /** The family a square tag belongs to - `white_body` and `white_fur` share one (same colour), as
@@ -542,8 +576,7 @@ export function bingoFamily(tag: string): string {
 export function bingoCandidates(pool: readonly PoolTag[], skip = 25, take = 150): string[] {
   return [...pool]
     .filter(
-      (t) => (t.category === 0 || t.category === 5) && !NON_VISUAL_TAG.test(t.name) && !UNFAIR_BINGO_TAG.has(t.name) &&
-        !YOUNG_TAG.test(t.name),
+      (t) => (t.category === 0 || t.category === 5) && isFairVisualTag(t.name),
     )
     .sort((a, b) => b.post_count - a.post_count || a.name.localeCompare(b.name))
     .slice(skip, skip + take)

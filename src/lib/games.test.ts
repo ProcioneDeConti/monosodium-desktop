@@ -14,6 +14,7 @@ import {
   dailyBingoCard,
   oddOneOutCandidates,
   oddOneOutFromPosts,
+  oddRelatedTags,
   uploadYear,
   yearPoints,
   yearRangeTag,
@@ -214,6 +215,24 @@ describe("oddOneOutCandidates", () => {
     ];
     expect(oddOneOutCandidates(pool, 1)).toEqual(["rain", "hat"]);
   });
+
+  it("drops tags you can't judge from the picture", () => {
+    const pool: PoolTag[] = [
+      { name: "text", post_count: 90, category: 0 },
+      { name: "teeth", post_count: 80, category: 0 },
+      { name: "young_anthro", post_count: 70, category: 0 },
+      { name: "hat", post_count: 40, category: 0 },
+    ];
+    expect(oddOneOutCandidates(pool, 0)).toEqual(["hat"]);
+  });
+});
+
+describe("oddRelatedTags", () => {
+  it("includes the tag's colour and explicit family", () => {
+    expect(oddRelatedTags("white_fur", ["white_fur", "white_body", "black_fur"]).sort()).toEqual(["white_body", "white_fur"]);
+    expect(oddRelatedTags("hat", [])).toEqual(expect.arrayContaining(["hat", "headwear"]));
+    expect(oddRelatedTags("rain", ["hat"])).toEqual(["rain"]);
+  });
 });
 
 describe("oddOneOutFromPosts", () => {
@@ -234,6 +253,16 @@ describe("oddOneOutFromPosts", () => {
     const posts = [withGeneral(1, ["rain"]), withGeneral(2, ["rain"]), withGeneral(3, ["rain"]), withGeneral(4, [])];
     expect(oddOneOutFromPosts(posts, new Set(["hat"]), new Set())).toBeNull();
     expect(oddOneOutFromPosts(posts, new Set(["rain"]), new Set([4]))).toBeNull();
+  });
+
+  it("never picks an odd post carrying a relative of the tag", () => {
+    const posts = [
+      withGeneral(1, ["white_fur"]),
+      withGeneral(2, ["white_fur"]),
+      withGeneral(3, ["white_fur"]),
+      withGeneral(4, ["white_body"]),
+    ];
+    expect(oddOneOutFromPosts(posts, new Set(["white_fur", "white_body"]), new Set())).toBeNull();
   });
 });
 
