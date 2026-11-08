@@ -29,10 +29,12 @@ import {
   FavoritesExhausted,
   GameImage,
   RoundActions,
+  RoundUnavailable,
   RunHeader,
   RunSummary,
   Stamp,
   useFavoritesUser,
+  useGameKeys,
   useRatingFilter,
   Verdict,
 } from "./common";
@@ -95,23 +97,11 @@ function OddRun({
   const fromFavs = useFavoritesRound(site, favUser, candidates, round);
   const current = favUser ? fromFavs : searched;
 
-  if (current.error) return <ErrorNote error={current.error} />;
-  if (round >= QUIZ_ROUNDS) {
-    return <RunSummary score={score} max={QUIZ_ROUNDS * ODD_POINTS} previousBest={previousBest} results={results} onRestart={onRestart} />;
-  }
-  if (current.isLoading) return <CenteredSpinner label="Picking a tag…" />;
-  const data = current.data;
-  if (!data) {
-    return favUser ? (
-      <FavoritesExhausted />
-    ) : (
-      <p className="text-center text-sm">Couldn't find posts for this round - check your rating filter and blacklist.</p>
-    );
-  }
+  const data = round < QUIZ_ROUNDS ? current.data : undefined;
 
   function pick(i: number) {
-    if (picked !== null) return;
-    const right = i === data!.odd;
+    if (picked !== null || !data) return;
+    const right = i === data.odd;
     setPicked(i);
     setResults([...results, right ? (hinted ? 0.5 : 1) : 0]);
     if (right) {
@@ -121,6 +111,7 @@ function OddRun({
   }
 
   function hint() {
+    if (hinted || picked !== null) return;
     sfx.pop();
     setHinted(true);
   }
@@ -133,98 +124,140 @@ function OddRun({
     setHinted(false);
   }
 
-  const right = picked === data.odd;
+  /** No round could be built: it counts as a miss, so every round keeps its result tile. */
+  function skip() {
+    setResults([...results, 0]);
+    next();
+  }
+
+  // 1-4 pick a post (reading order, as numbered on the cards), H takes the hint.
+  useGameKeys((e) => {
+    if (!data) return;
+    if (e.key === "h" || e.key === "H") {
+      hint();
+      return true;
+    }
+    const i = Number(e.key) - 1;
+    if (!Number.isInteger(i) || i < 0 || i >= data.posts.length) return;
+    sfx.tap();
+    pick(i);
+    return true;
+  }, picked === null && !!data);
+
+  if (round >= QUIZ_ROUNDS) {
+    return <RunSummary score={score} max={QUIZ_ROUNDS * ODD_POINTS} previousBest={previousBest} results={results} onRestart={onRestart} />;
+  }
+
+  const right = data ? picked === data.odd : false;
 
   return (
     <div>
       <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} results={results} />
-      <div className="flex flex-col items-center gap-4">
-        <div className="flex min-h-8 flex-wrap items-center justify-center gap-2 text-sm font-semibold">
-          {picked === null && !hinted && (
-            <>
-              <span className="opacity-70">Three of these share a tag. Which one doesn't?</span>
-              <button
-                type="button"
-                onClick={hint}
-                title={`Shows the shared tag - a right answer is then worth ${ODD_HINT_POINTS} instead of ${ODD_POINTS}`}
-                className="game-sticker-sm game-press flex items-center gap-1 rounded-full bg-amber-400 px-2.5 py-0.5 text-xs font-black text-black"
-              >
-                <Lightbulb size={13} strokeWidth={2.5} /> Hint (half points)
-              </button>
-            </>
-          )}
-          {(picked !== null || hinted) && (
-            <>
-              <span className="opacity-70">{picked === null ? "They share" : "The shared tag was"}</span>
-              <span
-                key={data.tag}
-                className="game-sticker-sm game-anim animate-[game-pop-in_0.35s_ease-out] rounded-full bg-[rgb(var(--game))] px-3 py-0.5 font-black text-white"
-              >
-                {displayTagName(data.tag)}
-              </span>
-              {picked === null && <span className="opacity-70">- which one doesn't?</span>}
-            </>
-          )}
-        </div>
-        <div className="grid w-full max-w-2xl grid-cols-2 gap-3">
-          {data.posts.map((post, i) => {
-            const isOdd = i === data.odd;
-            const ring =
-              picked === null
-                ? "hover:ring-4 hover:ring-[rgb(var(--game))]"
-                : isOdd
-                  ? `ring-4 ${right ? "ring-green-500" : "ring-red-500"}`
-                  : i === picked
-                    ? "ring-4 ring-amber-400"
-                    : "opacity-60";
-            return (
-              <button
-                key={post.id}
-                type="button"
-                disabled={picked !== null}
-                onClick={() => pick(i)}
-                className={`game-sticker-sm game-press relative rounded-2xl transition-[opacity,box-shadow] ${ring} ${
-                  picked !== null && isOdd && right ? "game-anim animate-[game-eject_0.7s_ease-in-out]" : ""
-                } ${picked === i && !right ? "game-anim animate-[game-shake_0.45s_ease-in-out]" : ""}`}
-              >
-                <GameImage url={gameImageUrl(post)!} className="h-[26vh] w-full">
-                  {picked !== null && !isOdd && (
-                    <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white">
-                      <Check size={11} strokeWidth={3} className="text-green-400" /> {displayTagName(data.tag)}
-                    </span>
-                  )}
+      {current.error ? (
+        <ErrorNote error={current.error} />
+      ) : current.isLoading ? (
+        <CenteredSpinner label="Picking a tag…" />
+      ) : !data ? (
+        favUser ? (
+          <FavoritesExhausted />
+        ) : (
+          <RoundUnavailable message="Couldn't find posts for this round - check your rating filter and blacklist." onSkip={skip} />
+        )
+      ) : (
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex min-h-8 flex-wrap items-center justify-center gap-2 text-sm font-semibold">
+            {picked === null && !hinted && (
+              <>
+                <span className="opacity-70">Three of these share a tag. Which one doesn't?</span>
+                <button
+                  type="button"
+                  onClick={hint}
+                  title={`Shows the shared tag - a right answer is then worth ${ODD_HINT_POINTS} instead of ${ODD_POINTS} (H)`}
+                  className="game-sticker-sm game-press flex items-center gap-1 rounded-full bg-amber-400 px-2.5 py-0.5 text-xs font-black text-black [text-shadow:none]"
+                >
+                  <Lightbulb size={13} strokeWidth={2.5} /> Hint (half points)
+                  <kbd className="ml-0.5 rounded bg-black/15 px-1 text-[10px]">H</kbd>
+                </button>
+              </>
+            )}
+            {(picked !== null || hinted) && (
+              <>
+                <span className="opacity-70">{picked === null ? "They share" : "The shared tag was"}</span>
+                <span
+                  key={data.tag}
+                  className="game-sticker-sm game-anim animate-[game-pop-in_0.35s_ease-out] rounded-full bg-[rgb(var(--game))] px-3 py-0.5 font-black text-white"
+                >
+                  {displayTagName(data.tag)}
+                </span>
+                {picked === null && <span className="opacity-70">- which one doesn't?</span>}
+              </>
+            )}
+          </div>
+          <div className="grid w-full max-w-2xl grid-cols-2 gap-3">
+            {data.posts.map((post, i) => {
+              const isOdd = i === data.odd;
+              const ring =
+                picked === null
+                  ? "hover:ring-4 hover:ring-[rgb(var(--game))]"
+                  : isOdd
+                    ? `ring-4 ${right ? "ring-green-500" : "ring-red-500"}`
+                    : i === picked
+                      ? "ring-4 ring-amber-400"
+                      : "opacity-60";
+              return (
+                <button
+                  key={post.id}
+                  type="button"
+                  disabled={picked !== null}
+                  onClick={() => pick(i)}
+                  className={`game-sticker-sm game-press relative rounded-2xl transition-[opacity,box-shadow] ${ring} ${
+                    picked !== null && isOdd && right ? "game-anim animate-[game-eject_0.7s_ease-in-out]" : ""
+                  } ${picked === i && !right ? "game-anim animate-[game-shake_0.45s_ease-in-out]" : ""}`}
+                >
+                  <GameImage url={gameImageUrl(post)!} className="h-[26vh] w-full">
+                    {picked === null && (
+                      <span className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-xs font-black text-white">
+                        {i + 1}
+                      </span>
+                    )}
+                    {picked !== null && !isOdd && (
+                      <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white">
+                        <Check size={11} strokeWidth={3} className="text-green-400" /> {displayTagName(data.tag)}
+                      </span>
+                    )}
+                    {picked !== null && isOdd && (
+                      <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white">
+                        <X size={11} strokeWidth={3} className="text-red-400" /> no {displayTagName(data.tag)}
+                      </span>
+                    )}
+                  </GameImage>
                   {picked !== null && isOdd && (
-                    <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white">
-                      <X size={11} strokeWidth={3} className="text-red-400" /> no {displayTagName(data.tag)}
-                    </span>
+                    <Stamp color={right ? "rgb(74 222 128)" : "rgb(248 113 113)"} tilt={-12} delay={right ? 0.35 : 0.3} silent>
+                      {right ? "Ejected!" : "Sus!"}
+                    </Stamp>
                   )}
-                </GameImage>
-                {picked !== null && isOdd && (
-                  <Stamp color={right ? "rgb(74 222 128)" : "rgb(248 113 113)"} tilt={-12} delay={right ? 0.35 : 0.3} silent>
-                    {right ? "Ejected!" : "Sus!"}
-                  </Stamp>
-                )}
-                {picked === i && !right && (
-                  <Stamp color="rgb(251 191 36)" tilt={8} size="text-xl" silent>
-                    Innocent
-                  </Stamp>
-                )}
-              </button>
-            );
-          })}
+                  {picked === i && !right && (
+                    <Stamp color="rgb(251 191 36)" tilt={8} size="text-xl" silent>
+                      Innocent
+                    </Stamp>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {picked !== null && (
+            <>
+              <Verdict ok={right}>{right ? `+${hinted ? ODD_HINT_POINTS : ODD_POINTS}${hinted ? " · with hint" : ""}` : undefined}</Verdict>
+              <RoundActions
+                site={site}
+                posts={data.posts.map((post, i) => ({ post, label: i === data.odd ? "Odd one" : `#${i + 1}` }))}
+                onNext={next}
+                nextLabel={round + 1 >= QUIZ_ROUNDS ? "See results" : "Next"}
+              />
+            </>
+          )}
         </div>
-        {picked !== null && (
-          <>
-            <Verdict ok={right}>{right ? `+${hinted ? ODD_HINT_POINTS : ODD_POINTS}${hinted ? " · with hint" : ""}` : undefined}</Verdict>
-            <RoundActions
-              site={site}
-              posts={data.posts.map((post, i) => ({ post, label: i === data.odd ? "Odd one" : `#${i + 1}` }))}
-              onNext={next}
-              nextLabel={round + 1 >= QUIZ_ROUNDS ? "See results" : "Next"}
-            />
-          </>
-        )}
-      </div>
+      )}
     </div>
   );
 }

@@ -16,7 +16,6 @@ import {
 import { displayTagName } from "../../lib/tagdle";
 import { loadArtistTier, useGamesStore, type ArtistTier } from "../../state/gamesStore";
 import { useEffectiveBlacklist } from "../../state/settingsStore";
-import { Button } from "../ui/Button";
 import {
   CenteredSpinner,
   ChoiceGrid,
@@ -26,6 +25,7 @@ import {
   GameToggle,
   RunHeader,
   RoundActions,
+  RoundUnavailable,
   RunSummary,
   useDeckRound,
   useFavoritesUser,
@@ -183,6 +183,12 @@ function ArtistRun({
     setPicked(null);
   }
 
+  /** No post for this round: it counts as a miss, so every round keeps its result tile. */
+  function skip() {
+    setResults([...results, 0]);
+    next();
+  }
+
   return (
     <div>
       <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} unit="correct" results={results} />
@@ -194,10 +200,10 @@ function ArtistRun({
         favUser ? (
           <FavoritesExhausted />
         ) : (
-          <div className="flex flex-col items-center gap-3 py-10 text-sm">
-            Couldn't find a usable post after several artists - try allowing more ratings.
-            <Button onClick={next}>Skip</Button>
-          </div>
+          <RoundUnavailable
+            message="Couldn't find a usable post after several artists - try allowing more ratings."
+            onSkip={skip}
+          />
         )
       ) : (
         <div className="flex flex-col items-center gap-4">
@@ -341,6 +347,12 @@ function SpeciesRun({
     setGained(0);
   }
 
+  /** No post for this round: it counts as a miss, so every round keeps its result tile. */
+  function skip() {
+    setResults([...results, 0]);
+    next();
+  }
+
   const t = picked !== null ? 1 : Math.min(1, elapsed / REVEAL_MS);
   const potential = speedPoints(elapsed, REVEAL_MS);
 
@@ -355,10 +367,10 @@ function SpeciesRun({
         favUser ? (
           <FavoritesExhausted />
         ) : (
-          <div className="flex flex-col items-center gap-3 py-10 text-sm">
-            Couldn't find a usable post after several species - try allowing more ratings.
-            <Button onClick={next}>Skip</Button>
-          </div>
+          <RoundUnavailable
+            message="Couldn't find a usable post after several species - try allowing more ratings."
+            onSkip={skip}
+          />
         )
       ) : (
         <div className="flex flex-col items-center gap-4">

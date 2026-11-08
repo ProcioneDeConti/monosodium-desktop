@@ -1,16 +1,16 @@
 import { useMemo, useState } from "react";
-import { ZoomOut } from "lucide-react";
+import { ScanSearch, ZoomOut } from "lucide-react";
 import type { Site } from "../../models/site";
 import { gameImageUrl, QUIZ_ROUNDS, ZOOM_LEVELS, zoomPoints, type RoundOutcome } from "../../lib/games";
 import { sfx } from "./sfx";
 import { useGamesStore } from "../../state/gamesStore";
-import { Button } from "../ui/Button";
 import {
   CenteredSpinner,
   ChoiceGrid,
   ErrorNote,
   FavoritesExhausted,
   RoundActions,
+  RoundUnavailable,
   RunHeader,
   RunSummary,
   Stamp,
@@ -96,6 +96,12 @@ function ZoomRun({
     setPicked(null);
   }
 
+  /** No post for this round: it counts as a miss, so every round keeps its result tile. */
+  function skip() {
+    setResults([...results, 0]);
+    next();
+  }
+
   const zoom = picked ? 1 : ZOOM_LEVELS[level];
 
   return (
@@ -109,18 +115,21 @@ function ZoomRun({
         favUser ? (
           <FavoritesExhausted />
         ) : (
-          <div className="flex flex-col items-center gap-3 py-10 text-sm">
-            Couldn't find a usable post after several species - try allowing more ratings.
-            <Button onClick={next}>Skip</Button>
-          </div>
+          <RoundUnavailable
+            message="Couldn't find a usable post after several species - try allowing more ratings."
+            onSkip={skip}
+          />
         )
       ) : (
         <div className="flex flex-col items-center gap-4">
-          <p className="text-sm font-semibold opacity-70">
-            What species is this?{" "}
+          <p className="flex items-center gap-2 text-sm font-semibold opacity-80">
+            What species is this?
             {!picked && (
-              <span className="opacity-60">
-                ({zoomPoints(level)} pt{zoomPoints(level) === 1 ? "" : "s"})
+              <span
+                key={level}
+                className="game-sticker-sm game-anim flex animate-[game-pop-in_0.3s_ease-out] items-center gap-1 rounded-full bg-[rgb(var(--game))] px-2 py-0.5 text-xs font-black tabular-nums text-white"
+              >
+                <ScanSearch size={12} /> {zoomPoints(level)} pt{zoomPoints(level) === 1 ? "" : "s"}
               </span>
             )}
           </p>

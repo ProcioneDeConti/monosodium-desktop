@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MascotCue } from "../Mascot/MascotLayer";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Check, ChevronRight, Copy, Flag, Heart, Info, Link2, Rabbit, Shuffle, Trophy } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, ChevronRight, Copy, Flag, Heart, Info, Link2, Rabbit, Shuffle, Trophy } from "lucide-react";
 import { e621Api } from "../../api/client";
 import { visiblePosts } from "../../lib/blacklist";
 import {
@@ -21,11 +21,12 @@ import { useGamesStore } from "../../state/gamesStore";
 import { useEffectiveBlacklist } from "../../state/settingsStore";
 import { loadPool } from "../../state/tagdleStore";
 import { ConfettiBurst } from "../Tagdle/Confetti";
-import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
 import {
   CenteredSpinner,
   ErrorNote,
+  GamePill,
+  GameToggle,
   NextButton,
   prefersReducedMotion,
   useFavoritesUser,
@@ -73,20 +74,14 @@ export function SixDegrees({ site }: { site: Site }) {
         </p>
       ) : (
         <div className="mb-4 flex justify-center">
-          <div className="flex rounded-full bg-neutral-900/75 p-0.5">
-            {(["daily", "endless"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors ${
-                  mode === m ? "bg-[rgb(var(--accent))] text-white shadow" : "opacity-60 hover:opacity-100"
-                }`}
-              >
-                {m === "daily" ? "Daily" : "Endless"}
-              </button>
-            ))}
-          </div>
+          <GameToggle
+            options={[
+              { value: "daily", label: "Daily" },
+              { value: "endless", label: "Endless" },
+            ]}
+            value={mode}
+            onChange={setMode}
+          />
         </div>
       )}
       {candidates.error ? (
@@ -164,16 +159,16 @@ function SixDaily({ site, candidates }: { site: Site; candidates: ReturnType<typ
           {saved === null ? "Gave up" : `${saved} hop${saved === 1 ? "" : "s"}`}
         </p>
         <p className="text-sm opacity-60">Today's puzzle is done - a new one unlocks at 00:00 UTC. Endless is always open.</p>
-        <Button
+        <GamePill
           onClick={() => {
             void navigator.clipboard.writeText(text);
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}
-          icon={copied ? <Check size={14} /> : <Copy size={14} />}
+          icon={copied ? <Check size={13} /> : <Copy size={13} />}
         >
-          {copied ? "Copied" : "Copy result"}
-        </Button>
+          {copied ? "Copied!" : "Copy result"}
+        </GamePill>
         {map && <SixDegreesMap {...map} />}
       </div>
     );
@@ -183,6 +178,7 @@ function SixDaily({ site, candidates }: { site: Site; candidates: ReturnType<typ
     <SixPuzzle
       site={site}
       puzzle={puzzle}
+      daily
       onFinish={({ hops, map }) => {
         setJustFinished(true);
         setMap(map);
@@ -219,7 +215,7 @@ function SixEndless({
   return (
     <div>
       <div className="mb-3 flex justify-center">
-        <span className="flex items-center gap-1.5 rounded-full bg-yellow-500/15 px-3 py-1 text-sm font-semibold text-yellow-600 dark:text-yellow-400">
+        <span className="game-sticker-sm flex items-center gap-1.5 rounded-full bg-neutral-900/90 px-3 py-1 text-sm font-bold text-yellow-400">
           <Trophy size={14} /> Fewest hops {best ?? "-"}
         </span>
       </div>
@@ -255,10 +251,13 @@ function SixPuzzle({
   site,
   puzzle,
   favUser = null,
+  daily = false,
   onFinish,
 }: {
   site: Site;
   puzzle: SixDegreesPuzzle;
+  /** Today's daily - giving up can't be undone, which the confirm says. */
+  daily?: boolean;
   /** Set for a favorites game - hops only show the user's favorites. */
   favUser?: string | null;
   onFinish: (finish: SixFinish) => void;
@@ -321,7 +320,7 @@ function SixPuzzle({
     <div className="flex flex-col gap-4">
       <Endpoints puzzle={puzzle} about={about} onAbout={setAbout} />
       {about && <TagInfoCard key={about} site={site} tag={about} />}
-      <div className="flex flex-wrap items-center gap-1 rounded-xl bg-neutral-900/80 px-3 py-2 text-xs backdrop-blur-sm">
+      <div className="game-sticker-sm flex flex-wrap items-center gap-1 rounded-xl bg-neutral-900/90 px-3 py-2 text-xs">
         <span className="mr-1 font-semibold opacity-60">
           <Link2 size={12} className="mr-1 inline" />
           {path.length - 1} hop{path.length === 2 ? "" : "s"}:
@@ -344,9 +343,7 @@ function SixPuzzle({
             </button>
           </span>
         ))}
-        <Button onClick={() => finish(null)} icon={<Flag size={12} />} className="ml-auto">
-          Give up
-        </Button>
+        <GiveUpButton onConfirm={() => finish(null)} daily={daily} />
       </div>
 
       {selected ? (
@@ -359,13 +356,13 @@ function SixPuzzle({
         <p className="py-8 text-center text-sm opacity-60">No visible posts here - go back a step.</p>
       ) : (
         <>
-          <div className="flex items-center gap-2 rounded-xl bg-neutral-900/80 px-3 py-2 backdrop-blur-sm">
+          <div className="game-sticker-sm flex items-center gap-2 rounded-xl bg-neutral-900/90 px-3 py-2">
             <p className="text-sm opacity-70">
               Pick a post tagged <b>{displayTagName(current)}</b> to see its tags.
             </p>
-            <Button onClick={() => setShuffle(shuffle + 1)} icon={<Shuffle size={12} />} className="ml-auto">
+            <GamePill onClick={() => setShuffle(shuffle + 1)} icon={<Shuffle size={12} />} className="ml-auto">
               Other posts
-            </Button>
+            </GamePill>
           </div>
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
             {posts.data.map((p) => (
@@ -373,7 +370,7 @@ function SixPuzzle({
                 key={p.id}
                 type="button"
                 onClick={() => openPost(p)}
-                className="aspect-square overflow-hidden rounded-lg bg-black/20 ring-[rgb(var(--accent))] transition hover:ring-2"
+                className="game-press aspect-square overflow-hidden rounded-lg bg-black/20 ring-[rgb(var(--game))] transition hover:ring-[3px]"
               >
                 <img src={(p.preview.url ?? p.sample.url)!} alt="" draggable={false} className="h-full w-full object-cover" />
               </button>
@@ -437,7 +434,7 @@ function SelectedPost({
 }) {
   const tags = categorizedTags(post).filter((t) => HOP_CATEGORIES.includes(t.category) && t.name !== current);
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-neutral-900/80 p-3 backdrop-blur-sm sm:flex-row">
+    <div className="game-sticker-sm flex flex-col gap-3 rounded-xl bg-neutral-900/90 p-3 sm:flex-row">
       <div className="flex shrink-0 flex-col gap-2 sm:w-56">
         <img
           src={(post.sample.url ?? post.preview.url)!}
@@ -445,8 +442,12 @@ function SelectedPost({
           draggable={false}
           className="max-h-72 w-full rounded-xl bg-black/20 object-contain"
         />
-        <Button onClick={onBack}>Back to posts</Button>
-        <ViewPostButton site={site} post={post} />
+        <div className="flex flex-wrap gap-2">
+          <GamePill onClick={onBack} icon={<ChevronLeft size={13} />}>
+            Back to posts
+          </GamePill>
+          <ViewPostButton site={site} post={post} label="View post" />
+        </div>
       </div>
       <div className="min-w-0 flex-1">
         <p className="mb-2 text-sm opacity-70">Hop to one of this post's tags:</p>
@@ -471,6 +472,36 @@ function SelectedPost({
         </div>
       </div>
     </div>
+  );
+}
+
+/** How long Give up waits for the second click before standing down. */
+const GIVE_UP_CONFIRM_MS = 3000;
+
+/** Give up, in two clicks: the first arms it ("Sure?"), the second within a few seconds ends the
+ *  puzzle - one stray click used to end today's daily for good. */
+function GiveUpButton({ onConfirm, daily }: { onConfirm: () => void; daily: boolean }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const id = window.setTimeout(() => setArmed(false), GIVE_UP_CONFIRM_MS);
+    return () => window.clearTimeout(id);
+  }, [armed]);
+  return (
+    <GamePill
+      onClick={() => {
+        if (armed) onConfirm();
+        else {
+          sfx.tap();
+          setArmed(true);
+        }
+      }}
+      icon={<Flag size={12} />}
+      title={armed ? undefined : daily ? "Ends today's daily - it can't be replayed" : "End this puzzle"}
+      className={`ml-auto ${armed ? "game-anim animate-[game-shake_0.45s_ease-in-out] bg-red-600! hover:bg-red-500!" : ""}`}
+    >
+      {armed ? (daily ? "Sure? Today's daily ends" : "Sure? Click again") : "Give up"}
+    </GamePill>
   );
 }
 
@@ -504,7 +535,7 @@ function Endpoints({
   return (
     <div className="flex items-center justify-center gap-3 text-base font-bold">
       {chip(puzzle.start, "bg-neutral-900/75")}
-      <ArrowRight size={18} className="text-[rgb(var(--accent))]" />
+      <ArrowRight size={20} strokeWidth={3} className="text-[rgb(var(--game))] brightness-125" />
       {chip(puzzle.target, "bg-green-500/15 text-green-600 dark:text-green-400")}
     </div>
   );
@@ -550,7 +581,7 @@ function TagInfoCard({ site, tag }: { site: Site; tag: string }) {
   const summary = wiki.data ? wikiSummary(wiki.data.body) : "";
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-black/10 dark:border-white/10 bg-neutral-900/80 backdrop-blur-sm p-3 text-sm">
+    <div className="game-sticker-sm flex flex-col gap-2 rounded-xl bg-neutral-900/90 p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-bold">{displayTagName(tag)}</span>
         {style && (

@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check, Church, Eye, ShieldAlert, Siren, X } from "lucide-react";
 import type { Post, Rating } from "../../models/post";
 import { RATING_TAG } from "../../models/post";
 import type { Site } from "../../models/site";
-import { gameImageUrl, QUIZ_ROUNDS, type RoundOutcome } from "../../lib/games";
-import { displayTagName } from "../../lib/tagdle";
+import { gameImageUrl, QUIZ_ROUNDS, shuffle, type RoundOutcome } from "../../lib/games";
+import { displayTagName, seededRandom } from "../../lib/tagdle";
 import { useGamesStore } from "../../state/gamesStore";
 import { useSettingsStore } from "../../state/settingsStore";
 import {
@@ -34,6 +34,13 @@ const ALL_RATINGS: Rating[] = ["s", "q", "e"];
 
 /** How many general tags are listed as clues. */
 const CLUE_TAGS = 30;
+
+/** The clue tags for a post: a random CLUE_TAGS of its general tags (the API lists them A-Z, so a
+ *  plain slice was all "a"-"c" tags on busy posts), seeded by the post id so a re-render doesn't
+ *  reshuffle them, then shown A-Z. */
+function clueTags(post: Post): string[] {
+  return shuffle(post.tags.general, seededRandom(post.id)).slice(0, CLUE_TAGS).sort();
+}
 
 /** Blurred post + its tags: was it rated safe, questionable or explicit? Only offers the ratings
  *  the user has enabled, so it needs adult mode and at least two of them. */
@@ -109,6 +116,8 @@ function RatingRun({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post, round, deck.draw, deck.version, deck.exhausted]);
 
+  const clues = useMemo(() => (post ? clueTags(post) : []), [post]);
+
   const error = decks.s.error ?? decks.q.error ?? decks.e.error;
   if (error) return <ErrorNote error={error} />;
   if (round >= QUIZ_ROUNDS) {
@@ -166,7 +175,7 @@ function RatingRun({
           </GameImage>
         </div>
         <div className="flex max-w-xl flex-wrap justify-center gap-1 rounded-xl bg-neutral-900/80 p-2.5 backdrop-blur-sm">
-          {post.tags.general.slice(0, CLUE_TAGS).map((t) => (
+          {clues.map((t) => (
             <span key={t} className="rounded-full bg-white/15 px-2 py-0.5 text-xs">
               {displayTagName(t)}
             </span>

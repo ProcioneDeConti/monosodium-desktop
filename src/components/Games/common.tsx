@@ -676,6 +676,69 @@ export function ErrorNote({ error }: { error: unknown }) {
   return <p className="text-sm text-red-500">Couldn't load posts: {String(error)}</p>;
 }
 
+/** A round that couldn't be built (nothing usable under the rating filter / blacklist): says so
+ *  and offers to move on. The caller's `onSkip` records the round as a miss, so the run header's
+ *  segments and the summary tiles stay one per round. */
+export function RoundUnavailable({ message, onSkip }: { message: string; onSkip: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-4 py-10 text-center text-sm">
+      <p className="game-sticker-sm max-w-md rounded-xl bg-neutral-900/90 px-4 py-2">{message}</p>
+      <NextButton onClick={onSkip}>Skip round</NextButton>
+    </div>
+  );
+}
+
+/** Plain key presses for a game screen while `active`: no modifiers or auto-repeats, and never
+ *  while typing in a field (a focused slider keeps its own arrow keys). `onKey` returns true when
+ *  it handled the key, which then doesn't scroll or type. Latest handler via a ref, so the
+ *  listener isn't re-attached on every render. */
+export function useGameKeys(onKey: (e: KeyboardEvent) => boolean | void, active = true) {
+  const live = useRef(onKey);
+  live.current = onKey;
+  useEffect(() => {
+    if (!active) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.altKey || e.metaKey || e.repeat) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (live.current(e)) e.preventDefault();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [active]);
+}
+
+/** A small dark sticker pill button - the games' secondary action (View post, Give up, Copy). */
+export function GamePill({
+  onClick,
+  icon,
+  children,
+  className = "",
+  title,
+  disabled,
+}: {
+  onClick: () => void;
+  icon?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  title?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      disabled={disabled}
+      className={`game-sticker-sm game-press flex shrink-0 items-center gap-1.5 rounded-full bg-neutral-900/90 px-3 py-1 text-xs
+                  font-bold text-white hover:bg-neutral-800 disabled:opacity-40 ${className}`}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
 /** A sticker segmented toggle (difficulty, stat, mode) in the game's colour. */
 export function GameToggle<T extends string>({
   options,
@@ -808,15 +871,9 @@ export function ViewPostButton({ site, post, label }: { site: Site; post: Post; 
   return (
     // Not the shared Button: its light-theme surface would fight the dark pill, and Tagdle renders
     // outside the games' dark-theme subtree.
-    <button
-      type="button"
-      onClick={() => openPostWindow(post.id, site)}
-      className="game-sticker-sm game-press flex items-center gap-1.5 rounded-full bg-neutral-900/90 px-3 py-1 text-xs
-                 font-bold text-white hover:bg-neutral-800"
-    >
-      <ExternalLink size={13} />
+    <GamePill onClick={() => openPostWindow(post.id, site)} icon={<ExternalLink size={13} />}>
       {label ?? `View post #${post.id}`}
-    </button>
+    </GamePill>
   );
 }
 

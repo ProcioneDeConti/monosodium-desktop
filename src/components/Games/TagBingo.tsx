@@ -30,6 +30,7 @@ import {
   NextButton,
   Stamp,
   useFavoritesUser,
+  useGameKeys,
   usePostDeck,
   ViewPostButton,
 } from "./common";
@@ -161,6 +162,22 @@ function BingoRun({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line !== null]);
 
+  // S skips; 1-9 claim a square in reading order, and on the numpad by position (7 is top-left,
+  // as the keys sit), so either way the key matches the card.
+  useGameKeys((e) => {
+    if (e.key === "s" || e.key === "S") {
+      skip();
+      return true;
+    }
+    const d = Number(e.key);
+    if (!Number.isInteger(d) || d < 1 || d > BINGO_SIZE * BINGO_SIZE) return;
+    const n = BINGO_SIZE;
+    const i = e.code.startsWith("Numpad") ? (n - 1 - Math.floor((d - 1) / n)) * n + ((d - 1) % n) : d - 1;
+    if (marked[i]) return;
+    claim(i);
+    return true;
+  }, !!post && !line);
+
   if (deck.error) return <ErrorNote error={deck.error} />;
 
   function claim(i: number) {
@@ -245,8 +262,9 @@ function BingoRun({
                          font-black text-white hover:bg-neutral-800"
                 >
                   <SkipForward size={14} /> Skip
+                  <kbd className="rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] font-bold">S</kbd>
                 </button>
-                <span className="text-xs opacity-60">or click a square it fits - it fills all of them</span>
+                <span className="text-xs opacity-60">or click a square it fits (1-9) - it fills all of them</span>
               </div>
               {/* Always rendered (blank when there's nothing to say) so the layout never jumps. */}
               <p
@@ -387,6 +405,9 @@ function BingoCard({
                 >
                   <span className="game-daub game-anim aspect-square w-[82%] max-w-[92px] animate-[game-daub_0.35s_ease-out_both] rounded-full" />
                 </span>
+              )}
+              {canClaim && !marked && (
+                <span className="absolute left-1 top-0.5 text-[9px] font-black opacity-35">{i + 1}</span>
               )}
               <span className="relative">{displayTagName(tag)}</span>
             </button>

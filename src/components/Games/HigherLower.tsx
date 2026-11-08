@@ -11,6 +11,7 @@ import {
   ErrorNote,
   FavoritesExhausted,
   GameImage,
+  GameToggle,
   prefersReducedMotion,
   RoundActions,
   useFavoritesUser,
@@ -49,24 +50,14 @@ export function HigherLower({ site }: { site: Site }) {
   return (
     <div>
       <div className="mb-4 flex justify-center">
-        <div className="game-sticker-sm flex rounded-full bg-neutral-900/90 p-0.5">
-          {(["score", "favs"] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => {
-                sfx.tap();
-                setStat(s);
-              }}
-              className={`flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-black transition-colors ${
-                stat === s ? "bg-[rgb(var(--game))] text-white" : "opacity-60 hover:opacity-100"
-              }`}
-            >
-              {s === "score" ? <ThumbsUp size={12} /> : <Heart size={12} />}
-              {s === "score" ? "Score" : "Favorites"}
-            </button>
-          ))}
-        </div>
+        <GameToggle
+          options={[
+            { value: "score", label: <><ThumbsUp size={12} /> Score</> },
+            { value: "favs", label: <><Heart size={12} /> Favorites</> },
+          ]}
+          value={stat}
+          onChange={setStat}
+        />
       </div>
       <HigherLowerRun key={`${stat}:${favUser}`} site={site} stat={stat} favUser={favUser} />
     </div>

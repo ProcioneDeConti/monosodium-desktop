@@ -145,9 +145,9 @@ const GAMES: GameInfo[] = [
     name: "Enhance!",
     blurb: "Starts zoomed way in. Every wrong guess pulls the camera back.",
     icon: <ScanSearch size={22} />, // CSI "enhance"
-    tint: "from-amber-500/30 to-yellow-500/20",
+    tint: "from-yellow-500/30 to-lime-500/20",
     title: "Enhance!",
-    color: "217 119 6",
+    color: "202 138 4", // yellow - Pocket Gus already has the amber
   },
   {
     id: "rating",

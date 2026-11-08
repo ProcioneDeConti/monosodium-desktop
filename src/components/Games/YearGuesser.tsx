@@ -19,10 +19,12 @@ import {
   NextButton,
   prefersReducedMotion,
   RoundActions,
+  RoundUnavailable,
   RunHeader,
   RunSummary,
   useDeckRound,
   useFavoritesUser,
+  useGameKeys,
   useListRound,
   usePostDeck,
   Verdict,
@@ -72,19 +74,12 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
   const [results, setResults] = useState<RoundOutcome[]>([]);
   const query = useYearSource(site, years, round, favUser);
 
-  if (query.error) return <ErrorNote error={query.error} />;
-  if (round >= QUIZ_ROUNDS) {
-    return <RunSummary score={score} max={QUIZ_ROUNDS * 100} previousBest={previousBest} results={results} onRestart={onRestart} />;
-  }
-  if (query.isLoading) return <CenteredSpinner label="Digging through the archives…" />;
-  const post = query.data?.post;
+  const post = round < QUIZ_ROUNDS ? query.data?.post : undefined;
   const actual = post ? uploadYear(post) : null;
-  if (!post || actual === null) {
-    return favUser ? <FavoritesExhausted /> : <p className="text-center text-sm">Couldn't find a post for this round.</p>;
-  }
-  const points = yearPoints(guess, actual);
+  const points = actual === null ? 0 : yearPoints(guess, actual);
 
   function lockIn() {
+    if (locked || actual === null) return;
     setLocked(true);
     setResults([...results, points / 100]);
     setScore(score + points);
@@ -98,56 +93,87 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
     setArrived(false);
   }
 
+  /** No post for this round: it counts as a miss, so every round keeps its result tile. */
+  function skip() {
+    setResults([...results, 0]);
+    next();
+  }
+
+  // Left/Right (or Down/Up) turn the dial without clicking the slider first - a focused slider
+  // already handles its own arrows.
+  useGameKeys((e) => {
+    const step = e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : e.key === "ArrowRight" || e.key === "ArrowUp" ? 1 : 0;
+    if (!step) return;
+    setGuess((g) => Math.min(maxYear, Math.max(minYear, g + step)));
+    return true;
+  }, !locked && actual !== null);
+
+  if (round >= QUIZ_ROUNDS) {
+    return <RunSummary score={score} max={QUIZ_ROUNDS * 100} previousBest={previousBest} results={results} onRestart={onRestart} />;
+  }
+
   return (
     <div>
       <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} results={results} />
-      <div className="flex flex-col items-center gap-4">
-        <p className="text-sm font-semibold opacity-70">What year was this uploaded?</p>
-        <GameImage url={gameImageUrl(post)!} className="h-[40vh] w-full max-w-xl" photo settled={locked} />
-        <div className="w-full max-w-xl rounded-xl bg-neutral-900/80 px-4 py-3 backdrop-blur-sm">
-          <div className="mb-2 flex flex-col items-center gap-1">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] opacity-60">
-              {!locked ? "Set the dial" : !arrived ? "Travelling…" : guess === actual ? "Arrived - right on time" : `You guessed ${guess}`}
-            </span>
-            {locked ? (
-              <TimeTravel key={round} from={guess} to={actual} onArrive={() => setArrived(true)} />
-            ) : (
-              <FlipYear year={guess} />
-            )}
-          </div>
-          <input
-            type="range"
-            min={minYear}
-            max={maxYear}
-            step={1}
-            value={guess}
-            disabled={locked}
-            onChange={(e) => setGuess(Number(e.target.value))}
-            className="w-full accent-[rgb(var(--game))]"
-          />
-          <div className="flex justify-between text-xs tabular-nums opacity-50">
-            <span>{minYear}</span>
-            <span>{maxYear}</span>
-          </div>
-        </div>
-        {!locked ? (
-          <NextButton onClick={lockIn}>
-            <CalendarClock size={16} /> Lock in {guess}
-          </NextButton>
-        ) : !arrived ? null : (
-          <>
-            <Verdict ok={points === 100} close={points > 0}>
-              {points === 100 ? "+100 pts" : `${Math.abs(guess - actual)} off, +${points} pts`}
-            </Verdict>
-            <RoundActions
-              site={site}
-              posts={[{ post }]}
-              onNext={next}
-              nextLabel={round + 1 >= QUIZ_ROUNDS ? "See results" : "Next"}
+      {query.error ? (
+        <ErrorNote error={query.error} />
+      ) : query.isLoading ? (
+        <CenteredSpinner label="Digging through the archives…" />
+      ) : !post || actual === null ? (
+        favUser ? (
+          <FavoritesExhausted />
+        ) : (
+          <RoundUnavailable message="Couldn't find a post for this round - try allowing more ratings." onSkip={skip} />
+        )
+      ) : (
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-sm font-semibold opacity-70">What year was this uploaded?</p>
+          <GameImage url={gameImageUrl(post)!} className="h-[40vh] w-full max-w-xl" photo settled={locked} />
+          <div className="w-full max-w-xl rounded-xl bg-neutral-900/80 px-4 py-3 backdrop-blur-sm">
+            <div className="mb-2 flex flex-col items-center gap-1">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] opacity-60">
+                {!locked ? "Set the dial (← →)" : !arrived ? "Travelling…" : guess === actual ? "Arrived - right on time" : `You guessed ${guess}`}
+              </span>
+              {locked ? (
+                <TimeTravel key={round} from={guess} to={actual} onArrive={() => setArrived(true)} />
+              ) : (
+                <FlipYear year={guess} />
+              )}
+            </div>
+            <input
+              type="range"
+              min={minYear}
+              max={maxYear}
+              step={1}
+              value={guess}
+              disabled={locked}
+              onChange={(e) => setGuess(Number(e.target.value))}
+              className="w-full accent-[rgb(var(--game))]"
             />
-          </>
-        )}
-      </div>
+            <div className="flex justify-between text-xs tabular-nums opacity-50">
+              <span>{minYear}</span>
+              <span>{maxYear}</span>
+            </div>
+          </div>
+          {!locked ? (
+            <NextButton onClick={lockIn}>
+              <CalendarClock size={16} /> Lock in {guess}
+            </NextButton>
+          ) : !arrived ? null : (
+            <>
+              <Verdict ok={points === 100} close={points > 0}>
+                {points === 100 ? "+100 pts" : `${Math.abs(guess - actual)} off, +${points} pts`}
+              </Verdict>
+              <RoundActions
+                site={site}
+                posts={[{ post }]}
+                onNext={next}
+                nextLabel={round + 1 >= QUIZ_ROUNDS ? "See results" : "Next"}
+              />
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
