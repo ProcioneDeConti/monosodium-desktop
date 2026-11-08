@@ -45,10 +45,12 @@ describe("buildChoices", () => {
 });
 
 describe("speedPoints / zoomPoints", () => {
-  it("scales from 100 down to 10", () => {
-    expect(speedPoints(0, 1000)).toBe(100);
-    expect(speedPoints(1000, 1000)).toBe(10);
-    expect(speedPoints(5000, 1000)).toBe(10);
+  it("holds 100 through the grace period, then eases down to 50", () => {
+    expect(speedPoints(0, 10_000)).toBe(100);
+    expect(speedPoints(1500, 10_000)).toBe(100);
+    expect(speedPoints(4800, 10_000)).toBe(92);
+    expect(speedPoints(10_000, 10_000)).toBe(50);
+    expect(speedPoints(50_000, 10_000)).toBe(50);
   });
 
   it("gives one fewer zoom point per level, 1 at the last", () => {

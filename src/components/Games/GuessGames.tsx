@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Heart, Timer } from "lucide-react";
 import { allTags, type Post } from "../../models/post";
 import type { Site } from "../../models/site";
-import { buildChoices, gameImageUrl, QUIZ_ROUNDS, realArtists, speedPoints } from "../../lib/games";
+import { buildChoices, gameImageUrl, QUIZ_ROUNDS, realArtists, speedLabel, speedPoints } from "../../lib/games";
 import { loadArtistTier, useGamesStore, type ArtistTier } from "../../state/gamesStore";
 import { useEffectiveBlacklist } from "../../state/settingsStore";
 import { Button } from "../ui/Button";
@@ -341,7 +341,7 @@ function SpeciesRun({
           <ChoiceGrid choices={choices} answer={answer} picked={picked} onPick={pick} />
           {picked && (
             <>
-              <Verdict ok={picked === answer}>{gained > 0 && `+${gained}`}</Verdict>
+              <Verdict ok={picked === answer}>{gained > 0 && `+${gained} · ${speedLabel(gained)}`}</Verdict>
               <RoundActions
                 site={site}
                 posts={[{ post }]}

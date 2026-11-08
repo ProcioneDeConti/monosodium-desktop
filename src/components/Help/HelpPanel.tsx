@@ -362,7 +362,7 @@ const SECTIONS: HelpSection[] = [
           <Game name="Tagdle" how="Two tags. Pick the one with more posts. A daily puzzle plus an endless mode." />
           <Game name="Score Sniffer" how="Does the next post have a higher score (or more favorites)? Guess higher or lower and keep the streak going." />
           <Game name="Whodunnit" how="Who drew it? Pick the artist from four names, ten posts per round." />
-          <Game name="Who's That Floof?!" how="Name the species while the image un-blurs. Faster answers score more." />
+          <Game name="Who's That Floof?!" how="Name the species while the image un-blurs. A right answer is worth 50-100 points - the faster, the more." />
           <Game name="Enhance!" how="Starts zoomed way in. Every wrong guess pulls the camera back." />
           <Game name="Horny Jail or Sunday School" how="A blurred post and its tags. Call it safe, questionable or explicit." />
           <Game name="Tag Hopper" how="Get from one tag to another by hopping through tags that share posts. Daily plus endless." />

@@ -144,11 +144,27 @@ export function leafSpecies(
   return pool.filter((t) => t.category === 5 && t.post_count >= minPosts && !groups.has(t.name) && !NON_SPECIES_TAGS.has(t.name)).map((t) => t.name);
 }
 
-/** Species Guesser scoring: the blur clears over `revealMs`; an instant answer is worth 100, one
- *  at (or after) full reveal 10. */
+/** Free time at the start of a Floof round before the speed bonus starts to drop: nobody can
+ *  recognise a heavily blurred image and read four choices in under a second or two, so that
+ *  time shouldn't cost anything. */
+export const SPEED_GRACE_MS = 1500;
+
+/** Species Guesser scoring for a correct answer: 50 for getting it right, plus a speed bonus of up
+ *  to 50. The bonus holds full through the grace period, then eases off - gently at first, faster
+ *  near the end (1 - u²) - reaching 0 at full reveal. So a quick, confident answer lands in the
+ *  90s, a mid-blur one in the 80s, and even a last-second one is still worth 50. */
 export function speedPoints(elapsedMs: number, revealMs: number): number {
-  const t = Math.min(1, Math.max(0, elapsedMs / revealMs));
-  return Math.round(100 - 90 * t);
+  const span = Math.max(1, revealMs - SPEED_GRACE_MS);
+  const u = Math.min(1, Math.max(0, (elapsedMs - SPEED_GRACE_MS) / span));
+  return Math.round(50 + 50 * (1 - u * u));
+}
+
+/** A short cheer for a correct Floof answer, by points earned. */
+export function speedLabel(points: number): string {
+  if (points >= 98) return "Lightning!";
+  if (points >= 90) return "Speedy!";
+  if (points >= 75) return "Nice!";
+  return "Got it!";
 }
 
 /** Zoom Reveal's zoom steps, most zoomed first. Points for a correct answer = steps left. */
