@@ -1,22 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { MascotCue } from "../Mascot/MascotLayer";
 import { useQuery } from "@tanstack/react-query";
-import { RotateCcw, SkipForward, Sparkles, Trophy } from "lucide-react";
+import { Check, Copy, RotateCcw, SkipForward, Sparkles, Trophy } from "lucide-react";
 import {
   BINGO_MISS_PENALTY,
   BINGO_SIZE,
+  bingoBestKey,
   bingoCandidates,
   bingoCard,
   bingoDeckTags,
   bingoFits,
   bingoMissPenalty,
+  bingoShareText,
   bingoWin,
   dailyBingoCard,
   gameImageUrl,
 } from "../../lib/games";
 import { displayTagName, filterPool, utcDayKey } from "../../lib/tagdle";
 import type { Post } from "../../models/post";
-import type { Site } from "../../models/site";
+import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { useGamesStore } from "../../state/gamesStore";
 import { useEffectiveBlacklist } from "../../state/settingsStore";
 import { loadPool } from "../../state/tagdleStore";
@@ -26,6 +28,7 @@ import {
   ErrorNote,
   FavoritesExhausted,
   GameImage,
+  GamePill,
   GameToggle,
   NextButton,
   Stamp,
@@ -107,8 +110,8 @@ export function TagBingo({ site }: { site: Site }) {
           card={card}
           blackout={blackout}
           title={mode === "daily" ? `Daily · ${dayKey}` : "Random card"}
-          // "bingo2": since a post fills every square it fits, older (pre-multi-fill) bests aren't comparable.
-          bestKey={`bingo2:${blackout ? "blackout" : "line"}:${mode === "daily" ? `daily:${dayKey}` : "random"}:${site}${favUser ? ":fav" : ""}`}
+          dayKey={mode === "daily" ? dayKey : null}
+          bestKey={bingoBestKey(site, blackout, mode === "daily" ? dayKey : null, !!favUser)}
           favUser={favUser}
           onRestart={() => setRun(run + 1)}
         />
@@ -123,6 +126,7 @@ function BingoRun({
   bestKey,
   blackout,
   title,
+  dayKey,
   favUser,
   onRestart,
 }: {
@@ -130,6 +134,8 @@ function BingoRun({
   card: string[];
   blackout: boolean;
   title: string;
+  /** Today's key on the daily card, null on a random one - for the share text. */
+  dayKey: string | null;
   bestKey: string;
   favUser: string | null;
   onRestart: () => void;
@@ -143,6 +149,7 @@ function BingoRun({
   /** The squares the previous post fit - shown after a skip or a wrong claim. */
   const [lastFits, setLastFits] = useState<number[] | null>(null);
   const [count, setCount] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   const marked = claims.map((c) => c !== null);
   const line = bingoWin(marked, blackout);
@@ -248,6 +255,18 @@ function BingoRun({
                   <Trophy size={13} /> Best {previousBest}
                 </span>
               )}
+              <GamePill
+                onClick={() => {
+                  void navigator.clipboard.writeText(
+                    bingoShareText(SITE_DISPLAY_NAME[site], dayKey, count, blackout, marked, line),
+                  );
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                }}
+                icon={copied ? <Check size={13} /> : <Copy size={13} />}
+              >
+                {copied ? "Copied!" : "Copy result"}
+              </GamePill>
               <NextButton onClick={onRestart}>
                 <RotateCcw size={16} strokeWidth={3} /> Play again
               </NextButton>

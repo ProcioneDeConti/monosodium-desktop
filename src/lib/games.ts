@@ -1,5 +1,7 @@
-// Shared pure logic for the Games launcher's post-based games (Higher or Lower, Artist/Species
-// Guesser, Zoom Reveal, Rating Judge, Six Degrees, Odd One Out, Year Guesser, Tag Bingo). Tagdle keeps its own lib/tagdle.ts - the
+// Shared pure logic for the Games launcher's post-based games: Score Sniffer (higherLower),
+// Whodunnit (artist), Who's That Floof (species), Enhance! (zoom), Horny Jail or Sunday School
+// (rating), Tag Hopper (sixDegrees), Sus (oddOneOut), Time Machine (yearGuess) and Tag Bingo
+// (bingo) - code ids keep the original working names. Tagdle keeps its own lib/tagdle.ts - the
 // seeded PRNG / day key helpers are reused from there so every daily rolls over together.
 
 import type { Post } from "../models/post";
@@ -266,6 +268,22 @@ export function launcherBest(id: GameId, best: Record<string, number>, site: str
   // A 0 high score means "played, never scored" - not worth a badge.
   if (pick === undefined || (!spec.lower && pick <= 0)) return null;
   return spec.label(pick);
+}
+
+/** "a" or "an" for a tag read aloud ("an otter", "a unicorn"): by sound for the usual
+ *  you-sounding u/eu/one words, otherwise by the first letter. */
+export function indefiniteArticle(word: string): "a" | "an" {
+  const w = word.toLowerCase();
+  if (/^(uni|use|usu|uti|ura|eu|ewe|one)/.test(w)) return "a";
+  return /^[aeiou]/.test(w) ? "an" : "a";
+}
+
+/** Score Sniffer's game-over share line, e.g. "🐶 Score Sniffer · e621\n🔥 Streak 12 (score)". */
+export function streakShareText(game: string, site: string, stat: string, streak: number, best: number): string {
+  const lines = [`🐶 ${game} · ${site}`, `🔥 Streak ${streak} (${stat})`];
+  if (streak > best) lines.push("🏆 New best!");
+  else lines.push(`🏆 Best ${best}`);
+  return lines.join("\n");
 }
 
 /** A short cheer for a correct Floof answer, by points earned. */
@@ -613,6 +631,50 @@ export function bingoCard(candidates: readonly string[], rand: () => number): st
 
 export function dailyBingoCard(candidates: readonly string[], site: string, dayKey: string): string[] | null {
   return bingoCard(candidates, seededRandom(hashString(`bingo:${site}:${dayKey}`)));
+}
+
+/** The saved best key for a Bingo run. "bingo2": since a post fills every square it fits, older
+ *  (pre-multi-fill) bests aren't comparable. `dayKey` null for a random card. */
+export function bingoBestKey(site: string, blackout: boolean, dayKey: string | null, fav: boolean): string {
+  return `bingo2:${blackout ? "blackout" : "line"}:${dayKey ? `daily:${dayKey}` : "random"}:${site}${fav ? ":fav" : ""}`;
+}
+
+/** Today's daily Bingo result for the launcher: the fewest posts a line took on today's card
+ *  (not Favorites only - that's a different deck), or undefined if it hasn't been won today. */
+export function bingoDailyBest(best: Record<string, number>, site: string, dayKey: string): number | undefined {
+  return best[bingoBestKey(site, false, dayKey, false)];
+}
+
+/** Shareable block for a finished card - the card as squares (🟨 the winning line, 🟩 other
+ *  claimed squares, ⬜ open), no tags, so it doesn't spoil the daily:
+ *
+ *  ```
+ *  🎯 Tag Bingo · e621 · 2026-11-08
+ *  Line in 7 posts
+ *  🟨🟩⬜
+ *  ⬜🟨⬜
+ *  🟩⬜🟨
+ *  ```
+ */
+export function bingoShareText(
+  site: string,
+  dayKey: string | null,
+  count: number,
+  blackout: boolean,
+  marked: readonly boolean[],
+  line: readonly number[],
+): string {
+  const head = `🎯 Tag Bingo · ${site} · ${dayKey ?? "random card"}`;
+  const rows: string[] = [];
+  for (let r = 0; r < BINGO_SIZE; r++) {
+    let row = "";
+    for (let c = 0; c < BINGO_SIZE; c++) {
+      const i = r * BINGO_SIZE + c;
+      row += line.includes(i) && !blackout ? "🟨" : marked[i] ? "🟩" : "⬜";
+    }
+    rows.push(row);
+  }
+  return [head, `${blackout ? "Blackout" : "Line"} in ${count} post${count === 1 ? "" : "s"}`, ...rows].join("\n");
 }
 
 /** Posts counted against a wrong claim, on top of the post itself. */

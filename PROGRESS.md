@@ -2389,3 +2389,19 @@ live call before implementing (per user instruction - no more guessing).
         hand-picked Alex Morgan tracks from Pixabay in `bgmusic/{jazz,latin,electronic,upbeat}/`,
         Opus 112k, 78MB (was ~153MB). Credits + Pixabay ids in `bgmusic/CREDITS.md`. Raw
         downloads go in the gitignored `bgmusic-incoming/`. Not yet live-tested.
+
+- [x] **Games review pass (fixes, realignments, extras)**
+      - d3e452c: Skip on an unbuildable round now counts as a miss (Whodunnit/Floof/Enhance! -
+        results drifted from the round segments and share tiles); Sus and Time Machine got the
+        same Skip instead of a dead end (shared `RoundUnavailable`); Tag Hopper's Give up takes a
+        second click within 3s; Horny Jail's 30 clue tags are a seeded random pick (were the first
+        30 A-Z). Tag Hopper moved onto the sticker style (`GameToggle`, new shared `GamePill`,
+        `--game` instead of `--accent`); keyboard parity via shared `useGameKeys` (Sus 1-4 + H,
+        Bingo S + 1-9 with the numpad by position, Time Machine arrows); Sus and Time Machine keep
+        the run header up while loading; Enhance!'s points pill matches Floof's; Score Sniffer's
+        switch is `GameToggle`; Enhance! moved to yellow (shared Pocket Gus's amber).
+      - Follow-up: Tag Bingo's daily is in the launcher's "Today's dailies" + tile badge (done =
+        a line on today's card, `bingoDailyBest`) and a won card copies a spoiler-free emoji grid
+        (`bingoShareText`); Score Sniffer copies its final streak (`streakShareText`); Whodunnit's
+        folder names the artist once answered; Time Machine's dial resets to mid each round; Floof
+        says "a unicorn" (`indefiniteArticle`). Unit-tested helpers. Not yet live-tested.

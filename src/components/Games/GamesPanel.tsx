@@ -23,7 +23,7 @@ import {
   SprayCan,
   X,
 } from "lucide-react";
-import { launcherBest, type GameId } from "../../lib/games";
+import { bingoDailyBest, launcherBest, type GameId } from "../../lib/games";
 import { utcDayKey } from "../../lib/tagdle";
 import { loadTagdle, useTagdleStore } from "../../state/tagdleStore";
 import type { Site } from "../../models/site";
@@ -400,7 +400,7 @@ function GameBody({
 const TILE_TILTS = [-1.2, 0.9, -0.6, 1.3, -1.4, 0.7, 1.1, -0.9, 0.5, -1.3, 1.2, -0.7];
 
 /** The games with a daily puzzle, in the order the hero banner lists them. */
-const DAILY_GAMES: GameId[] = ["tagdle", "sixDegrees"];
+const DAILY_GAMES: GameId[] = ["tagdle", "sixDegrees", "bingo"];
 
 /** Today's status for a daily game: undefined while its store loads, else done (with a result
  *  line) or ready. */
@@ -409,12 +409,15 @@ type DailyStatus = { done: true; result: string } | { done: false } | undefined;
 function useDailyStatus(site: Site): Partial<Record<GameId, DailyStatus>> {
   const gamesLoaded = useGamesStore((s) => s.isLoaded);
   const sixDaily = useGamesStore((s) => s.sixDaily);
+  const best = useGamesStore((s) => s.best);
   const tagdleLoaded = useTagdleStore((s) => s.isLoaded);
   const tagdleDaily = useTagdleStore((s) => s.daily);
   useEffect(() => {
     void loadTagdle();
   }, []);
-  const key = `${site}:${utcDayKey()}`;
+  const dayKey = utcDayKey();
+  const key = `${site}:${dayKey}`;
+  const bingo = bingoDailyBest(best, site, dayKey);
   const tagdle = tagdleDaily[key];
   const hops = sixDaily[key];
   return {
@@ -427,6 +430,12 @@ function useDailyStatus(site: Site): Partial<Record<GameId, DailyStatus>> {
       ? undefined
       : key in sixDaily
         ? { done: true, result: hops === null ? "gave up" : `${hops} hop${hops === 1 ? "" : "s"}` }
+        : { done: false },
+    // Replayable, unlike the other two - "done" once a line's been made on today's card.
+    bingo: !gamesLoaded
+      ? undefined
+      : bingo !== undefined
+        ? { done: true, result: `${bingo} post${bingo === 1 ? "" : "s"}` }
         : { done: false },
   };
 }

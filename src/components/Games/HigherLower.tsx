@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { MascotCue } from "../Mascot/MascotLayer";
-import { ArrowDown, ArrowUp, Flame, Heart, ThumbsUp, Trophy } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Copy, Flame, Heart, ThumbsUp, Trophy } from "lucide-react";
 import type { Post } from "../../models/post";
-import type { Site } from "../../models/site";
-import { gameImageUrl } from "../../lib/games";
+import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
+import { gameImageUrl, streakShareText } from "../../lib/games";
 import { useGamesStore } from "../../state/gamesStore";
 import { ConfettiBurst } from "../Tagdle/Confetti";
 import {
@@ -11,6 +11,8 @@ import {
   ErrorNote,
   FavoritesExhausted,
   GameImage,
+  GameMetaContext,
+  GamePill,
   GameToggle,
   prefersReducedMotion,
   RoundActions,
@@ -79,6 +81,8 @@ function HigherLowerRun({ site, stat, favUser }: { site: Site; stat: Stat; favUs
   // The record as of this run's start (`best` updates live as the streak climbs), so game over
   // can tell whether the run beat it.
   const [runBest, setRunBest] = useState(best);
+  const meta = useContext(GameMetaContext);
+  const [copied, setCopied] = useState(false);
 
   // Deal whenever a slot is empty and the deck has something (re-runs as batches arrive).
   useEffect(() => {
@@ -139,6 +143,14 @@ function HigherLowerRun({ site, stat, favUser }: { site: Site; stat: Stat; favUs
     setRight(null);
     setGuess(null);
     setRolled(false);
+    setCopied(false);
+  }
+
+  function copyResult() {
+    const text = streakShareText(meta?.name ?? "Score Sniffer", SITE_DISPLAY_NAME[site], STAT_LABEL[stat], streak, runBest);
+    void navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   }
 
   // Shown streak waits for the reel, so the fire doesn't flare before the number lands.
@@ -198,6 +210,11 @@ function HigherLowerRun({ site, stat, favUser }: { site: Site; stat: Stat; favUs
           {newBest && <ConfettiBurst variant="rainbow" />}
           {newBest && <MascotCue kind="gameWin" />}
           <Verdict ok={ok}>{ok ? `Streak ${streak}` : `Final streak ${streak}`}</Verdict>
+          {!ok && streak > 0 && (
+            <GamePill onClick={copyResult} icon={copied ? <Check size={13} /> : <Copy size={13} />}>
+              {copied ? "Copied!" : "Copy result"}
+            </GamePill>
+          )}
           <RoundActions
             site={site}
             posts={[

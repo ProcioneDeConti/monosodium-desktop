@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { makePost } from "../test/makePost";
 import {
   BINGO_MISS_PENALTY,
+  bingoBestKey,
+  bingoDailyBest,
+  bingoShareText,
+  indefiniteArticle,
+  streakShareText,
   bingoCandidates,
   bingoCard,
   bingoFamily,
@@ -361,5 +366,43 @@ describe("tag bingo", () => {
     const post = makePost(1, { tags: { general: ["rain", "hat"], species: ["fox"] } });
     expect(bingoFits(card, post)).toEqual([0, 1, 2]);
     expect(bingoDeckTags(card, [0, 2])).toBe("~hat ~rain");
+  });
+});
+
+describe("review pass helpers", () => {
+  it("picks a/an by sound", () => {
+    expect(indefiniteArticle("otter")).toBe("an");
+    expect(indefiniteArticle("unicorn")).toBe("a");
+    expect(indefiniteArticle("european_dragon")).toBe("a");
+    expect(indefiniteArticle("ursid")).toBe("an");
+    expect(indefiniteArticle("fox")).toBe("a");
+  });
+
+  it("finds today's daily bingo result, ignoring favorites and blackout", () => {
+    const best = {
+      [bingoBestKey("e621", false, "2026-11-08", true)]: 3,
+      [bingoBestKey("e621", true, "2026-11-08", false)]: 9,
+      [bingoBestKey("e621", false, "2026-11-07", false)]: 4,
+    };
+    expect(bingoDailyBest(best, "e621", "2026-11-08")).toBeUndefined();
+    best[bingoBestKey("e621", false, "2026-11-08", false)] = 6;
+    expect(bingoDailyBest(best, "e621", "2026-11-08")).toBe(6);
+  });
+
+  it("keeps the bingo best key format", () => {
+    expect(bingoBestKey("e621", false, null, false)).toBe("bingo2:line:random:e621");
+    expect(bingoBestKey("e6ai", true, "2026-11-08", true)).toBe("bingo2:blackout:daily:2026-11-08:e6ai:fav");
+  });
+
+  it("draws the bingo card without tags", () => {
+    const marked = [true, true, false, false, true, false, true, false, true];
+    expect(bingoShareText("e621", "2026-11-08", 7, false, marked, [0, 4, 8])).toBe(
+      "🎯 Tag Bingo · e621 · 2026-11-08\nLine in 7 posts\n🟨🟩⬜\n⬜🟨⬜\n🟩⬜🟨",
+    );
+  });
+
+  it("writes Score Sniffer's streak line", () => {
+    expect(streakShareText("Score Sniffer", "e621", "score", 12, 9)).toBe("🐶 Score Sniffer · e621\n🔥 Streak 12 (score)\n🏆 New best!");
+    expect(streakShareText("Score Sniffer", "e621", "favorites", 3, 9)).toContain("🏆 Best 9");
   });
 });

@@ -7,6 +7,7 @@ import type { Site } from "../../models/site";
 import {
   buildChoices,
   gameImageUrl,
+  indefiniteArticle,
   QUIZ_ROUNDS,
   realArtists,
   speedLabel,
@@ -207,7 +208,7 @@ function ArtistRun({
         )
       ) : (
         <div className="flex flex-col items-center gap-4">
-          <CaseFile round={round} solved={picked === null ? null : picked === answer}>
+          <CaseFile round={round} solved={picked === null ? null : picked === answer} culprit={picked === null ? null : answer}>
             <GameImage
               url={gameImageUrl(post)!}
               className="h-[42vh] w-full"
@@ -237,7 +238,18 @@ function ArtistRun({
 
 /** Whodunnit's evidence folder: a manila case file with a numbered tab, the photo clipped in, and
  *  "SOLVED" / "COLD CASE" stamped across it once the round's answered. */
-function CaseFile({ round, solved, children }: { round: number; solved: boolean | null; children: ReactNode }) {
+function CaseFile({
+  round,
+  solved,
+  culprit,
+  children,
+}: {
+  round: number;
+  solved: boolean | null;
+  /** The artist, once the round's answered - fills in the folder's "Artist unknown". */
+  culprit: string | null;
+  children: ReactNode;
+}) {
   return (
     <div className="relative mt-6 w-full max-w-xl">
       <span className="game-folder absolute -top-6 left-0 flex h-6 items-center gap-1.5 rounded-t-xl border-x-[2.5px] border-t-[2.5px] border-[rgb(10_8_12)] px-3 text-[11px] font-black uppercase tracking-widest">
@@ -246,7 +258,13 @@ function CaseFile({ round, solved, children }: { round: number; solved: boolean 
       <div className="game-folder game-sticker relative rounded-2xl rounded-tl-none p-3 pt-2">
         <div className="mb-2 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.25em] opacity-60">
           <span>Exhibit A</span>
-          <span>Artist unknown</span>
+          {culprit ? (
+            <span key={culprit} className="game-anim animate-[game-pop-in_0.3s_ease-out] normal-case tracking-wider text-white">
+              Artist: {displayTagName(culprit)}
+            </span>
+          ) : (
+            <span>Artist unknown</span>
+          )}
         </div>
         {children}
         {solved !== null && (
@@ -401,7 +419,7 @@ function SpeciesRun({
               {picked && (
                 <span className="absolute inset-x-0 bottom-3 flex justify-center">
                   <span className="game-sticker-sm game-anim animate-[game-pop-in_0.35s_0.2s_ease-out_both] whitespace-nowrap rounded-xl bg-[rgb(var(--game))] px-4 py-1 text-lg font-black italic text-white">
-                    It's {/^[aeiou]/.test(answer) ? "an" : "a"} {displayTagName(answer)}!
+                    It's {indefiniteArticle(answer)} {displayTagName(answer)}!
                   </span>
                 </span>
               )}

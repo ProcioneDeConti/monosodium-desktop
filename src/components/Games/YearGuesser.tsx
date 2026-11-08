@@ -67,7 +67,8 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
   }, [minYear, maxYear]);
   const [round, setRound] = useState(0);
   const [score, setScore] = useState(0);
-  const [guess, setGuess] = useState(() => Math.round((minYear + maxYear) / 2));
+  const midYear = Math.round((minYear + maxYear) / 2);
+  const [guess, setGuess] = useState(midYear);
   const [locked, setLocked] = useState(false);
   /** The clock has finished travelling to the real year - the verdict waits for it. */
   const [arrived, setArrived] = useState(false);
@@ -91,6 +92,8 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
     setRound(nextRound);
     setLocked(false);
     setArrived(false);
+    // Back to the middle, so the last round's answer doesn't anchor this one.
+    setGuess(midYear);
   }
 
   /** No post for this round: it counts as a miss, so every round keeps its result tile. */
