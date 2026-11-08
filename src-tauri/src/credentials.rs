@@ -250,3 +250,47 @@ pub fn delete_source_key(site: String) -> Result<(), String> {
     data.source_keys.remove(&site);
     write_all(&data)
 }
+
+/// Recovery-source secrets (API keys + sign-in cookies) as they travel inside a Settings > Backup
+/// & Restore file. These never reach the frontend, so `lib/backup.ts` can't put them in the
+/// snapshot itself - backup.rs splices this into the plaintext on export and pulls it back out
+/// on import instead.
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub(crate) struct SourceSecrets {
+    #[serde(default)]
+    keys: HashMap<String, SourceKey>,
+    #[serde(default)]
+    cookies: HashMap<String, String>,
+}
+
+impl SourceSecrets {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.keys.is_empty() && self.cookies.is_empty()
+    }
+}
+
+pub(crate) fn export_source_secrets() -> SourceSecrets {
+    let data = read_all();
+    SourceSecrets { keys: data.source_keys, cookies: data.source_cookies }
+}
+
+/// Merges a backup's recovery-source secrets in - entries in the backup overwrite this machine's,
+/// anything only saved here is left alone (same as the e621/e6AI credentials, which restore only
+/// when the backup has them). Keys for sites this build doesn't know are dropped.
+pub(crate) fn import_source_secrets(secrets: SourceSecrets) -> Result<(), String> {
+    if secrets.is_empty() {
+        return Ok(());
+    }
+    let mut data = read_all();
+    for (site, key) in secrets.keys {
+        if SOURCE_KEY_SITES.contains(&site.as_str()) && !key.api_key.trim().is_empty() {
+            data.source_keys.insert(site, key);
+        }
+    }
+    for (host, cookie) in secrets.cookies {
+        if !cookie.is_empty() {
+            data.source_cookies.insert(host, cookie);
+        }
+    }
+    write_all(&data)
+}

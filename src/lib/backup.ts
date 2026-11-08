@@ -10,7 +10,9 @@
 // session-only toggle, never persisted in the first place) - same boundary the reference app's
 // own SettingsBackup draws around its UserSettings, not SavedSearchStore.
 // src-tauri/src/backup.rs's export/import commands know nothing about this shape - they just
-// encrypt/decrypt whatever opaque JSON string this module hands them.
+// encrypt/decrypt whatever opaque JSON string this module hands them, with one addition: the
+// deleted-post recovery sources' API keys and sign-in cookies, which never reach the frontend, are
+// spliced in (export) and stripped back out + saved (import) by backup.rs itself.
 
 import { e621Api } from "../api/client";
 import type { Rating } from "../models/post";

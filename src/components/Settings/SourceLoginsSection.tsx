@@ -100,7 +100,11 @@ const keyInput =
 function SourceApiKeys() {
   const [saved, setSaved] = useState<SourceKeySite[] | null>(null);
   useEffect(() => {
-    void e621Api.sourceKeyStatus().then(setSaved, () => setSaved([]));
+    const refresh = () => void e621Api.sourceKeyStatus().then(setSaved, () => setSaved([]));
+    refresh();
+    // Settings > Backup & Restore can bring keys back in while this is mounted.
+    const unlisten = listen("source-secrets-restored", refresh);
+    return () => void unlisten.then((fn) => fn());
   }, []);
   return (
     <div className="mt-2 flex flex-col gap-2">
@@ -260,16 +264,21 @@ function SiteRow({ site }: { site: LoginSite }) {
 
   useEffect(() => {
     let cancelled = false;
-    void e621Api
-      .sourceLoginStatus(site.id)
-      .then((v) => !cancelled && setStatus(v))
-      .catch(() => !cancelled && setStatus("unverified"));
+    const refresh = () =>
+      void e621Api
+        .sourceLoginStatus(site.id)
+        .then((v) => !cancelled && setStatus(v))
+        .catch(() => !cancelled && setStatus("unverified"));
+    refresh();
     const unlisten = listen<{ site: string; signed_in: boolean }>("source-login-changed", (e) => {
       if (e.payload.site === site.id) setStatus(e.payload.signed_in ? "signed_in" : "signed_out");
     });
+    // A restored backup may carry a saved sign-in for this site.
+    const unlistenRestore = listen("source-secrets-restored", refresh);
     return () => {
       cancelled = true;
       void unlisten.then((fn) => fn());
+      void unlistenRestore.then((fn) => fn());
     };
   }, [site.id]);
 
