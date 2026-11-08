@@ -29,6 +29,7 @@ import {
   zoomPoints,
   ZOOM_LEVELS,
   currentStreak,
+  launcherBest,
   longestStreak,
   runGrade,
   runShareText,
@@ -85,6 +86,38 @@ describe("run summaries", () => {
     expect(runShareText("Time Machine", "e6AI", 250, 300, "pts", [1, 0.5, 1])).toBe(
       "🎮 Time Machine · e6AI\n250/300 pts · Grade A\n🟩🟨🟩",
     );
+  });
+});
+
+describe("launcherBest", () => {
+  const best = {
+    "artist:easy:e621": 6,
+    "artist:hard:e621": 8,
+    "artist:fav:e621": 10,
+    "artist:easy:e6ai": 9,
+    "rating:e621:sqe": 7,
+    "sixDegrees:e621": 4,
+    "sixDegrees:fav:e621": 1,
+    "bingo2:line:random:e621": 12,
+    "bingo2:line:daily:2026-11-08:e621": 5,
+    "zoom:e621": 0,
+  };
+
+  it("takes the best across modes for the site, skipping favorites runs", () => {
+    expect(launcherBest("artist", best, "e621")).toBe("Best 8/10");
+    expect(launcherBest("artist", best, "e6ai")).toBe("Best 9/10");
+    expect(launcherBest("rating", best, "e621")).toBe("Best 7/10");
+  });
+
+  it("handles lower-is-better games and their mode filters", () => {
+    expect(launcherBest("sixDegrees", best, "e621")).toBe("Best 4 hops");
+    expect(launcherBest("bingo", best, "e621")).toBe("Best line in 12 posts");
+  });
+
+  it("is null when unplayed, scoreless, or not a scored game", () => {
+    expect(launcherBest("species", best, "e621")).toBeNull();
+    expect(launcherBest("zoom", best, "e621")).toBeNull();
+    expect(launcherBest("gusPet", best, "e621")).toBeNull();
   });
 });
 

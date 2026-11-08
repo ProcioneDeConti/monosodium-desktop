@@ -229,6 +229,45 @@ export function runShareText(
   return lines.join("\n");
 }
 
+/** How the launcher reads a game's saved bests: the key's first segment, an optional extra check
+ *  on the segments, whether lower is better, and how to word the number. */
+const LAUNCHER_BESTS: Partial<
+  Record<GameId, { prefix: string; filter?: (parts: string[]) => boolean; lower?: boolean; label: (n: number) => string }>
+> = {
+  higherLower: { prefix: "higherLower", label: (n) => `Best streak ${n}` },
+  artist: { prefix: "artist", label: (n) => `Best ${n}/${QUIZ_ROUNDS}` },
+  species: { prefix: "species", label: (n) => `Best ${n} pts` },
+  zoom: { prefix: "zoom", label: (n) => `Best ${n} pts` },
+  rating: { prefix: "rating", label: (n) => `Best ${n}/${QUIZ_ROUNDS}` },
+  sixDegrees: { prefix: "sixDegrees", lower: true, label: (n) => `Best ${n} hop${n === 1 ? "" : "s"}` },
+  oddOneOut: { prefix: "oddOneOut", label: (n) => `Best ${n}/${QUIZ_ROUNDS}` },
+  yearGuess: { prefix: "yearGuess", label: (n) => `Best ${n} pts` },
+  bingo: {
+    prefix: "bingo2",
+    filter: (p) => p[1] === "line" && p[2] === "random",
+    lower: true,
+    label: (n) => `Best line in ${n} posts`,
+  },
+};
+
+/** The launcher tile's "your best" line for a game on `site`: the best across its modes and
+ *  difficulties, leaving out Favorites-only runs (a different, personal pool). Null if never
+ *  played. Game best keys are `<game>:...` with the site as one of the segments. */
+export function launcherBest(id: GameId, best: Record<string, number>, site: string): string | null {
+  const spec = LAUNCHER_BESTS[id];
+  if (!spec) return null;
+  let pick: number | undefined;
+  for (const [key, value] of Object.entries(best)) {
+    const parts = key.split(":");
+    if (parts[0] !== spec.prefix || !parts.includes(site) || parts.includes("fav")) continue;
+    if (spec.filter && !spec.filter(parts)) continue;
+    if (pick === undefined || (spec.lower ? value < pick : value > pick)) pick = value;
+  }
+  // A 0 high score means "played, never scored" - not worth a badge.
+  if (pick === undefined || (!spec.lower && pick <= 0)) return null;
+  return spec.label(pick);
+}
+
 /** A short cheer for a correct Floof answer, by points earned. */
 export function speedLabel(points: number): string {
   if (points >= 98) return "Lightning!";

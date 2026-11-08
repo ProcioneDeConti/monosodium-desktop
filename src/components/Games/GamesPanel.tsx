@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { MascotLayer } from "../Mascot/MascotLayer";
 import {
   CalendarClock,
@@ -11,6 +11,7 @@ import {
   FingerprintPattern,
   Gamepad2,
   Grid3x3,
+  Check,
   Heart,
   MessageCircleHeart,
   PawPrint,
@@ -18,10 +19,13 @@ import {
   ScanSearch,
   SearchX,
   Siren,
+  Trophy,
   SprayCan,
   X,
 } from "lucide-react";
-import type { GameId } from "../../lib/games";
+import { launcherBest, type GameId } from "../../lib/games";
+import { utcDayKey } from "../../lib/tagdle";
+import { loadTagdle, useTagdleStore } from "../../state/tagdleStore";
 import type { Site } from "../../models/site";
 import { useAccountStore } from "../../state/accountStore";
 import { loadGames, useGamesStore } from "../../state/gamesStore";
@@ -42,7 +46,7 @@ import { ArtistGuesser, SpeciesGuesser } from "./GuessGames";
 import { RatingJudge } from "./RatingJudge";
 import { SixDegrees } from "./SixDegrees";
 import { ZoomReveal } from "./ZoomReveal";
-import { CenteredSpinner } from "./common";
+import { CenteredSpinner, GameMetaContext } from "./common";
 
 /** A game to reopen the next time the panel mounts - set when a game leaves the panel for
  *  something it means to come back from (Talk to Gus's searches), so Back lands in the game
@@ -56,8 +60,8 @@ export function resumeGameOnReturn(id: GameId) {
 function JailOrChurch() {
   return (
     <span className="relative block h-[22px] w-[22px]">
-      <Siren size={14} className="absolute left-0 top-0 text-red-400" />
-      <Church size={14} className="absolute bottom-0 right-0 text-sky-300" />
+      <Siren size={14} className="absolute left-0 top-0 text-white" />
+      <Church size={14} className="absolute bottom-0 right-0 text-sky-200" />
     </span>
   );
 }
@@ -70,6 +74,11 @@ interface GameInfo {
   icon: ReactNode;
   /** Card gradient, tailwind from-/to- classes. */
   tint: string;
+  /** Plain-text name, for share text (`name` may carry markup). */
+  title: string;
+  /** The game's own colour as an "r g b" triple - becomes --game for its screens. Mid-dark
+   *  shades so white text on it stays readable. */
+  color: string;
 }
 
 const GAMES: GameInfo[] = [
@@ -79,6 +88,8 @@ const GAMES: GameInfo[] = [
     blurb: "Feed him, groom him, clean up after him. He gets hungry even while the app is closed.",
     icon: <PawPrint size={22} />,
     tint: "from-amber-500/30 to-stone-500/20",
+    title: "Pocket Gus",
+    color: "217 119 6",
   },
   {
     id: "gusChat",
@@ -86,6 +97,8 @@ const GAMES: GameInfo[] = [
     blurb: "Chat, flirt, ask him things. He remembers you - and can fetch posts if you ask nicely.",
     icon: <MessageCircleHeart size={22} />,
     tint: "from-pink-500/30 to-violet-500/20",
+    title: "Talk to Gus",
+    color: "219 39 119",
   },
   {
     id: "tagdle",
@@ -93,6 +106,8 @@ const GAMES: GameInfo[] = [
     blurb: "Which tag has more posts? Daily puzzle + endless.",
     icon: <SprayCan size={22} />, // the alley it lives in
     tint: "from-orange-500/30 to-rose-500/20",
+    title: "Tagdle",
+    color: "234 88 12",
   },
   {
     id: "higherLower",
@@ -100,6 +115,8 @@ const GAMES: GameInfo[] = [
     blurb: "Does the next post have a higher score or more favorites? Keep the streak alive.",
     icon: <Dog size={22} />, // sniffing out the score
     tint: "from-sky-500/30 to-indigo-500/20",
+    title: "Score Sniffer",
+    color: "2 132 199",
   },
   {
     id: "artist",
@@ -107,6 +124,8 @@ const GAMES: GameInfo[] = [
     blurb: "Who drew this? Four names, ten posts.",
     icon: <FingerprintPattern size={22} />, // the detective angle
     tint: "from-fuchsia-500/30 to-purple-500/20",
+    title: "Whodunnit",
+    color: "192 38 211",
   },
   {
     id: "species",
@@ -118,6 +137,8 @@ const GAMES: GameInfo[] = [
     blurb: "Name the species before the blur clears. Faster is worth more.",
     icon: <Cat size={22} />, // floof
     tint: "from-emerald-500/30 to-teal-500/20",
+    title: "Who's That Floof?!",
+    color: "5 150 105",
   },
   {
     id: "zoom",
@@ -125,6 +146,8 @@ const GAMES: GameInfo[] = [
     blurb: "Starts zoomed way in. Every wrong guess pulls the camera back.",
     icon: <ScanSearch size={22} />, // CSI "enhance"
     tint: "from-amber-500/30 to-yellow-500/20",
+    title: "Enhance!",
+    color: "217 119 6",
   },
   {
     id: "rating",
@@ -132,6 +155,8 @@ const GAMES: GameInfo[] = [
     blurb: "A blurred post and its tags: safe, questionable, or explicit?",
     icon: <JailOrChurch />,
     tint: "from-red-500/30 to-orange-500/20",
+    title: "Horny Jail or Sunday School",
+    color: "220 38 38",
   },
   {
     id: "sixDegrees",
@@ -139,6 +164,8 @@ const GAMES: GameInfo[] = [
     blurb: "Hop from one tag to another through shared posts. Daily puzzle + endless.",
     icon: <Rabbit size={22} />, // hop
     tint: "from-cyan-500/30 to-blue-500/20",
+    title: "Tag Hopper",
+    color: "8 145 178",
   },
   {
     id: "oddOneOut",
@@ -146,6 +173,8 @@ const GAMES: GameInfo[] = [
     blurb: "Three posts share a tag. Spot the impostor.",
     icon: <SearchX size={22} />,
     tint: "from-rose-500/30 to-pink-500/20",
+    title: "Sus",
+    color: "225 29 72",
   },
   {
     id: "yearGuess",
@@ -153,6 +182,8 @@ const GAMES: GameInfo[] = [
     blurb: "When was this uploaded? The closer the year, the more points.",
     icon: <CalendarClock size={22} />,
     tint: "from-violet-500/30 to-indigo-500/20",
+    title: "Time Machine",
+    color: "124 58 237",
   },
   {
     id: "bingo",
@@ -160,6 +191,8 @@ const GAMES: GameInfo[] = [
     blurb: "Claim posts for the squares on your card. First line in the fewest posts wins.",
     icon: <Grid3x3 size={22} />,
     tint: "from-lime-500/30 to-green-500/20",
+    title: "Tag Bingo",
+    color: "77 124 15",
   },
 ];
 
@@ -208,14 +241,16 @@ export function GamesPanel({ site, onClose, onSearch, onOpenPopular }: GamesPane
         ) : (
           <Gamepad2 size={17} className="text-[rgb(var(--accent))]" />
         )}
-        <h1 className="text-base font-black tracking-tight">{game ? game.name : "Games"}</h1>
+        <h1 className="min-w-0 truncate text-base font-black tracking-tight" title={game?.title}>
+          {game ? game.name : "Games"}
+        </h1>
         {/* Every game but Tagdle (whose site-wide tag counts don't narrow to a favorites list). */}
         {/* The music player sits centered in whatever space is left between the title and the
             toggles, and is the part that gives way if the bar gets tight. */}
         <div className="flex min-w-0 flex-1 justify-center px-2">
-          <GameMusic />
+          <GameMusic showSfx={!isGus} />
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1">
           {selected === "gusChat" && <GusChatSettings />}
           {!isGus && <BlacklistToggle />}
           {selected !== "tagdle" && !isGus && <FavoritesToggle site={site} />}
@@ -240,15 +275,18 @@ export function GamesPanel({ site, onClose, onSearch, onOpenPopular }: GamesPane
           data-theme="dark"
           // Inherited shadow keeps any text that sits straight on the bricks legible.
           className="tagdle-alley relative min-h-0 flex-1 text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.9),0_0_10px_rgb(0_0_0/0.6)]"
+          style={game ? ({ "--game": game.color } as CSSProperties) : undefined}
         >
           <Graffiti />
           <div className="relative h-full overflow-y-auto px-4 py-4">
             {!game ? (
-              <Launcher onSelect={setSelected} />
+              <Launcher site={site} onSelect={setSelected} />
             ) : !isLoaded ? (
               <CenteredSpinner label="Loading…" />
             ) : (
-              <GameBody id={game.id} site={site} onSearch={onSearch} onOpenPopular={onOpenPopular} />
+              <GameMetaContext.Provider value={{ name: game.title, site }}>
+                <GameBody id={game.id} site={site} onSearch={onSearch} onOpenPopular={onOpenPopular} />
+              </GameMetaContext.Provider>
             )}
           </div>
         </div>
@@ -270,19 +308,27 @@ function FavoritesToggle({ site }: { site: Site }) {
       type="button"
       disabled={!signedIn}
       onClick={() => setOn(!on)}
-      title={signedIn ? "Play with posts from your favorites only" : "Sign in (Settings) to play with your favorites"}
-      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition-colors
-                  disabled:opacity-40 ${
-                    active
-                      ? "border-pink-400 bg-pink-500/20 text-pink-500 dark:text-pink-300"
-                      : "border-black/10 dark:border-white/15 opacity-70 hover:opacity-100"
-                  }`}
+      title={
+        !signedIn
+          ? "Sign in (Settings) to play with your favorites"
+          : active
+            ? "Favorites only: on - games use posts from your favorites. Click to turn off"
+            : "Favorites only: off - click to play with posts from your favorites"
+      }
+      aria-pressed={active}
+      className={`${HEADER_TOGGLE} disabled:opacity-40 ${
+        active ? "border-pink-400 bg-pink-500/20 text-pink-500 dark:text-pink-300" : HEADER_TOGGLE_OFF
+      }`}
     >
-      <Heart size={13} className={active ? "fill-current" : ""} />
-      Favorites only
+      <Heart size={15} className={active ? "fill-current" : ""} />
     </button>
   );
 }
+
+/** The header's round icon toggles - icon-only (state in the tooltip and colour) so the bar
+ *  fits the sheet alongside the title and music player. */
+const HEADER_TOGGLE = "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors";
+const HEADER_TOGGLE_OFF = "border-black/10 dark:border-white/15 opacity-70 hover:opacity-100";
 
 /** The same "Show blacklisted posts" switch as the shell menu (both write settingsStore's
  *  blacklistDisabled), so it can be flipped without leaving a game. Hidden with no blacklist. */
@@ -295,15 +341,17 @@ function BlacklistToggle() {
     <button
       type="button"
       onClick={() => setShowing(!showing)}
-      title={showing ? "Blacklisted posts are showing - click to hide them again" : "Show blacklisted posts"}
-      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+      title={
         showing
-          ? "border-amber-400 bg-amber-500/20 text-amber-600 dark:text-amber-300"
-          : "border-black/10 dark:border-white/15 opacity-70 hover:opacity-100"
+          ? "Blacklist: off - blacklisted posts are showing. Click to hide them again"
+          : "Blacklist: on - click to show blacklisted posts"
+      }
+      aria-pressed={showing}
+      className={`${HEADER_TOGGLE} ${
+        showing ? "border-amber-400 bg-amber-500/20 text-amber-600 dark:text-amber-300" : HEADER_TOGGLE_OFF
       }`}
     >
-      {showing ? <EyeOff size={13} /> : <Eye size={13} />}
-      {showing ? "Blacklist off" : "Blacklist on"}
+      {showing ? <EyeOff size={15} /> : <Eye size={15} />}
     </button>
   );
 }
@@ -347,26 +395,153 @@ function GameBody({
   }
 }
 
-function Launcher({ onSelect }: { onSelect: (id: GameId) => void }) {
+/** Each tile's resting tilt, by position - subtle (under 1.5deg) and fixed, so the wall looks
+ *  hand-pasted without anything wobbling between renders. */
+const TILE_TILTS = [-1.2, 0.9, -0.6, 1.3, -1.4, 0.7, 1.1, -0.9, 0.5, -1.3, 1.2, -0.7];
+
+/** The games with a daily puzzle, in the order the hero banner lists them. */
+const DAILY_GAMES: GameId[] = ["tagdle", "sixDegrees"];
+
+/** Today's status for a daily game: undefined while its store loads, else done (with a result
+ *  line) or ready. */
+type DailyStatus = { done: true; result: string } | { done: false } | undefined;
+
+function useDailyStatus(site: Site): Partial<Record<GameId, DailyStatus>> {
+  const gamesLoaded = useGamesStore((s) => s.isLoaded);
+  const sixDaily = useGamesStore((s) => s.sixDaily);
+  const tagdleLoaded = useTagdleStore((s) => s.isLoaded);
+  const tagdleDaily = useTagdleStore((s) => s.daily);
+  useEffect(() => {
+    void loadTagdle();
+  }, []);
+  const key = `${site}:${utcDayKey()}`;
+  const tagdle = tagdleDaily[key];
+  const hops = sixDaily[key];
+  return {
+    tagdle: !tagdleLoaded
+      ? undefined
+      : tagdle
+        ? { done: true, result: `${tagdle.filter(Boolean).length}/${tagdle.length}` }
+        : { done: false },
+    sixDegrees: !gamesLoaded
+      ? undefined
+      : key in sixDaily
+        ? { done: true, result: hops === null ? "gave up" : `${hops} hop${hops === 1 ? "" : "s"}` }
+        : { done: false },
+  };
+}
+
+/** The launcher: a graffiti "GAMES" hero with today's dailies, then a wall of arcade-cabinet
+ *  tiles - each in its game's colour, pasted at a slight angle, straightening up on hover. */
+function Launcher({ site, onSelect }: { site: Site; onSelect: (id: GameId) => void }) {
+  const best = useGamesStore((s) => s.best);
+  const tagdleStreak = useTagdleStore((s) => s.bestStreak[site] ?? 0);
+  const dailies = useDailyStatus(site);
+  const statFor = (id: GameId) =>
+    id === "tagdle" ? (tagdleStreak > 0 ? `Best streak ${tagdleStreak}` : null) : launcherBest(id, best, site);
+
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {GAMES.map((g) => (
-        <button
-          key={g.id}
-          type="button"
-          onClick={() => onSelect(g.id)}
-          className={`group flex items-start gap-3 rounded-2xl border border-white/10 bg-neutral-900/80 bg-gradient-to-br ${g.tint} backdrop-blur-sm
-                      p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgb(var(--accent))] hover:shadow-lg`}
-        >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/10 dark:bg-white/10 text-[rgb(var(--accent))] transition-transform group-hover:scale-110">
-            {g.icon}
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-bold">{g.name}</span>
-            <span className="mt-0.5 block text-xs opacity-70">{g.blurb}</span>
-          </span>
-        </button>
-      ))}
+    <div className="px-1 pb-4">
+      <div className="mb-7 mt-1 flex flex-wrap items-center gap-x-8 gap-y-4">
+        <div className="-rotate-3 select-none pl-2">
+          <h2
+            className="text-[68px] leading-[0.9] tracking-wide"
+            style={{
+              fontFamily: '"Rubik Spray Paint", sans-serif',
+              color: "#ffe066",
+              textShadow: "3px 3px 0 #ff5fa2, 6px 6px 0 rgb(10 8 12)",
+            }}
+          >
+            GAMES
+          </h2>
+          <p className="pl-1 text-xs font-black uppercase tracking-[0.3em] text-[#7fe7ff]">Pick your poison</p>
+        </div>
+        <div className="ml-auto flex flex-col gap-2">
+          <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-75">Today's dailies</span>
+          <div className="flex flex-wrap gap-2">
+            {DAILY_GAMES.map((id) => {
+              const g = GAMES.find((x) => x.id === id)!;
+              const status = dailies[id];
+              const ready = status !== undefined && !status.done;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => onSelect(id)}
+                  style={{ "--game": g.color } as CSSProperties}
+                  className={`game-sticker-sm game-press flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-bold ${
+                    ready ? "bg-[rgb(var(--game))]" : "bg-neutral-900/90"
+                  }`}
+                >
+                  <span className="flex scale-75 text-white">{g.icon}</span>
+                  {g.title}
+                  {status && (
+                    <span
+                      className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-black uppercase ${
+                        ready ? "bg-yellow-300 text-black [text-shadow:none]" : "bg-white/10 opacity-80"
+                      }`}
+                    >
+                      {status.done ? (
+                        <>
+                          <Check size={11} strokeWidth={3} /> {status.result}
+                        </>
+                      ) : (
+                        "Ready!"
+                      )}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        {GAMES.map((g, i) => {
+          const daily = dailies[g.id];
+          const stat = statFor(g.id);
+          return (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => onSelect(g.id)}
+              style={{ "--game": g.color, "--tilt": `${TILE_TILTS[i % TILE_TILTS.length]}deg` } as CSSProperties}
+              className="game-sticker group relative flex flex-col overflow-hidden rounded-2xl bg-neutral-900/95 text-left
+                         rotate-[var(--tilt)] transition-[rotate,scale] duration-200 ease-out
+                         hover:z-10 hover:rotate-0 hover:scale-[1.04] focus-visible:z-10 focus-visible:rotate-0
+                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <div className="game-tile-band relative flex h-20 shrink-0 items-center justify-center bg-[rgb(var(--game))]">
+                <span className="game-anim flex scale-[1.8] text-white drop-shadow-[2px_2px_0_rgb(10_8_12/0.55)] group-hover:animate-[game-wiggle_0.5s_ease-in-out]">
+                  {g.icon}
+                </span>
+                {daily && !daily.done && (
+                  <span className="game-sticker-sm absolute right-2 top-2 rotate-6 rounded-md bg-yellow-300 px-1.5 py-0.5 text-[10px] font-black uppercase text-black [text-shadow:none]">
+                    Daily ready!
+                  </span>
+                )}
+                {daily?.done && (
+                  <span className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/35 px-1.5 py-0.5 text-[10px] font-bold">
+                    <Check size={10} strokeWidth={3} /> Daily {daily.result}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-1 flex-col gap-1 p-3">
+                <span className="text-sm font-black leading-tight">{g.name}</span>
+                <span className="text-xs leading-snug opacity-75">{g.blurb}</span>
+                {stat && (
+                  <span className="mt-auto pt-1.5">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2 py-0.5 text-[11px] font-bold text-yellow-400">
+                      <Trophy size={11} /> {stat}
+                    </span>
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

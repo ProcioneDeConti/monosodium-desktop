@@ -1178,3 +1178,17 @@ html[data-window-blurred] .titlebar-ambient::before {
 :root {
   --game: var(--accent);
 }
+
+/* Launcher tile's colour band: faint diagonal stripes + a highlight, over the game's colour. */
+.game-tile-band {
+  background-image:
+    radial-gradient(circle at 25% 15%, rgb(255 255 255 / 0.28), transparent 55%),
+    repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.09) 0 9px, transparent 9px 18px);
+}
+
+@keyframes game-wiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-10deg); }
+  50% { transform: rotate(8deg); }
+  75% { transform: rotate(-4deg); }
+}
