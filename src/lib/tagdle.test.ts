@@ -34,7 +34,16 @@ describe("tagdle", () => {
   });
 
   it("formats share text and UTC day keys", () => {
-    expect(shareText("e621", "2026-10-14", [true, false, true])).toBe("Tagdle e621 2026-10-14 2/3\n🟩🟥🟩");
+    expect(shareText("e621", "2026-10-14", [true, false, true])).toBe(
+      "🦝 Tagdle · e621 · Oct 14, 2026\n2/3 · Sharp eye\n🟩🟥🟩\n🔥 Longest run: 1",
+    );
+    const ten = [true, true, false, true, true, true, true, true, false, true];
+    expect(shareText("e6AI", "2026-01-05", ten)).toBe(
+      "🦝 Tagdle · e6AI · Jan 5, 2026\n8/10 · Tag sommelier\n🟩🟩🟥🟩🟩\n🟩🟩🟩🟥🟩\n🔥 Longest run: 5",
+    );
+    // No run line for a perfect game or a shutout - it would only repeat the score.
+    expect(shareText("e621", "2026-10-14", [true, true])).toBe("🦝 Tagdle · e621 · Oct 14, 2026\n2/2 · Flawless\n🟩🟩");
+    expect(shareText("e621", "2026-10-14", [false])).toBe("🦝 Tagdle · e621 · Oct 14, 2026\n0/1 · Perfectly wrong\n🟥");
     expect(utcDayKey(new Date("2026-10-14T23:59:00Z"))).toBe("2026-10-14");
   });
 });

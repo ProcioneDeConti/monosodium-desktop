@@ -605,6 +605,17 @@ html[data-window-blurred] .titlebar-ambient::before {
   }
 }
 
+/* Daily summary tiles flipping in one after another. */
+@keyframes tagdle-tile {
+  from {
+    opacity: 0;
+    transform: scale(0.4) rotate(-12deg);
+  }
+  70% {
+    transform: scale(1.12);
+  }
+}
+
 /* Tagdle wall graffiti fonts (free fonts supplied by the project owner; see
    src/assets/fonts/graffiti/). Used only by components/Tagdle/Graffiti.tsx. */
 @font-face {

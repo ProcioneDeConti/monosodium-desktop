@@ -12,7 +12,10 @@ import {
   dailyPairs,
   displayTagName,
   filterPool,
+  formatDayKey,
+  longestRun,
   pickPair,
+  scoreVerdict,
   shareText,
   utcDayKey,
   type PoolTag,
@@ -295,6 +298,9 @@ function DailySummary({
   const [copied, setCopied] = useState(false);
   const text = shareText(SITE_DISPLAY_NAME[site], dayKey, results);
   const score = results.filter(Boolean).length;
+  const run = longestRun(results);
+  const accuracy = results.length ? Math.round((score / results.length) * 100) : 0;
+  const untilNext = useUntilNextUtcDay();
 
   async function copy() {
     await navigator.clipboard.writeText(text);
@@ -303,19 +309,73 @@ function DailySummary({
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 py-8 text-center">
-      <p className="relative text-3xl font-bold">
+    <div className="mx-auto flex max-w-sm flex-col items-center gap-5 py-6 text-center">
+      <div className="relative flex flex-col items-center">
         {celebrate && <ConfettiBurst variant="rainbow" />}
         {celebrate && <MascotCue kind="gameWin" />}
-        {score}/{results.length}
+        <span className="text-xs font-bold uppercase tracking-[0.25em] text-[rgb(var(--accent))]">
+          {scoreVerdict(score, results.length)}
+        </span>
+        <span className="text-6xl font-black tabular-nums leading-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+          {score}
+          <span className="text-3xl opacity-40">/{results.length}</span>
+        </span>
+        <span className="text-xs opacity-50">
+          {SITE_DISPLAY_NAME[site]} · {formatDayKey(dayKey)}
+        </span>
+      </div>
+
+      {/* The same grid the share text carries, as real tiles in rows of five. */}
+      <div className="grid grid-cols-5 gap-1.5">
+        {results.map((ok, i) => (
+          <span
+            key={i}
+            className={`tagdle-anim flex h-9 w-9 items-center justify-center rounded-lg text-white shadow-md ${
+              ok ? "bg-green-500 shadow-green-500/30" : "bg-red-500 shadow-red-500/30"
+            } ${celebrate ? "animate-[tagdle-tile_0.35s_ease-out_both]" : ""}`}
+            style={celebrate ? { animationDelay: `${i * 70}ms` } : undefined}
+          >
+            {ok ? <Check size={18} strokeWidth={3} /> : <X size={18} strokeWidth={3} />}
+          </span>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-2 text-sm">
+        <span className="rounded-full bg-white/10 px-3 py-1 font-semibold">{accuracy}% correct</span>
+        <span className="flex items-center gap-1.5 rounded-full bg-orange-500/15 px-3 py-1 font-semibold text-orange-400">
+          <Flame size={14} /> Longest run {run}
+        </span>
+      </div>
+
+      {/* Exactly what "Copy result" puts on the clipboard. */}
+      <div className="w-full rounded-[var(--radius-sm)] border border-white/10 bg-neutral-900/85 p-3 text-left backdrop-blur-sm">
+        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{text}</pre>
+        <div className="mt-3 flex justify-end">
+          <Button onClick={() => void copy()} icon={copied ? <Check size={14} /> : <Copy size={14} />}>
+            {copied ? "Copied!" : "Copy result"}
+          </Button>
+        </div>
+      </div>
+
+      <p className="text-sm opacity-60">
+        Next puzzle in <span className="font-semibold tabular-nums opacity-100">{untilNext}</span> · Endless is always open.
       </p>
-      <p className="text-2xl tracking-wide">{results.map((ok) => (ok ? "🟩" : "🟥")).join("")}</p>
-      <p className="text-sm opacity-60">Today's puzzle is done - a new one unlocks at 00:00 UTC. Endless is always open.</p>
-      <Button onClick={() => void copy()} icon={copied ? <Check size={14} /> : <Copy size={14} />}>
-        {copied ? "Copied" : "Copy result"}
-      </Button>
     </div>
   );
+}
+
+/** Time left until the next daily (00:00 UTC), as `5h 12m` / `12m` (re-checked every 30s). */
+function useUntilNextUtcDay(): string {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const d = new Date(now);
+  const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+  const mins = Math.max(1, Math.ceil((next - now) / 60_000));
+  const h = Math.floor(mins / 60);
+  return h > 0 ? `${h}h ${mins % 60}m` : `${mins}m`;
 }
 
 function EndlessGame({ site, categories }: { site: Site; categories: TagdleCategory[] }) {

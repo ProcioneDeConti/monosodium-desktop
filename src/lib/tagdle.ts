@@ -111,11 +111,63 @@ export function correctSide(pair: TagdlePair): Side {
   return pair.left.post_count > pair.right.post_count ? "left" : "right";
 }
 
-/** Shareable result block: `Tagdle e621 2026-10-14 7/10` + one emoji per round. */
+/** One-or-two-word verdict for a daily score, used on the summary and in the share text. */
+export function scoreVerdict(score: number, total: number): string {
+  if (total === 0) return "";
+  const pct = score / total;
+  if (pct === 1) return "Flawless";
+  if (pct >= 0.8) return "Tag sommelier";
+  if (pct >= 0.6) return "Sharp eye";
+  if (pct >= 0.4) return "Coin flipper";
+  if (pct > 0) return "Lost in the tags";
+  return "Perfectly wrong";
+}
+
+/** Longest run of consecutive correct picks. */
+export function longestRun(results: boolean[]): number {
+  let best = 0;
+  let run = 0;
+  for (const ok of results) {
+    run = ok ? run + 1 : 0;
+    best = Math.max(best, run);
+  }
+  return best;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** `2026-10-14` -> `Oct 14, 2026`. Parsed by hand so the local timezone can't shift the day. */
+export function formatDayKey(dayKey: string): string {
+  const [y, m, d] = dayKey.split("-").map(Number);
+  if (!y || !m || !d) return dayKey;
+  return `${MONTHS[m - 1]} ${d}, ${y}`;
+}
+
+/** Shareable result block, e.g.
+ *
+ *  ```
+ *  🦝 Tagdle · e621 · Oct 14, 2026
+ *  7/10 · Sharp eye
+ *  🟩🟩🟥🟩🟩
+ *  🟩🟥🟩🟩🟥
+ *  🔥 Longest run: 4
+ *  ```
+ *
+ *  Rounds wrap in rows of five so a 10-round grid reads at a glance. The run line is left off
+ *  when it would say nothing (no correct picks, or a perfect game). */
 export function shareText(site: string, dayKey: string, results: boolean[]): string {
   const score = results.filter(Boolean).length;
-  const grid = results.map((ok) => (ok ? "🟩" : "🟥")).join("");
-  return `Tagdle ${site} ${dayKey} ${score}/${results.length}\n${grid}`;
+  const tiles = results.map((ok) => (ok ? "🟩" : "🟥"));
+  const rows: string[] = [];
+  for (let i = 0; i < tiles.length; i += 5) rows.push(tiles.slice(i, i + 5).join(""));
+  const run = longestRun(results);
+  const lines = [
+    `🦝 Tagdle · ${site} · ${formatDayKey(dayKey)}`,
+    `${score}/${results.length} · ${scoreVerdict(score, results.length)}`,
+    ...rows,
+  ];
+  if (run > 0 && run < results.length) lines.push(`🔥 Longest run: ${run}`);
+  return lines.join("\n");
 }
 
 /** Display name for a tag: underscores to spaces, like e621's own tag list. */
