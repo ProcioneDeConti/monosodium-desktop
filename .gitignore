@@ -24,3 +24,6 @@ dist-release
 *.njsproj
 *.sln
 *.sw?
+
+# Raw music downloads, staged before encoding into bgmusic/
+bgmusic-incoming/

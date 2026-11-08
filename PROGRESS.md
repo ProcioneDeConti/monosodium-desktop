@@ -2383,3 +2383,9 @@ live call before implementing (per user instruction - no more guessing).
         `hat`/`headwear`), and an optional Hint shows the shared tag for half points. Scoring moved
         to points (10, or 5 with the hint), so bests restart under `oddOneOut2:`. Unit-tested.
         Not yet live-tested.
+
+- [x] **Games music overhaul**
+      - Every old track removed (house/trance/jazz, Pixabay + OpenGameArt); replaced by 31
+        hand-picked Alex Morgan tracks from Pixabay in `bgmusic/{jazz,latin,electronic,upbeat}/`,
+        Opus 112k, 78MB (was ~153MB). Credits + Pixabay ids in `bgmusic/CREDITS.md`. Raw
+        downloads go in the gitignored `bgmusic-incoming/`. Not yet live-tested.
