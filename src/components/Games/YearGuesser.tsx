@@ -1,6 +1,14 @@
 import { useMemo, useState } from "react";
 import { CalendarClock } from "lucide-react";
-import { FIRST_YEAR, gameImageUrl, QUIZ_ROUNDS, uploadYear, yearPoints, yearRangeTag } from "../../lib/games";
+import {
+  FIRST_YEAR,
+  gameImageUrl,
+  QUIZ_ROUNDS,
+  uploadYear,
+  yearPoints,
+  yearRangeTag,
+  type RoundOutcome,
+} from "../../lib/games";
 import type { Site } from "../../models/site";
 import { useGamesStore } from "../../state/gamesStore";
 import {
@@ -57,11 +65,12 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
   const [score, setScore] = useState(0);
   const [guess, setGuess] = useState(() => Math.round((minYear + maxYear) / 2));
   const [locked, setLocked] = useState(false);
+  const [results, setResults] = useState<RoundOutcome[]>([]);
   const query = useYearSource(site, years, round, favUser);
 
   if (query.error) return <ErrorNote error={query.error} />;
   if (round >= QUIZ_ROUNDS) {
-    return <RunSummary score={score} max={QUIZ_ROUNDS * 100} previousBest={previousBest} onRestart={onRestart} />;
+    return <RunSummary score={score} max={QUIZ_ROUNDS * 100} previousBest={previousBest} results={results} onRestart={onRestart} />;
   }
   if (query.isLoading) return <CenteredSpinner label="Digging through the archives…" />;
   const post = query.data?.post;
@@ -73,6 +82,7 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
 
   function lockIn() {
     setLocked(true);
+    setResults([...results, points / 100]);
     setScore(score + points);
   }
 
@@ -85,10 +95,10 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
 
   return (
     <div>
-      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} />
+      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} results={results} />
       <div className="flex flex-col items-center gap-4">
         <p className="text-sm font-semibold opacity-70">What year was this uploaded?</p>
-        <GameImage url={gameImageUrl(post)!} className="h-[40vh] w-full max-w-xl" />
+        <GameImage url={gameImageUrl(post)!} className="h-[40vh] w-full max-w-xl" photo settled={locked} />
         <div className="w-full max-w-xl rounded-xl bg-neutral-900/80 px-4 py-3 backdrop-blur-sm">
           <div className="mb-1 flex items-baseline justify-center gap-3">
             <span className="text-3xl font-black tabular-nums">{guess}</span>
@@ -119,7 +129,7 @@ function YearRun({ site, favUser, onRestart }: { site: Site; favUser: string | n
           </NextButton>
         ) : (
           <>
-            <Verdict ok={points === 100}>
+            <Verdict ok={points === 100} close={points > 0}>
               {points === 100 ? "+100 pts" : `${Math.abs(guess - actual)} off, +${points} pts`}
             </Verdict>
             <RoundActions

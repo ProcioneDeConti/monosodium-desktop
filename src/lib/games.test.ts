@@ -28,6 +28,10 @@ import {
   speedPoints,
   zoomPoints,
   ZOOM_LEVELS,
+  currentStreak,
+  longestStreak,
+  runGrade,
+  runShareText,
 } from "./games";
 import { seededRandom, type PoolTag } from "./tagdle";
 
@@ -56,6 +60,31 @@ describe("speedPoints / zoomPoints", () => {
   it("gives one fewer zoom point per level, 1 at the last", () => {
     expect(zoomPoints(0)).toBe(ZOOM_LEVELS.length);
     expect(zoomPoints(ZOOM_LEVELS.length - 1)).toBe(1);
+  });
+});
+
+describe("run summaries", () => {
+  it("counts streaks of fully-right rounds only", () => {
+    const r = [1, 1, 0, 1, 1, 1, 0.5, 1];
+    expect(longestStreak(r)).toBe(3);
+    expect(currentStreak(r)).toBe(1);
+    expect(currentStreak([1, 0])).toBe(0);
+  });
+
+  it("grades by share of the max", () => {
+    expect(runGrade(10, 10).letter).toBe("S");
+    expect(runGrade(8, 10).letter).toBe("A");
+    expect(runGrade(565, 1000).letter).toBe("C");
+    expect(runGrade(0, 10).letter).toBe("F");
+  });
+
+  it("formats share text in rows of five", () => {
+    expect(runShareText("Whodunnit", "e621", 8, 10, "correct", [1, 1, 0, 1, 1, 1, 1, 1, 0, 1])).toBe(
+      "🎮 Whodunnit · e621\n8/10 correct · Grade A\n🟩🟩🟥🟩🟩\n🟩🟩🟩🟥🟩\n🔥 Best streak: 5",
+    );
+    expect(runShareText("Time Machine", "e6AI", 250, 300, "pts", [1, 0.5, 1])).toBe(
+      "🎮 Time Machine · e6AI\n250/300 pts · Grade A\n🟩🟨🟩",
+    );
   });
 });
 

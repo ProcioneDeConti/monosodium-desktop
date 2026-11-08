@@ -30,6 +30,9 @@ interface GamesState {
   /** Background music while the Games panel is open. */
   musicOn: boolean;
   setMusicOn: (on: boolean) => void;
+  /** Sound effects in the post-based games (components/Games/sfx.ts). */
+  sfxOn: boolean;
+  setSfxOn: (on: boolean) => void;
   /** The Gus pet game's state (null until first opened - he "hatches" then). */
   pet: PetState | null;
   setPet: (pet: PetState | null) => void;
@@ -81,6 +84,7 @@ export const useGamesStore = create<GamesState>((set, get) => ({
   sixDaily: {},
   favoritesOnly: false,
   musicOn: true,
+  sfxOn: true,
   pet: null,
   chat: EMPTY_MEMORY,
   chatNasty: false,
@@ -139,6 +143,11 @@ export const useGamesStore = create<GamesState>((set, get) => ({
     void persist("musicOn", musicOn);
   },
 
+  setSfxOn: (sfxOn) => {
+    set({ sfxOn });
+    void persist("sfxOn", sfxOn);
+  },
+
   setFavoritesOnly: (favoritesOnly) => {
     set({ favoritesOnly });
     void persist("favoritesOnly", favoritesOnly);
@@ -173,6 +182,7 @@ export async function loadGames(): Promise<void> {
   const sixDaily = (await store.get<Record<string, number | null>>("sixDaily")) ?? {};
   const favoritesOnly = (await store.get<boolean>("favoritesOnly")) ?? false;
   const musicOn = (await store.get<boolean>("musicOn")) ?? true;
+  const sfxOn = (await store.get<boolean>("sfxOn")) ?? true;
   const pet = (await store.get<PetState>("pet")) ?? null;
   const chat = { ...EMPTY_MEMORY, ...((await store.get<ChatMemory>("chat")) ?? {}) };
   const chatNasty = (await store.get<boolean>("chatNasty")) ?? false;
@@ -187,6 +197,7 @@ export async function loadGames(): Promise<void> {
     sixDaily,
     favoritesOnly,
     musicOn,
+    sfxOn,
     pet,
     chat,
     chatNasty,

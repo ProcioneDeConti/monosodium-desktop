@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Pause, Play, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
+import { Pause, Play, SkipForward, Sparkles, Volume1, Volume2, VolumeX } from "lucide-react";
 import { shuffle } from "../../lib/games";
 import { useGamesStore } from "../../state/gamesStore";
 import { Mascot } from "../ui/Mascot";
@@ -49,11 +49,14 @@ const DEFAULT_VOLUME = 0.25;
 
 /** Background music for the Games panel: a shuffled loop through the bundled tracks, playing for
  *  as long as the panel is mounted. Renders its own play/pause, skip and volume controls; on/off
- *  is remembered in gamesStore; volume always starts at DEFAULT_VOLUME. */
-export function GameMusic() {
+ *  is remembered in gamesStore; volume always starts at DEFAULT_VOLUME. With `showSfx`, it also
+ *  carries the sound-effects toggle, so all the audio controls live in one place. */
+export function GameMusic({ showSfx = false }: { showSfx?: boolean }) {
   const isLoaded = useGamesStore((s) => s.isLoaded);
   const on = useGamesStore((s) => s.musicOn);
   const setOn = useGamesStore((s) => s.setMusicOn);
+  const sfxOn = useGamesStore((s) => s.sfxOn);
+  const setSfxOn = useGamesStore((s) => s.setSfxOn);
   const [volume, setVolume] = useState(DEFAULT_VOLUME);
   // A fresh shuffle every time the panel opens (it's unmounted while closed) and again each time
   // the playlist runs out, so no two sessions or laps play in the same order.
@@ -130,7 +133,7 @@ export function GameMusic() {
   const byline = [track?.artist, track?.genre].filter(Boolean).join(" · ");
 
   return (
-    <div className="flex min-w-0 items-center gap-1.5 rounded-full border border-black/10 dark:border-white/15 py-0.5 pl-0.5 pr-1.5">
+    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden rounded-full border border-black/10 dark:border-white/15 py-0.5 pl-0.5 pr-1.5">
       <AlbumArt track={track} />
       <div
         className="mr-0.5 w-28 min-w-0 shrink leading-tight"
@@ -172,8 +175,21 @@ export function GameMusic() {
         value={volume}
         onChange={(e) => setVolume(Number(e.target.value))}
         aria-label="Music volume"
-        className="w-14 accent-[rgb(var(--accent))]"
+        className="w-14 shrink-0 accent-[rgb(var(--accent))]"
       />
+      {showSfx && (
+        <button
+          type="button"
+          onClick={() => setSfxOn(!sfxOn)}
+          title={sfxOn ? "Sound effects: on - click to mute them" : "Sound effects: off - click to turn them on"}
+          aria-pressed={sfxOn}
+          className={`ml-0.5 shrink-0 rounded-full border-l border-black/10 dark:border-white/15 p-[3px] pl-2 ${
+            sfxOn ? "text-[rgb(var(--accent))]" : "opacity-40 hover:opacity-80"
+          }`}
+        >
+          <Sparkles size={13} />
+        </button>
+      )}
     </div>
   );
 }

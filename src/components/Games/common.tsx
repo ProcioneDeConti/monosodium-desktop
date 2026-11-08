@@ -1,20 +1,93 @@
-import { useCallback, useEffect, useReducer, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { MascotCue } from "../Mascot/MascotLayer";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Check, ExternalLink, RotateCcw, Trophy, X } from "lucide-react";
+import { ArrowRight, Check, Copy, CornerDownLeft, ExternalLink, Flame, Trophy, X } from "lucide-react";
 import { e621Api } from "../../api/client";
 import { visiblePosts } from "../../lib/blacklist";
-import { gameImageUrl } from "../../lib/games";
+import {
+  currentStreak,
+  gameImageUrl,
+  longestStreak,
+  runGrade,
+  runShareText,
+  type RoundOutcome,
+} from "../../lib/games";
 import { openPostWindow } from "../../lib/postWindow";
-import { displayTagName } from "../../lib/tagdle";
+import { displayTagName, hashString } from "../../lib/tagdle";
 import type { Post } from "../../models/post";
-import type { Site } from "../../models/site";
+import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { useAccountStore } from "../../state/accountStore";
 import { loadGameSpecies, useGamesStore } from "../../state/gamesStore";
 import { useEffectiveBlacklist, useSettingsStore } from "../../state/settingsStore";
 import { ConfettiBurst } from "../Tagdle/Confetti";
-import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
+import { sfx } from "./sfx";
+
+/** Which game is on screen - set by GamesPanel, read by the run summary's share text. */
+export interface GameMeta {
+  name: string;
+  site: Site;
+}
+export const GameMetaContext = createContext<GameMeta | null>(null);
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** Runs `effect` once per mount, even under StrictMode's double-invoked effects - for one-shot
+ *  sounds that would otherwise play twice in dev. */
+function useOnce(effect: () => void) {
+  const done = useRef(false);
+  useEffect(() => {
+    if (done.current) return;
+    done.current = true;
+    effect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
+
+/** `value`, animated from its previous value over `ms` (ease-out) - for scores ticking up.
+ *  Animates only while it changes; instant under reduced motion. */
+function useCountUp(value: number, ms = 650): number {
+  const [shown, setShown] = useState(value);
+  const current = useRef(value);
+  useEffect(() => {
+    const from = current.current;
+    if (from === value) return;
+    if (prefersReducedMotion()) {
+      current.current = value;
+      setShown(value);
+      return;
+    }
+    const t0 = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - t0) / ms);
+      const v = Math.round(from + (value - from) * (1 - (1 - p) ** 3));
+      current.current = v;
+      setShown(v);
+      if (p < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value, ms]);
+  return shown;
+}
+
+/** Tile colour for a round outcome. */
+function outcomeClass(r: RoundOutcome): string {
+  return r >= 1 ? "bg-green-500" : r > 0 ? "bg-amber-400" : "bg-red-500";
+}
 
 /** The user's rating filter as a tag string ("" when every rating is allowed). */
 export function useRatingFilter(): string {
@@ -242,19 +315,30 @@ export function GameImage({
   className = "",
   imgStyle,
   hideEdges = false,
+  photo = false,
+  settled = false,
   children,
 }: {
   url: string;
   className?: string;
   imgStyle?: CSSProperties;
   hideEdges?: boolean;
+  /** The round's main picture: a printed-photo frame, tilted a degree or two until `settled`. */
+  photo?: boolean;
+  /** The round's been answered - the photo straightens up. */
+  settled?: boolean;
   children?: ReactNode;
 }) {
   const mask: CSSProperties = hideEdges
     ? { maskImage: EDGE_MASK, WebkitMaskImage: EDGE_MASK, maskComposite: "intersect", WebkitMaskComposite: "source-in" }
     : {};
   return (
-    <div className={`relative flex items-center justify-center overflow-hidden rounded-xl bg-black/20 dark:bg-black/40 ${className}`}>
+    <div
+      className={`relative flex items-center justify-center overflow-hidden bg-black/20 dark:bg-black/40 ${
+        photo ? "game-photo rounded-lg" : "rounded-xl"
+      } ${className}`}
+      style={photo && !settled ? { transform: `rotate(${photoTilt(url)}deg)` } : undefined}
+    >
       <img
         src={url}
         alt=""
@@ -288,7 +372,16 @@ export function GameImage({
   );
 }
 
-/** A 2-column multiple-choice grid. After a pick the answer turns green, a wrong pick red. */
+/** A subtle tilt for a photo, -1.8..1.8 degrees (never near-flat), fixed per image so a re-render
+ *  doesn't wobble it. */
+function photoTilt(url: string): number {
+  const h = hashString(url);
+  const mag = 0.9 + ((h >>> 1) % 90) / 100;
+  return h & 1 ? mag : -mag;
+}
+
+/** A 2-column multiple-choice grid of sticker buttons, numbered 1-4 (the number keys pick them).
+ *  After a pick the answer pops green and a wrong pick shakes red. */
 export function ChoiceGrid({
   choices,
   answer,
@@ -306,32 +399,59 @@ export function ChoiceGrid({
   onPick: (choice: string) => void;
   label?: (choice: string) => string;
 }) {
+  // Number keys pick a choice while the round is open. Latest props via a ref, so the listener is
+  // attached once per open round rather than on every render.
+  const live = useRef({ choices, disabled, onPick });
+  live.current = { choices, disabled, onPick };
+  const open = picked === null;
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.altKey || e.metaKey || e.repeat) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      const i = Number(e.key) - 1;
+      const { choices: cs, disabled: off, onPick: pickIt } = live.current;
+      if (!Number.isInteger(i) || i < 0 || i >= cs.length || off?.has(cs[i])) return;
+      e.preventDefault();
+      pickIt(cs[i]);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
-    <div className="grid w-full max-w-xl grid-cols-2 gap-2">
-      {choices.map((c) => {
+    <div className="grid w-full max-w-xl grid-cols-2 gap-2.5">
+      {choices.map((c, i) => {
         const ruledOut = disabled?.has(c) ?? false;
-        const state =
-          picked === null
-            ? ruledOut
-              ? "opacity-35 line-through"
-              : "hover:border-[rgb(var(--accent))] hover:bg-[rgb(var(--accent))]/10"
-            : c === answer
-              ? "border-green-500 bg-green-500/15 text-green-600 dark:text-green-400"
-              : c === picked || ruledOut
-                ? "border-red-500 bg-red-500/10 text-red-500"
-                : "opacity-50";
+        const isAnswer = picked !== null && c === answer;
+        const isWrong = picked !== null && c !== answer && (c === picked || ruledOut);
+        const state = open
+          ? ruledOut
+            ? "bg-red-500/25 opacity-50 line-through"
+            : "bg-neutral-900/90 hover:bg-[rgb(var(--game))]"
+          : isAnswer
+            ? "game-anim bg-green-500 animate-[game-pop-in_0.35s_ease-out]"
+            : isWrong
+              ? `bg-red-500 ${c === picked ? "game-anim animate-[game-shake_0.45s_ease-in-out]" : "opacity-60"}`
+              : "bg-neutral-900/90 opacity-40";
         return (
           <button
             key={c}
             type="button"
-            disabled={picked !== null || ruledOut}
+            disabled={!open || ruledOut}
             onClick={() => onPick(c)}
-            className={`relative flex items-center justify-center gap-1.5 rounded-xl border-2 border-black/10 dark:border-white/10
-                        bg-neutral-900/80 backdrop-blur-sm px-3 py-2.5 text-sm font-semibold transition-colors ${state}`}
+            className={`game-sticker-sm game-press group relative flex min-h-11 items-center justify-center rounded-xl py-2.5 pl-10 pr-3
+                        text-sm font-bold text-white ${state}`}
           >
-            {picked !== null && c === answer && <Check size={15} strokeWidth={3} />}
-            {picked !== null && c !== answer && (c === picked || ruledOut) && <X size={15} strokeWidth={3} />}
-            {label(c)}
+            <span
+              className={`absolute left-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-xs font-black ${
+                isAnswer || isWrong ? "bg-black/25" : "bg-white/15 group-hover:bg-black/25"
+              }`}
+            >
+              {isAnswer ? <Check size={14} strokeWidth={3.5} /> : isWrong ? <X size={14} strokeWidth={3.5} /> : i + 1}
+            </span>
+            <span className="break-words">{label(c)}</span>
           </button>
         );
       })}
@@ -339,50 +459,95 @@ export function ChoiceGrid({
   );
 }
 
-/** Round counter + progress bar + running score for the quiz-style runs. */
+/** The quiz runs' score banner: round badge, live streak flame, a score that ticks up (with a
+ *  "+N" floating off it), best, and one progress segment per round coloured by how it went. */
 export function RunHeader({
   round,
   total,
   score,
   best,
   unit = "pts",
+  results,
 }: {
   round: number;
   total: number;
   score: number;
   best: number;
   unit?: string;
+  /** Each finished round's outcome; without it the segments just fill in the game's colour. */
+  results?: RoundOutcome[];
 }) {
+  const shown = useCountUp(score);
+  const streak = results ? currentStreak(results) : 0;
+  // "+N" floater: keyed by the score it rose to, so each gain replays the animation.
+  const lastScore = useRef(score);
+  const [gain, setGain] = useState<{ n: number; key: number } | null>(null);
+  useEffect(() => {
+    if (score > lastScore.current) setGain({ n: score - lastScore.current, key: score });
+    lastScore.current = score;
+  }, [score]);
+  useOnce(() => {
+    if (round === 0) sfx.resetCombo();
+  });
+
   return (
-    <div className="mb-4 rounded-xl bg-neutral-900/80 px-3 py-2.5 backdrop-blur-sm">
-      <div className="mb-2 flex items-center gap-3 text-sm">
-        <span className="font-bold">
+    <div className="game-sticker mb-5 rounded-2xl bg-neutral-900/90 px-3 py-2.5">
+      <div className="mb-2.5 flex items-center gap-2.5">
+        <span className="game-sticker-sm rounded-lg bg-[rgb(var(--game))] px-2.5 py-0.5 text-xs font-black uppercase tracking-wider text-white">
           Round {Math.min(round + 1, total)}
-          <span className="font-normal opacity-50">/{total}</span>
+          <span className="opacity-60">/{total}</span>
         </span>
-        <span className="ml-auto font-bold tabular-nums">
-          {score} <span className="font-normal opacity-50">{unit}</span>
+        {streak >= 2 && (
+          <span
+            key={streak}
+            className="game-anim flex animate-[game-pop-in_0.35s_ease-out] items-center gap-0.5 rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-black text-orange-400"
+            title={`${streak} in a row`}
+          >
+            <Flame size={11 + Math.min(streak, 8) * 1.2} className="fill-orange-400/60" />
+            {streak}
+          </span>
+        )}
+        <span className="relative ml-auto text-xl font-black tabular-nums">
+          {gain && (
+            <span
+              key={gain.key}
+              className="game-anim pointer-events-none absolute -top-4 right-0 animate-[game-float_1.1s_ease-out_both] text-sm font-black text-green-400"
+            >
+              +{gain.n}
+            </span>
+          )}
+          {shown} <span className="text-xs font-semibold opacity-50">{unit}</span>
         </span>
-        <span className="flex items-center gap-1 rounded-full bg-yellow-500/15 px-2.5 py-0.5 text-xs font-semibold text-yellow-600 dark:text-yellow-400">
-          <Trophy size={12} /> Best {best}
+        <span className="flex items-center gap-1 rounded-full bg-yellow-500/15 px-2.5 py-0.5 text-xs font-bold text-yellow-400">
+          <Trophy size={12} /> {best}
         </span>
       </div>
-      <div className="h-1 overflow-hidden rounded-full bg-black/10 dark:bg-white/15">
-        <div
-          className="h-full rounded-full bg-[rgb(var(--accent))] transition-[width] duration-500"
-          style={{ width: `${(round / total) * 100}%` }}
-        />
+      <div className="flex gap-1">
+        {Array.from({ length: total }, (_, i) => {
+          const done = results ? results[i] : i < round ? 1 : undefined;
+          const color =
+            done === undefined
+              ? i === round
+                ? "bg-[rgb(var(--game))]/50"
+                : "bg-white/12"
+              : results
+                ? outcomeClass(done)
+                : "bg-[rgb(var(--game))]";
+          return <span key={i} className={`h-2 flex-1 rounded-full transition-colors duration-300 ${color}`} />;
+        })}
       </div>
     </div>
   );
 }
 
-/** End-of-run card: score, new-best confetti, play again. */
+/** End-of-run poster: grade, a score that counts up, per-round tiles, best streak, a "NEW BEST"
+ *  sticker when earned, a copyable share block, and Play again. */
 export function RunSummary({
   score,
   max,
   previousBest,
   unit = "pts",
+  results,
   onRestart,
 }: {
   score: number;
@@ -390,34 +555,119 @@ export function RunSummary({
   /** The best before this run, so "New best!" only fires when it was actually beaten. */
   previousBest: number;
   unit?: string;
+  results?: RoundOutcome[];
   onRestart: () => void;
 }) {
+  const meta = useContext(GameMetaContext);
   const newBest = score > previousBest;
+  const grade = runGrade(score, max);
+  // Counts up from zero on arrival.
+  const [target, setTarget] = useState(0);
+  useEffect(() => setTarget(score), [score]);
+  const shown = useCountUp(target, 900);
+  const [copied, setCopied] = useState(false);
+  const share = meta && results ? runShareText(meta.name, SITE_DISPLAY_NAME[meta.site], score, max, unit, results) : null;
+  const streak = results ? longestStreak(results) : 0;
+  useOnce(() => sfx.finish(newBest));
+
+  async function copy() {
+    if (!share) return;
+    await navigator.clipboard.writeText(share);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
   return (
-    <div className="flex flex-col items-center gap-3 py-10 text-center">
-      <p className="relative text-4xl font-black tabular-nums">
+    <div className="mx-auto flex max-w-md flex-col items-center gap-5 py-6 text-center">
+      <div className="game-sticker relative w-full rounded-3xl bg-neutral-900/90 px-6 pb-6 pt-7">
         {/* Any run that scored gets the rainbow, like Tagdle's finished daily. */}
         {score > 0 && <ConfettiBurst variant="rainbow" />}
         <MascotCue kind={score > 0 ? "gameWin" : "gameLose"} />
-        {score}
-        <span className="text-xl font-semibold opacity-50">
-          {" "}
-          / {max} {unit}
-        </span>
-      </p>
-      <p className="text-sm opacity-60">{newBest ? "New best!" : `Best: ${previousBest}`}</p>
-      <Button onClick={onRestart} icon={<RotateCcw size={14} />}>
-        Play again
-      </Button>
+        {newBest && (
+          <span className="game-anim game-sticker-sm absolute -right-3 -top-3 animate-[game-stamp_0.5s_0.6s_ease-out_both] rounded-full bg-yellow-400 px-3 py-1 text-xs font-black uppercase tracking-wider text-black [--stamp-tilt:8deg] [text-shadow:none]">
+            New best!
+          </span>
+        )}
+        <div className="flex items-center justify-center gap-4">
+          <span className="game-sticker game-anim flex h-16 w-16 shrink-0 animate-[game-stamp_0.5s_ease-out_both] items-center justify-center rounded-2xl bg-[rgb(var(--game))] text-4xl font-black text-white [--stamp-tilt:-6deg]">
+            {grade.letter}
+          </span>
+          <div className="text-left">
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-[rgb(var(--game))] brightness-125">{grade.title}</p>
+            <p className="text-5xl font-black leading-none tabular-nums">
+              {shown}
+              <span className="text-lg font-bold opacity-50">
+                {" "}
+                / {max} {unit}
+              </span>
+            </p>
+          </div>
+        </div>
+        {results && (
+          <div className="mt-5 grid grid-cols-5 justify-items-center gap-1.5">
+            {results.map((r, i) => (
+              <span
+                key={i}
+                className={`game-anim game-sticker-sm flex h-9 w-9 animate-[game-pop-in_0.35s_ease-out_both] items-center justify-center rounded-lg text-white ${outcomeClass(r)}`}
+                style={{ animationDelay: `${300 + i * 60}ms` }}
+              >
+                {r >= 1 ? <Check size={17} strokeWidth={3.5} /> : r > 0 ? "~" : <X size={17} strokeWidth={3.5} />}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs font-bold">
+          {results && streak > 0 && (
+            <span className="flex items-center gap-1 rounded-full bg-orange-500/20 px-2.5 py-1 text-orange-400">
+              <Flame size={13} /> Best streak {streak}
+            </span>
+          )}
+          <span className="flex items-center gap-1 rounded-full bg-yellow-500/15 px-2.5 py-1 text-yellow-400">
+            <Trophy size={13} /> {newBest ? `Previous best ${previousBest}` : `Best ${previousBest}`}
+          </span>
+        </div>
+      </div>
+
+      {share && (
+        <div className="game-sticker-sm w-full rounded-2xl bg-neutral-900/90 p-3 text-left">
+          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed [text-shadow:none]">{share}</pre>
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => void copy()}
+              className="game-sticker-sm game-press flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-bold"
+            >
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+              {copied ? "Copied!" : "Copy result"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <NextButton onClick={onRestart}>Play again</NextButton>
     </div>
   );
 }
 
+/** Light-hearted lines under a loading label - one picked per load, no cycling. */
+const LOADING_QUIPS = [
+  "Bribing the raccoon…",
+  "Polishing the stickers…",
+  "Loading the confetti cannon…",
+  "Rummaging through the bins…",
+  "Shaking down the alley…",
+  "Asking Gus nicely…",
+];
+
 export function CenteredSpinner({ label }: { label: string }) {
+  const [quip] = useState(() => LOADING_QUIPS[Math.floor(Math.random() * LOADING_QUIPS.length)]);
   return (
-    <div className="flex h-56 flex-col items-center justify-center gap-2 text-sm opacity-70">
-      <Spinner />
-      {label}
+    <div className="flex h-56 flex-col items-center justify-center gap-2 text-sm">
+      <span className="game-sticker-sm flex h-12 w-12 items-center justify-center rounded-full bg-[rgb(var(--game))]">
+        <Spinner />
+      </span>
+      <span className="font-bold">{label}</span>
+      <span className="text-xs italic opacity-60">{quip}</span>
     </div>
   );
 }
@@ -426,32 +676,59 @@ export function ErrorNote({ error }: { error: unknown }) {
   return <p className="text-sm text-red-500">Couldn't load posts: {String(error)}</p>;
 }
 
-/** "Correct!" / "Not quite!" line under a round - a correct one pops a small confetti burst. */
-export function Verdict({ ok, children }: { ok: boolean; children?: ReactNode }) {
+const CHEERS = ["Correct!", "Nailed it!", "Yes!", "Bingo!", "Spot on!"];
+
+/** The round's verdict: a big tilted sticker that stamps down ("Correct!" / "Close!" / "Nope!"),
+ *  with the sound, confetti and mascot reaction to match. `children` (e.g. "+92 · Speedy!") sits
+ *  in a pill underneath. */
+export function Verdict({ ok, close = false, children }: { ok: boolean; close?: boolean; children?: ReactNode }) {
+  const [cheer] = useState(() => CHEERS[Math.floor(Math.random() * CHEERS.length)]);
+  useOnce(() => {
+    sfx.thump();
+    if (ok) sfx.correct();
+    else if (close) sfx.close();
+    else sfx.wrong();
+  });
+  const tone = ok ? "bg-green-500" : close ? "bg-amber-400 text-black [text-shadow:none]" : "bg-red-500";
   return (
-    <p
-      className={`relative rounded-full bg-neutral-900/85 px-3 py-1 text-sm font-semibold ${ok ? "text-green-400" : "text-red-400"}`}
-    >
+    <div className="relative flex flex-col items-center gap-2">
       {ok && <ConfettiBurst />}
-      <MascotCue kind={ok ? "gameRight" : "gameWrong"} />
-      {ok ? "Correct!" : "Not quite!"} {children}
-    </p>
+      <MascotCue kind={ok || close ? "gameRight" : "gameWrong"} />
+      <span
+        className={`game-sticker game-anim inline-block animate-[game-stamp_0.45s_ease-out_both] rounded-xl px-5 py-1 text-2xl font-black uppercase italic tracking-wide text-white ${tone}`}
+        style={{ "--stamp-tilt": ok ? "-4deg" : "3deg" } as CSSProperties}
+      >
+        {ok ? cheer : close ? "Close!" : "Nope!"}
+      </span>
+      {children && (
+        <span className="game-anim animate-[game-pop-in_0.3s_0.25s_ease-out_both] rounded-full bg-neutral-900/90 px-3 py-0.5 text-sm font-bold">
+          {children}
+        </span>
+      )}
+    </div>
   );
 }
 
-/** The big "Next" call to action - an accent pill, hard to miss on the brick wall. */
+/** The big "Next" call to action - a chunky sticker in the game's colour, hard to miss on the
+ *  brick wall. Focused on arrival, so Enter presses it (the hint says so). */
 export function NextButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        sfx.tap();
+        onClick();
+      }}
       autoFocus
-      className="flex items-center gap-2 rounded-full bg-[rgb(var(--accent))] px-7 py-2.5 text-sm font-bold text-white
-                 shadow-lg shadow-black/40 transition hover:brightness-110 active:scale-95
-                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+      className="game-sticker game-press flex items-center gap-2 rounded-full bg-[rgb(var(--game))] px-7 py-2.5 text-base font-black
+                 uppercase tracking-wide text-white hover:brightness-110
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
     >
       {children}
-      <ArrowRight size={16} strokeWidth={2.5} />
+      <ArrowRight size={18} strokeWidth={3} />
+      <kbd className="ml-1 flex items-center gap-0.5 rounded-md bg-black/25 px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal">
+        <CornerDownLeft size={10} strokeWidth={3} /> Enter
+      </kbd>
     </button>
   );
 }
@@ -465,8 +742,8 @@ export function ViewPostButton({ site, post, label }: { site: Site; post: Post; 
     <button
       type="button"
       onClick={() => openPostWindow(post.id, site)}
-      className="flex items-center gap-1.5 rounded-full border border-white/15 bg-neutral-900/80 px-3 py-1 text-xs
-                 font-semibold text-white transition-colors hover:border-[rgb(var(--accent))] hover:bg-neutral-800"
+      className="game-sticker-sm game-press flex items-center gap-1.5 rounded-full bg-neutral-900/90 px-3 py-1 text-xs
+                 font-bold text-white hover:bg-neutral-800"
     >
       <ExternalLink size={13} />
       {label ?? `View post #${post.id}`}

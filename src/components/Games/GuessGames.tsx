@@ -3,7 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { Heart, Timer } from "lucide-react";
 import { allTags, type Post } from "../../models/post";
 import type { Site } from "../../models/site";
-import { buildChoices, gameImageUrl, QUIZ_ROUNDS, realArtists, speedLabel, speedPoints } from "../../lib/games";
+import {
+  buildChoices,
+  gameImageUrl,
+  QUIZ_ROUNDS,
+  realArtists,
+  speedLabel,
+  speedPoints,
+  type RoundOutcome,
+} from "../../lib/games";
 import { loadArtistTier, useGamesStore, type ArtistTier } from "../../state/gamesStore";
 import { useEffectiveBlacklist } from "../../state/settingsStore";
 import { Button } from "../ui/Button";
@@ -131,6 +139,7 @@ function ArtistRun({
   const [round, setRound] = useState(0);
   const [score, setScore] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
+  const [results, setResults] = useState<RoundOutcome[]>([]);
 
   // Ranked mode: answers + decoys from the difficulty's band, one search per round.
   const tierList = useArtistTier(site, tier, !favUser);
@@ -162,12 +171,13 @@ function ArtistRun({
   }, [post?.id, answer]);
 
   if (round >= QUIZ_ROUNDS) {
-    return <RunSummary score={score} max={QUIZ_ROUNDS} previousBest={previousBest} unit="correct" onRestart={onRestart} />;
+    return <RunSummary score={score} max={QUIZ_ROUNDS} previousBest={previousBest} unit="correct" results={results} onRestart={onRestart} />;
   }
 
   function pick(choice: string) {
     if (picked) return;
     setPicked(choice);
+    setResults([...results, choice === answer ? 1 : 0]);
     if (choice === answer) setScore(score + 1);
   }
 
@@ -180,7 +190,7 @@ function ArtistRun({
 
   return (
     <div>
-      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} unit="correct" />
+      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} unit="correct" results={results} />
       {source.error ? (
         <ErrorNote error={source.error} />
       ) : source.isLoading || (post && choices.length === 0) ? (
@@ -197,7 +207,13 @@ function ArtistRun({
       ) : (
         <div className="flex flex-col items-center gap-4">
           <p className="text-sm font-semibold opacity-80">Who drew this?</p>
-          <GameImage url={gameImageUrl(post)!} className="h-[46vh] w-full max-w-xl" hideEdges={picked === null} />
+          <GameImage
+            url={gameImageUrl(post)!}
+            className="h-[46vh] w-full max-w-xl"
+            hideEdges={picked === null}
+            photo
+            settled={picked !== null}
+          />
           <ChoiceGrid choices={choices} answer={answer} picked={picked} onPick={pick} />
           {picked && (
             <>
@@ -276,6 +292,7 @@ function SpeciesRun({
   const [score, setScore] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [gained, setGained] = useState(0);
+  const [results, setResults] = useState<RoundOutcome[]>([]);
   const query = useSpeciesSource(site, list, round, favUser);
   const post = query.data?.post;
   const answer = query.data?.answer ?? "";
@@ -283,13 +300,14 @@ function SpeciesRun({
   const { elapsed, start } = useRevealClock(picked === null && !!post, `${round}`);
 
   if (round >= QUIZ_ROUNDS) {
-    return <RunSummary score={score} max={QUIZ_ROUNDS * 100} previousBest={previousBest} onRestart={onRestart} />;
+    return <RunSummary score={score} max={QUIZ_ROUNDS * 100} previousBest={previousBest} results={results} onRestart={onRestart} />;
   }
 
   function pick(choice: string) {
     if (picked) return;
     setPicked(choice);
     const pts = choice === answer ? speedPoints(elapsed, REVEAL_MS) : 0;
+    setResults([...results, choice === answer ? 1 : 0]);
     setGained(pts);
     setScore(score + pts);
   }
@@ -307,7 +325,7 @@ function SpeciesRun({
 
   return (
     <div>
-      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} />
+      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} results={results} />
       {query.error ? (
         <ErrorNote error={query.error} />
       ) : query.isLoading ? (
@@ -334,6 +352,8 @@ function SpeciesRun({
           <GameImage
             url={gameImageUrl(post)!}
             className="h-[46vh] w-full max-w-xl"
+            photo
+            settled={picked !== null}
             imgStyle={{ filter: `blur(${MAX_BLUR_PX * (1 - t)}px)`, transition: picked ? "filter 0.4s" : undefined }}
           >
             <img src={gameImageUrl(post)!} alt="" className="hidden" onLoad={start} />

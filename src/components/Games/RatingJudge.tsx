@@ -3,7 +3,7 @@ import { ShieldAlert } from "lucide-react";
 import type { Post, Rating } from "../../models/post";
 import { RATING_TAG } from "../../models/post";
 import type { Site } from "../../models/site";
-import { gameImageUrl, QUIZ_ROUNDS } from "../../lib/games";
+import { gameImageUrl, QUIZ_ROUNDS, type RoundOutcome } from "../../lib/games";
 import { displayTagName } from "../../lib/tagdle";
 import { useGamesStore } from "../../state/gamesStore";
 import { useSettingsStore } from "../../state/settingsStore";
@@ -84,6 +84,7 @@ function RatingRun({
   const [post, setPost] = useState<Post | null>(null);
   const [target, setTarget] = useState<Rating>(() => ratings[Math.floor(Math.random() * ratings.length)]);
   const [picked, setPicked] = useState<string | null>(null);
+  const [results, setResults] = useState<RoundOutcome[]>([]);
   const deck = decks[target];
 
   // Ratings that can still deal - in favorites mode one may run dry (e.g. no safe favorites).
@@ -103,7 +104,7 @@ function RatingRun({
   const error = decks.s.error ?? decks.q.error ?? decks.e.error;
   if (error) return <ErrorNote error={error} />;
   if (round >= QUIZ_ROUNDS) {
-    return <RunSummary score={score} max={QUIZ_ROUNDS} previousBest={previousBest} unit="correct" onRestart={onRestart} />;
+    return <RunSummary score={score} max={QUIZ_ROUNDS} previousBest={previousBest} unit="correct" results={results} onRestart={onRestart} />;
   }
   if (!post && live.length === 0) return <FavoritesExhausted />;
   if (!post) return <CenteredSpinner label="Shuffling posts…" />;
@@ -113,6 +114,7 @@ function RatingRun({
   function pick(choice: string) {
     if (picked) return;
     setPicked(choice);
+    setResults([...results, choice === answer ? 1 : 0]);
     if (choice === answer) setScore(score + 1);
   }
 
@@ -127,12 +129,14 @@ function RatingRun({
 
   return (
     <div>
-      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} unit="correct" />
+      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} unit="correct" results={results} />
       <div className="flex flex-col items-center gap-4">
         <p className="text-sm font-semibold opacity-70">How is this post rated?</p>
         <GameImage
           url={gameImageUrl(post)!}
           className="h-[36vh] w-full max-w-xl"
+          photo
+          settled={picked !== null}
           imgStyle={{ filter: picked ? "none" : "blur(28px)", transition: "filter 0.5s" }}
         />
         <div className="flex max-w-xl flex-wrap justify-center gap-1 rounded-xl bg-neutral-900/80 p-2.5 backdrop-blur-sm">

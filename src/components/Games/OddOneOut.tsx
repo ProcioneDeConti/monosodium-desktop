@@ -11,6 +11,7 @@ import {
   QUIZ_ROUNDS,
   shuffle,
   type OddOneOutRound,
+  type RoundOutcome,
 } from "../../lib/games";
 import { displayTagName, filterPool } from "../../lib/tagdle";
 import type { Post } from "../../models/post";
@@ -82,6 +83,7 @@ function OddRun({
   const [round, setRound] = useState(0);
   const [score, setScore] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
+  const [results, setResults] = useState<RoundOutcome[]>([]);
 
   const searched = useSearchedRound(site, candidates, round, !favUser);
   const fromFavs = useFavoritesRound(site, favUser, candidates, round);
@@ -89,7 +91,7 @@ function OddRun({
 
   if (current.error) return <ErrorNote error={current.error} />;
   if (round >= QUIZ_ROUNDS) {
-    return <RunSummary score={score} max={QUIZ_ROUNDS} previousBest={previousBest} unit="correct" onRestart={onRestart} />;
+    return <RunSummary score={score} max={QUIZ_ROUNDS} previousBest={previousBest} unit="correct" results={results} onRestart={onRestart} />;
   }
   if (current.isLoading) return <CenteredSpinner label="Picking a tag…" />;
   const data = current.data;
@@ -104,6 +106,7 @@ function OddRun({
   function pick(i: number) {
     if (picked !== null) return;
     setPicked(i);
+    setResults([...results, i === data!.odd ? 1 : 0]);
     if (i === data!.odd) setScore(score + 1);
   }
 
@@ -116,7 +119,7 @@ function OddRun({
 
   return (
     <div>
-      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} unit="correct" />
+      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} unit="correct" results={results} />
       <div className="flex flex-col items-center gap-4">
         <p className="text-sm font-semibold opacity-70">
           {picked === null ? (

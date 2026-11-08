@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { ZoomOut } from "lucide-react";
 import type { Site } from "../../models/site";
-import { gameImageUrl, QUIZ_ROUNDS, ZOOM_LEVELS, zoomPoints } from "../../lib/games";
+import { gameImageUrl, QUIZ_ROUNDS, ZOOM_LEVELS, zoomPoints, type RoundOutcome } from "../../lib/games";
+import { sfx } from "./sfx";
 import { useGamesStore } from "../../state/gamesStore";
 import { Button } from "../ui/Button";
 import {
@@ -50,6 +51,7 @@ function ZoomRun({
   const [level, setLevel] = useState(0);
   const [ruledOut, setRuledOut] = useState<Set<string>>(new Set());
   const [picked, setPicked] = useState<string | null>(null);
+  const [results, setResults] = useState<RoundOutcome[]>([]);
   const query = useSpeciesSource(site, list, round, favUser);
   const post = query.data?.post;
   const answer = query.data?.answer ?? "";
@@ -62,7 +64,7 @@ function ZoomRun({
   );
 
   if (round >= QUIZ_ROUNDS) {
-    return <RunSummary score={score} max={QUIZ_ROUNDS * MAX_POINTS} previousBest={previousBest} onRestart={onRestart} />;
+    return <RunSummary score={score} max={QUIZ_ROUNDS * MAX_POINTS} previousBest={previousBest} results={results} onRestart={onRestart} />;
   }
 
   const lastLevel = level >= ZOOM_LEVELS.length - 1;
@@ -71,10 +73,13 @@ function ZoomRun({
     if (picked) return;
     if (choice === answer) {
       setPicked(choice);
+      setResults([...results, 1]);
       setScore(score + zoomPoints(level));
     } else if (lastLevel) {
       setPicked(choice);
+      setResults([...results, 0]);
     } else {
+      sfx.miss();
       setRuledOut(new Set([...ruledOut, choice]));
       setLevel(level + 1);
     }
@@ -93,7 +98,7 @@ function ZoomRun({
 
   return (
     <div>
-      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} />
+      <RunHeader round={round} total={QUIZ_ROUNDS} score={score} best={Math.max(best, score)} results={results} />
       {query.error ? (
         <ErrorNote error={query.error} />
       ) : query.isLoading ? (
@@ -118,7 +123,7 @@ function ZoomRun({
             )}
           </p>
           {/* No blurred backdrop here - it would show the whole picture's colours away. */}
-          <div className="relative h-[46vh] w-full max-w-xl overflow-hidden rounded-xl bg-black/30">
+          <div className="game-photo relative h-[46vh] w-full max-w-xl overflow-hidden rounded-lg bg-black/30">
             <img
               src={gameImageUrl(post)!}
               alt=""

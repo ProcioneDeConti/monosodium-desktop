@@ -159,6 +159,76 @@ export function speedPoints(elapsedMs: number, revealMs: number): number {
   return Math.round(50 + 50 * (1 - u * u));
 }
 
+/** A round's outcome for the run header's segments and the summary tiles: 1 = right, 0 = wrong,
+ *  in between = partly right (Time Machine's near misses). */
+export type RoundOutcome = number;
+
+/** Longest run of fully-right rounds. */
+export function longestStreak(results: RoundOutcome[]): number {
+  let best = 0;
+  let run = 0;
+  for (const r of results) {
+    run = r >= 1 ? run + 1 : 0;
+    best = Math.max(best, run);
+  }
+  return best;
+}
+
+/** Fully-right rounds at the end of `results` - the live streak. */
+export function currentStreak(results: RoundOutcome[]): number {
+  let n = 0;
+  for (let i = results.length - 1; i >= 0 && results[i] >= 1; i--) n++;
+  return n;
+}
+
+export interface RunGrade {
+  letter: "S" | "A" | "B" | "C" | "D" | "F";
+  title: string;
+}
+
+/** Letter grade + a short cheer for a finished run's score out of `max`. */
+export function runGrade(score: number, max: number): RunGrade {
+  const pct = max > 0 ? score / max : 0;
+  if (pct >= 1) return { letter: "S", title: "Flawless!" };
+  if (pct >= 0.8) return { letter: "A", title: "Superstar!" };
+  if (pct >= 0.6) return { letter: "B", title: "Nice work!" };
+  if (pct >= 0.4) return { letter: "C", title: "Not bad!" };
+  if (pct > 0) return { letter: "D", title: "Rough run!" };
+  return { letter: "F", title: "Ouch!" };
+}
+
+/** Tile emoji for one round. */
+function outcomeEmoji(r: RoundOutcome): string {
+  return r >= 1 ? "🟩" : r > 0 ? "🟨" : "🟥";
+}
+
+/** Shareable block for a finished quiz run, e.g.
+ *
+ *  ```
+ *  🎮 Whodunnit · e621
+ *  8/10 correct · Grade A
+ *  🟩🟩🟥🟩🟩
+ *  🟩🟩🟩🟥🟩
+ *  🔥 Best streak: 5
+ *  ```
+ *  Rows of five; the streak line is dropped when it would only repeat the score (none, or all). */
+export function runShareText(
+  game: string,
+  site: string,
+  score: number,
+  max: number,
+  unit: string,
+  results: RoundOutcome[],
+): string {
+  const tiles = results.map(outcomeEmoji);
+  const rows: string[] = [];
+  for (let i = 0; i < tiles.length; i += 5) rows.push(tiles.slice(i, i + 5).join(""));
+  const streak = longestStreak(results);
+  const lines = [`🎮 ${game} · ${site}`, `${score}/${max} ${unit} · Grade ${runGrade(score, max).letter}`, ...rows];
+  if (streak > 1 && streak < results.length) lines.push(`🔥 Best streak: ${streak}`);
+  return lines.join("\n");
+}
+
 /** A short cheer for a correct Floof answer, by points earned. */
 export function speedLabel(points: number): string {
   if (points >= 98) return "Lightning!";
