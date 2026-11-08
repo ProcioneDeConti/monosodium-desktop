@@ -133,20 +133,45 @@ h3 {
   background-color: rgb(var(--dk-bg));
 }
 
-/* Ambient wash: two soft accent-tinted blobs drifting slowly behind the title. Only
-   background-position animates, on a 30px strip, so it's cheap. */
+/* Ambient wash: two soft accent-tinted blobs drifting slowly behind the title. The gradients
+   sit on a 200%-wide pseudo-element that slides by `transform`, so the compositor moves an
+   already-rasterised layer - animating `background-position` instead (the original version)
+   repainted the whole strip every frame, ~0.8 MB/s of renderer->GPU traffic around the clock.
+   `isolation` lets the z-index:-1 layer sit above the bar's own background but below its
+   children. */
 .titlebar-ambient {
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.titlebar-ambient::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 200%;
+  z-index: -1;
+  pointer-events: none;
   background-image:
     radial-gradient(ellipse 30% 180% at 20% 50%, rgb(var(--accent) / 0.18), transparent 70%),
     radial-gradient(ellipse 25% 160% at 80% 50%, rgb(var(--accent) / 0.11), transparent 70%);
-  background-size: 200% 100%;
+  will-change: transform;
   animation: titlebar-drift 24s ease-in-out infinite alternate;
 }
 
 @keyframes titlebar-drift {
   to {
-    background-position: 100% 0;
+    transform: translateX(-50%);
   }
+}
+
+/* Every running animation - even a cheap transform - makes the webview submit a full
+   compositor frame each vsync (~3-4 MB/s of renderer->GPU IPC with a post grid on screen, which
+   Task Manager reports as "I/O write bytes" - 76 GB over a long session). So the always-on
+   decorative loops freeze while the window is unfocused (WindowFrame sets the attribute); a
+   hidden/minimised window already stops rendering on its own. */
+html[data-window-blurred] :is(.titlebar-ambient, .mascot-bob, .mascot-thinking, .mascot-sleeping, .mascot-zzz),
+html[data-window-blurred] .titlebar-ambient::before {
+  animation-play-state: paused;
 }
 
 .traffic-lights .light {

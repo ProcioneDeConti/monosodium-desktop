@@ -32,6 +32,12 @@ export function WindowFrame({ title, children }: WindowFrameProps) {
     return () => void unlisten.then((f) => f());
   }, []);
 
+  // Freezes the always-on decorative animations while unfocused (index.css) - each running one
+  // keeps the webview producing a frame every vsync.
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-window-blurred", !focused);
+  }, [focused]);
+
   // Full-window overlays start below the title bar (index.css `.fixed.inset-0` rule).
   useEffect(() => {
     document.documentElement.style.setProperty("--titlebar-h", isFullscreen ? "0px" : `${TITLEBAR_PX}px`);
