@@ -2405,3 +2405,10 @@ live call before implementing (per user instruction - no more guessing).
         (`bingoShareText`); Score Sniffer copies its final streak (`streakShareText`); Whodunnit's
         folder names the artist once answered; Time Machine's dial resets to mid each round; Floof
         says "a unicorn" (`indefiniteArticle`). Unit-tested helpers. Not yet live-tested.
+- [x] **For you: one artist no longer floods the suggestions** A dominant favourite artist (high
+  tf, and a high idf because niche) outscored everything, so ~75% of suggestions were theirs -
+  and favouriting more of them made it worse (feedback loop). `diversify` only reordered, never
+  dropped. Now `weightMap` caps every tag at the profile's 8th-strongest weight
+  (`WEIGHT_CEILING_RANK`), and `rankCandidates` drops any artist's posts past
+  `MAX_ARTIST_SHARE` (12%, min `MIN_PER_ARTIST` 4) of the run - tallied across batches via
+  `countArtists` / `useForYou`'s `artistCountsRef`. Unit-tested; not yet live-tested.

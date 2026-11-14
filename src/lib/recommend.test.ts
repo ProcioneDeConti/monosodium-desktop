@@ -10,7 +10,11 @@ import {
   CANDIDATE_PAGE_LIMIT,
   MAX_QUERY_TAGS,
   candidateQueries,
+  countArtists,
   diversify,
+  MAX_ARTIST_SHARE,
+  MIN_PER_ARTIST,
+  WEIGHT_CEILING_RANK,
   rankCandidates,
   scorePost,
   weightMap,
@@ -178,6 +182,37 @@ describe("ranking", () => {
       if (ids.includes(plain[plain.length - 1])) weakTop5++;
     }
     expect(strongTop5).toBeGreaterThan(weakTop5 * 3);
+  });
+
+  it("caps any one tag's weight at the profile's ceiling-rank tag", () => {
+    const p = profile();
+    p.tags[0] = tag("a1", "artist", 50);
+    const w = weightMap(p);
+    expect(w.get("a1")).toBe(p.tags[WEIGHT_CEILING_RANK].weight);
+    expect(w.get("g5")).toBe(p.tags[p.tags.length - 1].weight);
+  });
+
+  it("caps one artist's share of the run, counting earlier batches", () => {
+    const posts = [
+      ...Array.from({ length: 30 }, (_, i) => makePost(i + 1, { tags: { artist: ["a1"] } })),
+      ...Array.from({ length: 30 }, (_, i) => makePost(100 + i, { tags: { artist: [`other_${i}`] } })),
+    ];
+    const out = rankCandidates(posts, profile(), { isSelf: false, shown: new Set() });
+    const cap = Math.max(MIN_PER_ARTIST, Math.floor(MAX_ARTIST_SHARE * posts.length));
+    expect(out.filter((p) => p.tags.artist[0] === "a1")).toHaveLength(cap);
+    expect(out.filter((p) => p.tags.artist[0] !== "a1")).toHaveLength(30);
+
+    // Already at the cap from an earlier batch: none get through.
+    const later = rankCandidates(posts, profile(), {
+      isSelf: false,
+      shown: new Set(),
+      artistCounts: new Map([["a1", 100]]),
+    });
+    expect(later.some((p) => p.tags.artist[0] === "a1")).toBe(false);
+
+    const tally = new Map<string, number>();
+    countArtists(out, tally);
+    expect(tally.get("a1")).toBe(cap);
   });
 
   it("diversify caps one artist per window without dropping posts", () => {

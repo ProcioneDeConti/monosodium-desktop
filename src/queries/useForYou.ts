@@ -29,6 +29,7 @@ import {
   advanceSource,
   CANDIDATE_PAGE_LIMIT,
   candidateQueries,
+  countArtists,
   rankCandidates,
   type CandidateSource,
 } from "../lib/recommend";
@@ -124,6 +125,7 @@ export function useForYou(site: Site) {
   const sourcesRef = useRef<CandidateSource[]>([]);
   const roundRef = useRef(0);
   const shownRef = useRef(new Set<number>());
+  const artistCountsRef = useRef(new Map<string, number>());
   const seedRef = useRef(0);
   /** Per-run shuffle source (seeded with seedRef), so every run's order is fresh. */
   const randRef = useRef<(() => number) | null>(null);
@@ -206,9 +208,11 @@ export function useForYou(site: Site) {
         const ranked = rankCandidates(batch, ctx.profile, {
           isSelf: ctx.isSelf,
           shown: shownRef.current,
+          artistCounts: artistCountsRef.current,
           rand: randRef.current ?? undefined,
         });
         for (const p of ranked) shownRef.current.add(p.id);
+        countArtists(ranked, artistCountsRef.current);
         out.push(...ranked);
       }
       return { posts: out, exhausted };
@@ -224,6 +228,7 @@ export function useForYou(site: Site) {
       ctxRef.current = { profile, isSelf };
       roundRef.current = 0;
       shownRef.current = new Set();
+      artistCountsRef.current = new Map();
       seedRef.current = Math.floor(Math.random() * 1_000_000);
       randRef.current = seededRandom(seedRef.current);
       sourcesRef.current = candidateQueries(profile, queryCtx(profile, 0));

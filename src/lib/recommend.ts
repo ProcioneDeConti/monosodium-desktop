@@ -153,6 +153,8 @@ export interface RankContext {
   isSelf: boolean;
   /** Post ids already shown this session (or already queued). */
   shown: Set<number>;
+  /** Posts per artist already shown this run (see countArtists), for the MAX_ARTIST_SHARE cap. */
+  artistCounts?: ReadonlyMap<string, number>;
   /** Per-run randomness: shuffles the order a little each run (see SHUFFLE_SIGMA). Omit for a
    *  pure relevance order. */
   rand?: () => number;
@@ -179,9 +181,23 @@ export function scorePost(post: Post, weights: Map<string, number>): number {
   return sum / norm + 0.15 * Math.log1p(Math.max(0, post.score?.total ?? 0));
 }
 
+/** No single tag scores for more than the profile's (WEIGHT_CEILING_RANK + 1)th strongest tag.
+ *  Without this one dominant favourite (an artist making up a big share of someone's favs, with a
+ *  high idf because they're niche) outweighs everything else, every candidate carrying it wins,
+ *  and the page fills with that one artist - who then gets favourited more, a feedback loop. Past
+ *  the ceiling, extra favourites of the same artist no longer raise their pull. */
+export const WEIGHT_CEILING_RANK = 7;
+
 export function weightMap(profile: TasteProfile): Map<string, number> {
-  return new Map(profile.tags.map((t) => [t.name, t.weight]));
+  const ceiling = profile.tags[Math.min(WEIGHT_CEILING_RANK, profile.tags.length - 1)]?.weight ?? Infinity;
+  return new Map(profile.tags.map((t) => [t.name, Math.min(t.weight, ceiling)]));
 }
+
+/** Hard cap on any one artist's share of the suggestions shown this run (on top of diversify's
+ *  spacing, which only reorders). Excess posts are dropped. MIN_PER_ARTIST keeps small runs from
+ *  becoming absurdly strict. */
+export const MAX_ARTIST_SHARE = 0.12;
+export const MIN_PER_ARTIST = 4;
 
 /** Filter + score + diversify a candidate batch. Returns the new posts in display order. */
 export function rankCandidates(posts: Post[], profile: TasteProfile, ctx: RankContext): Post[] {
@@ -199,7 +215,27 @@ export function rankCandidates(posts: Post[], profile: TasteProfile, ctx: RankCo
     scored.push({ post, score: ctx.rand ? score * Math.exp(SHUFFLE_SIGMA * gaussian(ctx.rand)) : score });
   }
   scored.sort((a, b) => b.score - a.score);
-  return diversify(scored.map((s) => s.post));
+  return diversify(capArtists(scored.map((s) => s.post), ctx));
+}
+
+/** Drop the lowest-ranked posts of any artist past MAX_ARTIST_SHARE of everything shown this run
+ *  (earlier batches via ctx.artistCounts / ctx.shown, plus this batch). `posts` is best-first. */
+function capArtists(posts: Post[], ctx: RankContext): Post[] {
+  const cap = Math.max(MIN_PER_ARTIST, Math.floor(MAX_ARTIST_SHARE * (ctx.shown.size + posts.length)));
+  const counts = new Map(ctx.artistCounts ?? []);
+  const out: Post[] = [];
+  for (const p of posts) {
+    const artists = artistsOf(p);
+    if (artists.some((a) => (counts.get(a) ?? 0) >= cap)) continue;
+    for (const a of artists) counts.set(a, (counts.get(a) ?? 0) + 1);
+    out.push(p);
+  }
+  return out;
+}
+
+/** Fold a ranked batch into the per-artist tally passed back as RankContext.artistCounts. */
+export function countArtists(posts: Post[], into: Map<string, number>): void {
+  for (const p of posts) for (const a of artistsOf(p)) into.set(a, (into.get(a) ?? 0) + 1);
 }
 
 export const DIVERSITY_WINDOW = 12;
