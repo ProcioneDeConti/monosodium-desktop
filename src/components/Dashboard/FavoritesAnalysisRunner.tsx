@@ -21,6 +21,12 @@ import { errorMessage } from "../../lib/errors";
 import { Button } from "../ui/Button";
 import { Spinner } from "../ui/Spinner";
 import { FavoritesAnalysisView } from "./FavoritesAnalysisView";
+import {
+  analyzedLine,
+  FIRST_YEAR,
+  type PeriodMode,
+  type WrappedPeriod,
+} from "../../lib/yearInReview";
 
 interface FavoritesAnalysisRunnerProps {
   site: Site;
@@ -47,6 +53,12 @@ export function FavoritesAnalysisRunner({
   const [countText, setCountText] = useState("640");
   const [wantAll, setWantAll] = useState(false);
   const [includeDeleted, setIncludeDeleted] = useState(true);
+  // Year in review (lib/yearInReview.ts): "all" = the classic all-time analysis.
+  const thisYear = new Date().getFullYear();
+  const [scope, setScope] = useState<"all" | PeriodMode>("all");
+  const [uploadYear, setUploadYear] = useState(thisYear);
+  const period: WrappedPeriod | null =
+    scope === "all" ? null : { mode: scope, year: scope === "faved" ? thisYear : uploadYear };
 
   // A recent completed analysis for this user (< 30 min) is shown from cache instead of
   // re-fetching; starting any analysis is gated to once per 30s - see
@@ -58,7 +70,9 @@ export function FavoritesAnalysisRunner({
 
   // Persist a completed run to the 30-minute result cache, keyed by the resolved username.
   useEffect(() => {
-    if (state.phase === "done" && state.result && state.result.sampled > 0) {
+    // Year-in-review runs aren't cached: the cache is keyed per user, and a year result showing up
+    // next time in place of the all-time analysis would be confusing.
+    if (state.phase === "done" && state.result && state.result.sampled > 0 && !state.result.period) {
       cacheAnalysis(site, state.result.name, state.result);
     }
   }, [state.phase, state.result, site]);
@@ -135,13 +149,24 @@ export function FavoritesAnalysisRunner({
     if (!resolved || gapRemaining > 0) return;
     markAnalysisStarted();
     setNow(Date.now());
-    void run(want, { user: resolved, includeDeleted });
+    void run(want, { user: resolved, includeDeleted, period });
   }
 
   // --- a shown result (fresh cache or a just-finished run) ---
   if (shownResult) {
     return (
       <div className="flex flex-col gap-3">
+        {shownResult.period && (
+          <p className="rounded-[var(--radius-sm)] border border-[rgb(var(--accent))]/30 bg-[rgb(var(--accent))]/10 px-3 py-2 text-xs">
+            <span className="font-semibold">
+              {shownResult.period.year} in review ·{" "}
+              {analyzedLine(shownResult.sampled, shownResult.period)}.
+            </span>{" "}
+            {shownResult.period.mode === "faved"
+              ? "A guaranteed minimum: everything you faved after a post uploaded this year. Older art you faved this year may be missing."
+              : `Favourites whose post was uploaded in ${shownResult.period.year}, whenever you faved them.`}
+          </p>
+        )}
         {shownResult.cancelled && (
           <p className="rounded-[var(--radius-sm)] border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
             Stopped early — analyzed {shownResult.sampled.toLocaleString()} favourites.
@@ -170,10 +195,14 @@ export function FavoritesAnalysisRunner({
           name={shownResult.name}
           avatarId={shownResult.avatarId}
           site={site}
+          period={shownResult.period ?? null}
+          months={shownResult.months ?? null}
           onSearchTag={onSearchTag}
         />
 
-        <p className="text-[11px] opacity-45">This result is kept for 30 minutes.</p>
+        {!shownResult.period && (
+          <p className="text-[11px] opacity-45">This result is kept for 30 minutes.</p>
+        )}
         <div className="flex items-center gap-2">
           <Button onClick={analyzeAgain} disabled={gapRemaining > 0}>
             Analyze again
@@ -191,8 +220,10 @@ export function FavoritesAnalysisRunner({
     return (
       <div className="flex flex-col items-start gap-2 py-1">
         <p className="text-xs opacity-60">
-          No favourites found for {state.result.name} — the account may have none, or its
-          favourites may be private.
+          {state.result.period
+            ? `No favourites found for ${state.result.name} in ${state.result.period.year} with that scope.`
+            : `No favourites found for ${state.result.name} — the account may have none, or its
+          favourites may be private.`}
         </p>
         <Button onClick={analyzeAgain}>Try another</Button>
       </div>
@@ -271,9 +302,48 @@ export function FavoritesAnalysisRunner({
         )}
       </p>
 
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="opacity-70">Scope</span>
+        <select
+          value={scope}
+          onChange={(e) => setScope(e.target.value as "all" | PeriodMode)}
+          className="rounded-[var(--radius-sm)] border border-black/10 bg-transparent px-2 py-1 text-sm dark:border-white/15"
+        >
+          <option value="all">All time</option>
+          <option value="faved">Year in review: faved in {thisYear}</option>
+          <option value="uploaded">Year in review: uploaded in…</option>
+        </select>
+        {scope === "uploaded" && (
+          <select
+            value={uploadYear}
+            onChange={(e) => setUploadYear(Number(e.target.value))}
+            className="rounded-[var(--radius-sm)] border border-black/10 bg-transparent px-2 py-1 text-sm dark:border-white/15"
+          >
+            {Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, i) => thisYear - i).map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+      {scope === "faved" && (
+        <p className="text-xs opacity-60">
+          e621 doesn't record <em>when</em> you favourited something, but it does list favourites
+          newest first. Everything you faved after a post uploaded in {thisYear} must be from{" "}
+          {thisYear}, so that's what gets counted: a guaranteed minimum. Old art you faved this year
+          can be missed, and only the current year can be worked out this way.
+        </p>
+      )}
+      {scope === "uploaded" && (
+        <p className="text-xs opacity-60">
+          Your favourites whose post was uploaded in {uploadYear}, no matter when you faved them.
+        </p>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2 text-sm">
-          <span className="opacity-70">Analyze</span>
+          <span className="opacity-70">{scope === "all" ? "Analyze" : "Analyze up to"}</span>
           <input
             type="number"
             min={1}
@@ -315,7 +385,9 @@ export function FavoritesAnalysisRunner({
         }`}
       >
         {heavy && <TriangleAlert size={13} className="mr-1 inline align-[-2px]" />}
-        {previewReqs != null ? (
+        {scope !== "all" ? (
+          <>The size of a year isn't known up front, so this runs until it's done or you cancel.</>
+        ) : previewReqs != null ? (
           <>
             ≈ {previewReqs.toLocaleString()} request{previewReqs === 1 ? "" : "s"} · about{" "}
             <span className="font-semibold">{formatDuration(previewEta! * 1000)}</span>.

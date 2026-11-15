@@ -8,7 +8,9 @@ import { SPICY_SHARE, spicyAllowed, spicyAnalysisRemark } from "../lib/mascotSpi
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { e621Api } from "../api/client";
-import { FAV_PAGE_LIMIT, fetchPostPages } from "../lib/favoritePages";
+import { FAV_PAGE_LIMIT, fetchFavoritesInFavOrder, fetchPostPages } from "../lib/favoritePages";
+import { FavedYearScanner, monthCounts, uploadedYearTags, type WrappedPeriod } from "../lib/yearInReview";
+import type { Post } from "../models/post";
 import type { Site } from "../models/site";
 import {
   addToFavAccumulator,
@@ -45,6 +47,10 @@ export interface FavoritesAnalysisResult {
   /** favouriteCount − sampled on a full run (posts that no longer exist); 0 otherwise. */
   gap: number;
   includeDeleted: boolean;
+  /** Year-in-review scope (lib/yearInReview.ts); null/absent = all time. */
+  period?: WrappedPeriod | null;
+  /** Upload-month counts for the period's year ("uploaded" scope only). */
+  months?: number[] | null;
 }
 
 export interface FavoritesAnalysisState {
@@ -143,17 +149,22 @@ export function useFavoritesAnalysis(site: Site) {
   }, [state.phase]);
 
   const run = useCallback(
-    async (want: number | "all", opts: { user: ResolvedUser; includeDeleted: boolean }) => {
+    async (
+      want: number | "all",
+      opts: { user: ResolvedUser; includeDeleted: boolean; period?: WrappedPeriod | null },
+    ) => {
       cancelRef.current = false;
       const myRun = (runIdRef.current += 1);
       startedAtRef.current = Date.now();
       const alive = () => runIdRef.current === myRun;
       const user = opts.user;
+      const period = opts.period ?? null;
 
       const fc = user.favoriteCount;
       const target =
         want === "all" ? fc ?? Number.POSITIVE_INFINITY : Math.min(want, fc ?? want);
-      const requestsPlanned = Number.isFinite(target)
+      // A year scope's size isn't known up front - the progress bar runs indeterminate.
+      const requestsPlanned = !period && Number.isFinite(target)
         ? Math.max(1, Math.ceil(target / FAV_PAGE_LIMIT))
         : 0;
 
@@ -162,7 +173,7 @@ export function useFavoritesAnalysis(site: Site) {
         phase: "fetching",
         name: user.name,
         favoriteCount: fc,
-        target,
+        target: period ? (want === "all" ? Number.POSITIVE_INFINITY : want) : target,
         requestsPlanned,
       });
 
@@ -174,23 +185,46 @@ export function useFavoritesAnalysis(site: Site) {
       // The signed-in user's blacklist - filters card background images (not the counts).
       const blacklist = useSettingsStore.getState().blacklistEntries;
 
+      const months = period?.mode === "uploaded" ? new Array<number>(12).fill(0) : null;
+      const fold = (page: Post[]) => {
+        addToFavAccumulator(acc, page, blacklist);
+        if (months && period) monthCounts(page, period.year, months);
+        setState((s) => ({
+          ...s,
+          fetched: acc.total,
+          requestsDone: s.requestsDone + 1,
+          elapsedMs: Date.now() - startedAtRef.current,
+        }));
+      };
+      const room = () => (want === "all" ? Number.POSITIVE_INFINITY : want - acc.total);
+
       try {
-        await fetchPostPages({
-          site,
-          tags,
-          want,
-          shouldStop: () => cancelRef.current,
-          alive,
-          onPage: (page) => {
-            addToFavAccumulator(acc, page, blacklist);
-            setState((s) => ({
-              ...s,
-              fetched: acc.total,
-              requestsDone: s.requestsDone + 1,
-              elapsedMs: Date.now() - startedAtRef.current,
-            }));
-          },
-        });
+        if (period?.mode === "faved") {
+          // Favourite order + inference - see lib/yearInReview.ts. The scanner sees every post
+          // (deleted ones still anchor the order); only what it confirms gets counted.
+          const scanner = new FavedYearScanner(period.year);
+          await fetchFavoritesInFavOrder({
+            site,
+            userId: user.id,
+            alive,
+            shouldStop: () => cancelRef.current || scanner.exhausted || room() <= 0,
+            onPage: (page) => {
+              const confirmed = scanner
+                .feed(page)
+                .filter((p) => opts.includeDeleted || !p.flags?.deleted);
+              fold(confirmed.slice(0, Math.max(0, room())));
+            },
+          });
+        } else {
+          await fetchPostPages({
+            site,
+            tags: period ? uploadedYearTags(user.name, period.year, opts.includeDeleted) : tags,
+            want,
+            shouldStop: () => cancelRef.current,
+            alive,
+            onPage: fold,
+          });
+        }
         if (!alive()) return;
       } catch (e) {
         if (alive()) {
@@ -201,7 +235,7 @@ export function useFavoritesAnalysis(site: Site) {
       if (!alive()) return;
 
       const wasCancelled = cancelRef.current;
-      const fullRun = want === "all" || (fc != null && want >= fc);
+      const fullRun = !period && (want === "all" || (fc != null && want >= fc));
       const gap = !wasCancelled && fullRun && fc != null ? Math.max(0, fc - acc.total) : 0;
 
       setState((s) => ({
@@ -219,6 +253,8 @@ export function useFavoritesAnalysis(site: Site) {
           favoriteCount: fc,
           gap,
           includeDeleted: opts.includeDeleted,
+          period,
+          months,
         },
       }));
     },

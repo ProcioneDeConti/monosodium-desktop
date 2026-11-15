@@ -43,3 +43,30 @@ export async function fetchPostPages(opts: FetchPostPagesOptions): Promise<numbe
   }
   return total;
 }
+
+/** e621's numbered-page ceiling. */
+const MAX_NUMBERED_PAGE = 750;
+
+/** Walk a user's favourites in *favourite* order (newest favourite first) via favorites.json's
+ *  numbered pages - unlike `fetchPostPages`, whose `fav:` search comes back in post-id order. Used
+ *  by the year-in-review "faved this year" scope (lib/yearInReview.ts). Resolves with the number
+ *  of posts delivered. */
+export async function fetchFavoritesInFavOrder(opts: {
+  site: Site;
+  userId: number;
+  onPage: (posts: Post[]) => void;
+  shouldStop?: () => boolean;
+  alive?: () => boolean;
+  pageLimit?: number;
+}): Promise<number> {
+  const limit = opts.pageLimit ?? FAV_PAGE_LIMIT;
+  let total = 0;
+  for (let page = 1; page <= MAX_NUMBERED_PAGE && !opts.shouldStop?.(); page++) {
+    const resp = await e621Api.getFavorites(opts.site, limit, String(page), opts.userId);
+    if (opts.alive && !opts.alive()) return total;
+    total += resp.posts.length;
+    opts.onPage(resp.posts);
+    if (resp.posts.length < limit) break;
+  }
+  return total;
+}

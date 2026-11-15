@@ -60,6 +60,8 @@ import { loadSettings, useSettingsStore } from "./state/settingsStore";
 import { loadAllAccounts, useAccountStore } from "./state/accountStore";
 import { loadSavedSearches } from "./state/savedSearchesStore";
 import { loadCollections } from "./state/collectionsStore";
+import { loadWallpaperSettings } from "./state/wallpaperStore";
+import { useWallpaperRotation } from "./lib/wallpaperRotation";
 import { loadSearchHistory, useSearchHistoryStore } from "./state/searchHistoryStore";
 import { flushSeen, loadSeen, useSeenIds, useSeenStore } from "./state/seenStore";
 import { loadFavoritesAnalysisCache } from "./state/favoritesAnalysisCache";
@@ -139,6 +141,7 @@ const MAX_SEEN_HOPS = 5;
 
 function App() {
   const [booted, setBooted] = useState(false);
+  useWallpaperRotation(booted);
   // null = still checking; true = password protection is on and not yet unlocked this session
   // (see src-tauri/src/vault.rs) - the boot effect below waits for this to become false before
   // touching settingsStore/savedSearchesStore, since their encrypted files aren't readable yet.
@@ -281,6 +284,7 @@ function App() {
       loadFavoritesAnalysisCache(),
       loadTasteProfiles(),
       useSaucenaoStore.getState().load(),
+      loadWallpaperSettings(),
     ]).finally(() => {
       setBooted(true);
       startUsageSession();

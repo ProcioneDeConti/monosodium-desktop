@@ -73,6 +73,9 @@ src-tauri/src/
                   kept encrypted in credentials.dat, only ever attached by source_fetch
   upload.rs       e621 uploader backend - file inspect (MD5/type/dims), URL pre-fetch, MD5/IQDB
                   duplicate lookups, tag preview, DNP check, multipart uploads.json. e621 only
+  wallpaper.rs    desktop wallpaper: CDN image -> JPEG in <data>/wallpaper/ -> SystemParametersInfoW
+                  (+ fit via HKCU registry, previous-wallpaper snapshot/restore, tray "Next
+                  wallpaper" item). Which post to use is decided in lib/wallpaper*.ts
   install_info.rs how this copy was installed (setup.exe / legacy MSI / portable) from the
                   registry + uninstall.exe; shown in Settings > Updates
   lib.rs          plugin/window/command wiring, tray icon, global shortcut (window is opaque -

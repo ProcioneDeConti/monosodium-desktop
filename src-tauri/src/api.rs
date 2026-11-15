@@ -251,10 +251,17 @@ pub async fn get_favorites(
     site: Site,
     limit: Option<i64>,
     page: Option<String>,
+    user_id: Option<i64>,
 ) -> Result<PostsResponse, String> {
+    // Newest *favourite* first (e621ng PostSets::Favorites orders the favourite rows by
+    // created_at desc), numbered pages only. No user_id = the signed-in user; a user with hidden
+    // favourites comes back as an empty list rather than an error.
     let mut query: Vec<(&str, String)> = vec![("limit", limit.unwrap_or(50).to_string())];
     if let Some(p) = page {
         query.push(("page", p));
+    }
+    if let Some(id) = user_id {
+        query.push(("user_id", id.to_string()));
     }
     let response = request(&state, site, Method::GET, "favorites.json")
         .await?

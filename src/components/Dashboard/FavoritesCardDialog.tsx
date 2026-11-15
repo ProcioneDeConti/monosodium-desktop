@@ -1,3 +1,4 @@
+import { type WrappedPeriod } from "../../lib/yearInReview";
 import { useEffect, useMemo, useState } from "react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Check, ChevronLeft, ChevronRight, Copy, FileDown, Image as ImageIcon, X } from "lucide-react";
@@ -26,6 +27,9 @@ interface FavoritesCardDialogProps {
   avatarId?: number | null;
   site: Site;
   sampled: number;
+  /** Year-in-review scope (lib/yearInReview.ts); null = all time. */
+  period?: WrappedPeriod | null;
+  months?: number[] | null;
   onClose: () => void;
 }
 
@@ -100,8 +104,13 @@ export function FavoritesCardDialog({
   avatarId = null,
   site,
   sampled,
+  period = null,
+  months = null,
   onClose,
 }: FavoritesCardDialogProps) {
+  // An "uploaded in <year>" card keeps its background favourites inside that year too. The
+  // "faved" scope can't be expressed as a search, so it uses all favourites.
+  const yearTags = period?.mode === "uploaded" ? `date:${period.year}-01-01..${period.year}-12-31` : "";
   const accent = useSettingsStore((s) => s.accentColor);
   const blacklist = useSettingsStore((s) => s.blacklist);
   const blacklistEntries = useMemo(() => parseBlacklist(blacklist), [blacklist]);
@@ -205,7 +214,7 @@ export function FavoritesCardDialog({
           try {
             const r = await e621Api.getPosts(
               site,
-              `fav:${displayName} ${t.label} order:random ${ratingFilter ?? ""}`.trim(),
+              `fav:${displayName} ${t.label} ${yearTags} order:random ${ratingFilter ?? ""}`.trim(),
               12,
             );
             const clean = r.posts.find((p) => !isBlacklisted(blacklistEntries, p));
@@ -230,7 +239,7 @@ export function FavoritesCardDialog({
       try {
         const r = await e621Api.getPosts(
           site,
-          `fav:${displayName} order:random ${ratingFilter ?? ""}`.trim(),
+          `fav:${displayName} ${yearTags} order:random ${ratingFilter ?? ""}`.trim(),
           COLLAGE_FETCH,
         );
         const urls = [
@@ -256,7 +265,7 @@ export function FavoritesCardDialog({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [analysis, site, displayName, blacklistEntries, ratingFilter]);
+  }, [analysis, site, displayName, blacklistEntries, ratingFilter, yearTags]);
 
   // Theme colour from the #1 artist's top post once it's in (falls back to the accent).
   const topArtistImage = analysis.topArtists[0] ? artistImages[analysis.topArtists[0].label] : undefined;
@@ -312,6 +321,8 @@ export function FavoritesCardDialog({
         displayName,
         site,
         sampled,
+        period,
+        months,
         // The avatar is itself an e621 post (possibly explicit), so SFW drops it with the rest.
         avatarDataUrl: showImages ? (avatar?.dataUrl ?? null) : null,
         avatarAspect: avatar?.aspect ?? 1,
@@ -326,7 +337,7 @@ export function FavoritesCardDialog({
       mode,
       shape,
     );
-  }, [analysis, displayName, site, sampled, avatar, artistImages, tagImages, collageImages, aspects, verdict, theme, archetype, gus, showGus, showImages, mode, shape]);
+  }, [analysis, displayName, site, sampled, period, months, avatar, artistImages, tagImages, collageImages, aspects, verdict, theme, archetype, gus, showGus, showImages, mode, shape]);
   const pageIdx = Math.min(page, pages.length - 1);
   const previewUrl = useMemo(() => svgPreviewUrl(pages[pageIdx]), [pages, pageIdx]);
   const { w: cardW, h: cardH } = SHAPE_SIZE[shape];
@@ -350,7 +361,7 @@ export function FavoritesCardDialog({
     setError(null);
     setResult(null);
     try {
-      const path = await exportCard(pages, cardW, cardH, format, safeFileName(displayName));
+      const path = await exportCard(pages, cardW, cardH, format, safeFileName(period ? `${displayName}-${period.year}` : displayName));
       if (path) setResult({ path });
     } catch (e) {
       setError(errorMessage(e, "Export failed."));

@@ -8,6 +8,12 @@ import type { Site } from "../models/site";
 import { SITE_DISPLAY_NAME } from "../models/site";
 import type { Archetype } from "./wrappedArchetype";
 import { cardFrame, finishFrost, gusSvg, type CardTheme, type CollageItem, type GusArt } from "./wrappedFrame";
+import { analyzedLine, busiestMonth, wrappedTitle, type WrappedPeriod } from "./yearInReview";
+
+function busiestLine(months: number[] | null): string | null {
+  const best = months ? busiestMonth(months) : null;
+  return best ? `busiest month: ${best}` : null;
+}
 
 export const CARD_W = 1080;
 export const CARD_H = 1920;
@@ -350,6 +356,10 @@ export interface CardOptions {
   gus?: GusArt | null;
   /** Favourites laid out as a tilted masonry wall behind everything; empty = plain gradient. */
   collage?: CollageItem[];
+  /** Year-in-review scope (lib/yearInReview.ts); null/absent = all time. */
+  period?: WrappedPeriod | null;
+  /** Upload-month counts for the period's year ("uploaded" scope only). */
+  months?: number[] | null;
 }
 
 export function buildFavoritesCardSvg({
@@ -366,6 +376,8 @@ export function buildFavoritesCardSvg({
   archetype,
   gus,
   collage = [],
+  period = null,
+  months = null,
 }: CardOptions): string {
   // The themed primary (accent, or sampled from the #1 favourite) drives every accent touch.
   const accent = theme.primary;
@@ -428,14 +440,14 @@ export function buildFavoritesCardSvg({
 
   // header
   p.push(T(PAD, 92, "MONOSODIUM DESKTOP", { size: 22, fill: accent, weight: 700, spacing: 5 }));
-  p.push(T(PAD, 168, "Favorites, wrapped", { size: 64, fill: "#f5f5f8", weight: 800 }));
+  p.push(T(PAD, 168, wrappedTitle(period), { size: 64, fill: "#f5f5f8", weight: 800 }));
   p.push(T(PAD, 226, fit(displayName, nameMaxW, 800, 40), { size: 40, fill: accent, weight: 800 }));
   p.push(
     T(
       PAD,
       264,
       fit(
-        `${SITE_DISPLAY_NAME[site]}  ·  ${sampled.toLocaleString()} favorites analyzed  ·  ${date}`,
+        `${SITE_DISPLAY_NAME[site]}  ·  ${analyzedLine(sampled, period)}  ·  ${period ? busiestLine(months) ?? date : date}`,
         nameMaxW,
         500,
         22,

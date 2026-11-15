@@ -4,6 +4,7 @@ import {
   BookOpen,
   Columns2,
   Download,
+  Wallpaper,
   Gamepad2,
   Image as ImageIcon,
   Keyboard,
@@ -477,7 +478,10 @@ const SECTIONS: HelpSection[] = [
           <B>Dashboard</B>: your usage stats (time in app, posts viewed, data used, API calls, an
           activity heat-map) and a breakdown of your favorites. It can also analyze another user's
           favorites by name or ID. Each analysis can be exported as a <B>“wrapped” share card</B>,
-          either one image or a multi-slide story, with an SFW toggle (PNG or PDF). Everything is
+          either one image or a multi-slide story, with an SFW toggle (PNG or PDF). Set the{" "}
+          <B>Scope</B> to a <B>year in review</B>: either what you faved this year, or favorites
+          uploaded in any year you pick. e621 doesn't record when you favorited something, so
+          “faved this year” is worked out from favorite order and is a guaranteed minimum. Everything is
           stored only on this device. Turn recording off or reset it in the Dashboard's{" "}
           <B>Manage</B> section.
         </li>
@@ -503,6 +507,21 @@ const SECTIONS: HelpSection[] = [
         downloads, and posts added to a collection that has an auto-download folder. You can retry
         failed items, and <B>Show in folder</B> opens the file's location. Set the default folder
         in <B>Settings</B>.
+      </P>
+    ),
+  },
+  {
+    id: "wallpaper",
+    title: "Wallpaper",
+    icon: Wallpaper,
+    body: (
+      <P>
+        The <B>wallpaper button</B> in the post viewer makes the image your desktop background
+        (videos can't be used). In <B>Settings → Wallpaper</B> you can pick the fit and have the
+        wallpaper <B>rotate</B> through your favorites, a saved search or a collection on a timer.
+        It keeps rotating while the app is hidden to the tray, and the tray menu has{" "}
+        <B>Next wallpaper</B>. Rotation shows Safe posts only unless you turn that off, and your
+        blacklist always applies. <B>Restore my previous wallpaper</B> puts back what you had before.
       </P>
     ),
   },

@@ -20,6 +20,7 @@ import type { PostVersion } from "../models/postVersion";
 import type { TagInfo, TagRelations, WikiPage } from "../models/wiki";
 import type { SauceResult } from "../models/saucenao";
 import type { SearchReport } from "../lib/recoveryReport";
+import type { WallpaperFit } from "../lib/wallpaper";
 
 /** One recovered file, kept in the post's on-disk cache (src-tauri/src/recovered.rs). Show it via
  *  `convertFileSrc(path)` (Tauri's asset protocol, scoped to that cache folder). */
@@ -149,8 +150,9 @@ export const e621Api = {
   },
 
   /** Signed-in user's favorites, newest-favorited first (favorites.json; numbered pages). */
-  getFavorites(site: Site, limit: number, page?: string): Promise<PostsResponse> {
-    return invoke("get_favorites", { site, limit, page: page ?? null });
+  /** Newest-favourited first, numbered pages. `userId` omitted = the signed-in user. */
+  getFavorites(site: Site, limit: number, page?: string, userId?: number): Promise<PostsResponse> {
+    return invoke("get_favorites", { site, limit, page: page ?? null, userId: userId ?? null });
   },
 
   autocompleteTags(site: Site, name: string): Promise<TagSuggestion[]> {
@@ -515,6 +517,20 @@ export const e621Api = {
    *  Only used for adaptive-colour sampling of profile avatars. */
   fetchImageDataUrl(url: string): Promise<string> {
     return invoke("fetch_image_data_url", { url });
+  },
+
+  // --- Desktop wallpaper (src-tauri/src/wallpaper.rs) ---
+  setWallpaper(url: string, fit: WallpaperFit): Promise<void> {
+    return invoke("set_wallpaper", { url, fit });
+  },
+  hasPreviousWallpaper(): Promise<boolean> {
+    return invoke("has_previous_wallpaper");
+  },
+  restorePreviousWallpaper(): Promise<void> {
+    return invoke("restore_previous_wallpaper");
+  },
+  setWallpaperRotationActive(active: boolean): Promise<void> {
+    return invoke("set_wallpaper_rotation_active", { active });
   },
 
   /** Downloads a post's media to disk; resolves to the saved file's full path. */

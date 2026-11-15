@@ -29,6 +29,7 @@ import { EulaReadOnlyDialog } from "../Eula/EulaReadOnlyDialog";
 import { SaucenaoSection } from "./SaucenaoSection";
 import { SourceLoginsSection } from "./SourceLoginsSection";
 import { SeenPostsSection } from "./SeenPostsSection";
+import { WallpaperSection } from "./WallpaperSection";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
@@ -428,6 +429,10 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
                 </button>
               )}
             </div>
+          </Section>
+
+          <Section title="Wallpaper">
+            <WallpaperSection />
           </Section>
 
           <Section title="Encryption">

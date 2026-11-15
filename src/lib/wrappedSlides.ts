@@ -21,6 +21,7 @@ import {
   type CardOptions,
 } from "./favoritesCard";
 import { cardFrame, finishFrost, gusSvg } from "./wrappedFrame";
+import { analyzedLine, busiestMonth, monthBars, wrappedTitle } from "./yearInReview";
 
 export type CardShape = "story" | "square";
 export type CardMode = "single" | "multi";
@@ -103,10 +104,44 @@ function introSlide(w: number, h: number, o: CardOptions, page: [number, number]
   return svgDoc(w, h, [
     chrome(w, h, o, page),
     avatarBlock(w / 2, cy - 110, 280, o),
-    T(w / 2, cy + 120, "Favorites, wrapped", { size: 78, fill: "#ffffff", weight: 900, anchor: "middle" }),
+    T(w / 2, cy + 120, wrappedTitle(o.period), { size: 78, fill: "#ffffff", weight: 900, anchor: "middle" }),
     T(w / 2, cy + 190, fit(o.displayName, w - PAD * 2, 800, 54), { size: 54, fill: o.theme.primary, weight: 800, anchor: "middle" }),
-    T(w / 2, cy + 250, `${o.sampled.toLocaleString()} favorites analyzed`, { size: 30, fill: "#d8d8e4", weight: 600, anchor: "middle" }),
+    T(w / 2, cy + 250, analyzedLine(o.sampled, o.period), { size: 30, fill: "#d8d8e4", weight: 600, anchor: "middle" }),
   ].join(""));
+}
+
+/** Year-in-review only: the year as twelve month columns, busiest one highlighted. */
+function monthsSlide(w: number, h: number, o: CardOptions, page: [number, number]): string {
+  const p = [chrome(w, h, o, page)];
+  const iw = w - PAD * 2;
+  const months = o.months ?? [];
+  const bars = monthBars(months);
+  const max = Math.max(1, ...months);
+  const best = busiestMonth(months);
+  let y = h * 0.14;
+  p.push(heading(PAD, y, `YOUR ${o.period?.year ?? ""}`));
+  if (best) {
+    p.push(T(PAD, y + 90, fit(`${best} was your month`, iw, 900, 64), { size: 64, fill: "#ffffff", weight: 900 }));
+    y += 120;
+  }
+  const chartTop = y + 60;
+  const chartH = h > 1500 ? 900 : 520;
+  p.push(`<rect data-frost="1" x="${PAD}" y="${chartTop}" width="${iw}" height="${chartH}" rx="32" fill="#ffffff" fill-opacity="0.06"/>`);
+  const gap = 14;
+  const colW = (iw - 48 - gap * 11) / 12;
+  const plotTop = chartTop + 70;
+  const plotH = chartH - 150;
+  bars.forEach((b, i) => {
+    const x = PAD + 24 + i * (colW + gap);
+    const bh = Math.max(6, (b.count / max) * plotH);
+    const by = plotTop + plotH - bh;
+    const isBest = b.count === max && b.count > 0;
+    p.push(`<rect x="${x.toFixed(1)}" y="${by.toFixed(1)}" width="${colW.toFixed(1)}" height="${bh.toFixed(1)}" rx="10" fill="${esc(o.theme.primary)}" fill-opacity="${isBest ? 1 : 0.45}"/>`);
+    if (b.count > 0) p.push(T(x + colW / 2, by - 14, b.count.toLocaleString(), { size: 20, fill: "#e0e0ea", weight: 700, anchor: "middle" }));
+    p.push(T(x + colW / 2, plotTop + plotH + 44, b.label, { size: 22, fill: isBest ? "#ffffff" : "#b8b8c8", weight: isBest ? 800 : 600, anchor: "middle" }));
+  });
+  p.push(T(PAD, chartTop + chartH + 60, `Favourites by the month their post was uploaded.`, { size: 24, fill: "#b8b8c8", weight: 500 }));
+  return svgDoc(w, h, p.join(""));
 }
 
 function artistsSlide(w: number, h: number, o: CardOptions, page: [number, number]): string {
@@ -273,9 +308,9 @@ function squareCard(o: CardOptions): string {
   // Frosted header slab, matching the tall card's section backdrops.
   p.push(`<rect data-frost="1" x="${PAD - 24}" y="112" width="${iw + 48}" height="176" rx="28" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.07"/>`);
   p.push(avatarBlock(w - PAD - 70, 190, 140, o));
-  p.push(T(PAD, 176, "Favorites, wrapped", { size: 58, fill: "#ffffff", weight: 900 }));
+  p.push(T(PAD, 176, wrappedTitle(o.period), { size: 58, fill: "#ffffff", weight: 900 }));
   p.push(T(PAD, 232, fit(o.displayName, iw - 180, 800, 38), { size: 38, fill: o.theme.primary, weight: 800 }));
-  p.push(T(PAD, 272, `${o.sampled.toLocaleString()} favorites analyzed`, { size: 22, fill: "#c8c8d6", weight: 500 }));
+  p.push(T(PAD, 272, analyzedLine(o.sampled, o.period), { size: 22, fill: "#c8c8d6", weight: 500 }));
   p.push(`<rect x="${PAD}" y="300" width="${iw}" height="120" rx="24" fill="url(#themeBand)"/>`);
   p.push(T(PAD + 28, 340, "YOUR ARCHETYPE", { size: 18, fill: "#ffffff", weight: 700, spacing: 3 }));
   p.push(T(PAD + 28, 392, fit(o.archetype.title, iw - 56, 900, 44), { size: 44, fill: "#ffffff", weight: 900 }));
@@ -315,5 +350,7 @@ export function buildWrappedPages(o: CardOptions, mode: CardMode, shape: CardSha
   if (mode === "single") return [shape === "story" ? buildFavoritesCardSvg(o) : squareCard(o)];
   const { w, h } = SHAPE_SIZE[shape];
   const slides = [introSlide, artistsSlide, tagsSlide, ratingsSlide, archetypeSlide, verdictSlide];
+  // Year in review with a month breakdown gets a "your year" slide right after the intro.
+  if (o.period && o.months?.some((c) => c > 0)) slides.splice(1, 0, monthsSlide);
   return slides.map((s, i) => s(w, h, o, [i, slides.length]));
 }

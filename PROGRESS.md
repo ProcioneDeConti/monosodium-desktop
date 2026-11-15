@@ -2412,3 +2412,28 @@ live call before implementing (per user instruction - no more guessing).
   (`WEIGHT_CEILING_RANK`), and `rankCandidates` drops any artist's posts past
   `MAX_ARTIST_SHARE` (12%, min `MIN_PER_ARTIST` 4) of the run - tallied across batches via
   `countArtists` / `useForYou`'s `artistCountsRef`. Unit-tested; not yet live-tested.
+- [x] **Wallpaper mode** (unreleased) Viewer button sets an image post as the desktop wallpaper;
+  Settings > Wallpaper adds fit (Fill/Fit/Stretch/Center/Tile/Span), a timed rotation (15 min to
+  daily) from favourites / a saved search / a collection, "Next wallpaper now", and "Restore my
+  previous wallpaper". `src-tauri/src/wallpaper.rs`: downloads the CDN file, re-encodes to JPEG
+  (GIF/WebP aren't reliable wallpaper inputs; >7680px downscaled) into `<data>/wallpaper/` with a
+  fresh name each time, sets WallpaperStyle/TileWallpaper in HKCU and calls
+  SystemParametersInfoW (new `windows-sys` dep). The first set snapshots the old wallpaper (path +
+  a private copy, since TranscodedWallpaper gets overwritten) for restore. Tray menu gains "Next
+  wallpaper" (enabled only while rotating; emits `tray-next-wallpaper`). Frontend:
+  `lib/wallpaper.ts` (pure picking/query logic, tested), `lib/wallpaperRotation.ts` (1-minute
+  tick that keeps running while hidden to tray; 10-min retry after a failure),
+  `state/wallpaperStore.ts` (own `wallpaper.json`, device-local, not in Backup). Rotation is
+  Safe-only by default, always applies the real blacklist, skips video/Flash, avoids the last 50
+  posts. Not yet live-tested.
+- [x] **Year-in-review Wrapped** (unreleased) Favourites analysis gains a Scope: All time / "faved
+  in <this year>" / "uploaded in <any year>". e621 has no favourited-at time, but favorites.json
+  is ordered by favourite creation (verified in e621ng PostSets::Favorites, `order(created_at:
+  :desc)`, numbered pages, `user_id` param - added to `get_favorites`). "Faved" walks that order
+  (`fetchFavoritesInFavOrder`) and `FavedYearScanner` counts the prefix up to the
+  oldest-favourited post uploaded this year - a guaranteed minimum, current year only; stops after
+  960 favourites without a this-year upload. "Uploaded" is `fav:<name> date:Y-01-01..Y-12-31`
+  and adds a by-month chart, a "busiest month" header line, and a month-columns slide in
+  multi-slide mode (the time dimension skipped from the original zhuzh). Card title becomes
+  "2026, wrapped"; uploaded-scope card backgrounds stay inside the year. Year runs aren't put in
+  the 30-minute all-time cache. `lib/yearInReview.ts`, tested. Not yet live-tested.

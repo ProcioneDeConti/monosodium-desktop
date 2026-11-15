@@ -53,6 +53,7 @@ imagesize = "0.13"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
 rand = "0.8.5"
 winreg = "0.56.0"
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 tauri-plugin-deep-link = "2"
 

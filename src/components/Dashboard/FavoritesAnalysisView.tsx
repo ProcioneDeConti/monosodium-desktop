@@ -5,6 +5,7 @@ import type { FavoritesAnalysis } from "../../lib/favoritesAnalysis";
 import { Button } from "../ui/Button";
 import { BarList, StatTile, type BarItem } from "./charts";
 import { FavoritesCardDialog } from "./FavoritesCardDialog";
+import { monthBars, type WrappedPeriod } from "../../lib/yearInReview";
 
 interface FavoritesAnalysisViewProps {
   data: FavoritesAnalysis;
@@ -14,6 +15,10 @@ interface FavoritesAnalysisViewProps {
   /** Resolved avatar post id, for the share card. */
   avatarId?: number | null;
   site: Site;
+  /** Year-in-review scope, when this is one (lib/yearInReview.ts). */
+  period?: WrappedPeriod | null;
+  /** Upload-month counts ("uploaded" scope only). */
+  months?: number[] | null;
   onSearchTag: (tag: string) => void;
 }
 
@@ -23,6 +28,8 @@ export function FavoritesAnalysisView({
   name,
   avatarId = null,
   site,
+  period = null,
+  months = null,
   onSearchTag,
 }: FavoritesAnalysisViewProps) {
   const [cardOpen, setCardOpen] = useState(false);
@@ -65,7 +72,12 @@ export function FavoritesAnalysisView({
       <SubChart title="Score distribution">
         <BarList items={bars(data.scoreBuckets)} />
       </SubChart>
-      {data.byYear.length > 0 && (
+      {months && period && (
+        <SubChart title={`${period.year} by upload month`}>
+          <BarList items={bars(monthBars(months))} />
+        </SubChart>
+      )}
+      {period?.mode !== "uploaded" && data.byYear.length > 0 && (
         <SubChart title="Favourited posts by upload year">
           <BarList items={bars(data.byYear)} />
         </SubChart>
@@ -96,6 +108,8 @@ export function FavoritesAnalysisView({
           avatarId={avatarId}
           site={site}
           sampled={sampled}
+          period={period}
+          months={months}
           onClose={() => setCardOpen(false)}
         />
       )}

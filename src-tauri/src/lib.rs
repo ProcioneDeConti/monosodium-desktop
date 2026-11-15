@@ -17,6 +17,7 @@ mod source_login;
 mod update_check;
 mod upload;
 mod vault;
+mod wallpaper;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -147,8 +148,12 @@ pub fn run() {
             });
 
             let show_item = MenuItem::with_id(app, "show", "Show Monosodium Desktop", true, None::<&str>)?;
+            // Enabled by the frontend only while a wallpaper rotation is running (wallpaper.rs).
+            let next_wallpaper_item =
+                MenuItem::with_id(app, "next_wallpaper", "Next wallpaper", false, None::<&str>)?;
+            app.manage(wallpaper::WallpaperTrayItem(next_wallpaper_item.clone()));
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let tray_menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+            let tray_menu = Menu::with_items(app, &[&show_item, &next_wallpaper_item, &quit_item])?;
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().expect("app has a default icon").clone())
@@ -157,6 +162,9 @@ pub fn run() {
                 .tooltip("Monosodium Desktop")
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => show_main_window(app),
+                    "next_wallpaper" => {
+                        let _ = app.emit("tray-next-wallpaper", ());
+                    }
                     "quit" => app.exit(0),
                     _ => {}
                 })
@@ -177,6 +185,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             api::get_posts,
             api::get_favorites,
+            wallpaper::set_wallpaper,
+            wallpaper::has_previous_wallpaper,
+            wallpaper::restore_previous_wallpaper,
+            wallpaper::set_wallpaper_rotation_active,
             upload::upload_inspect_file,
             upload::upload_fetch_url,
             upload::upload_preview,

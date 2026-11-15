@@ -23,6 +23,7 @@ import {
   Square,
   ThumbsDown,
   ThumbsUp,
+  Wallpaper,
   X,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -59,6 +60,9 @@ import { useDownloadsStore } from "../../state/downloadsStore";
 import { useFullscreen } from "../../lib/useFullscreen";
 import { IconButton } from "../ui/IconButton";
 import { Spinner } from "../ui/Spinner";
+import { isWallpaperable } from "../../lib/wallpaper";
+import { errorMessage } from "../../lib/errors";
+import { setPostAsWallpaper } from "../../lib/wallpaperRotation";
 
 const SLIDESHOW_TRANSITION_ANIMATION: Record<string, string> = {
   fade: "animate-[fade-in_450ms_ease-out]",
@@ -136,6 +140,9 @@ export function PostViewer({
   const setSlideshowTransition = useSettingsStore((s) => s.setSlideshowTransition);
   const setSlideshowShuffle = useSettingsStore((s) => s.setSlideshowShuffle);
   const [downloadStatus, setDownloadStatus] = useState<"idle" | "queued">("idle");
+  const [wallpaperStatus, setWallpaperStatus] = useState<
+    "idle" | "busy" | "done" | { error: string }
+  >("idle");
   // Images display the ~850px `sample` by default - decoding a full-res original (routinely
   // several thousand px / many MB, and animated GIF/APNG playing at full size) on the main
   // thread is a real source of stutter, especially advancing a slideshow. Toggle loads the
@@ -218,8 +225,21 @@ export function PostViewer({
 
   useEffect(() => {
     setDownloadStatus("idle");
+    setWallpaperStatus("idle");
     setShowOriginal(false);
   }, [post?.id]);
+
+  async function handleSetWallpaper() {
+    if (!post) return;
+    setWallpaperStatus("busy");
+    try {
+      await setPostAsWallpaper(post, site);
+      setWallpaperStatus("done");
+    } catch (e) {
+      setWallpaperStatus({ error: errorMessage(e, "Couldn't set the wallpaper.") });
+    }
+    setTimeout(() => setWallpaperStatus("idle"), 2500);
+  }
 
   function handleDownload() {
     if (!post || !playableUrl(post)) return;
@@ -483,6 +503,35 @@ export function PostViewer({
           >
             {downloadStatus === "queued" ? <Check size={16} /> : <Download size={16} />}
           </IconButton>
+          {isWallpaperable(post) && (
+            <IconButton
+              tone="invert"
+              disabled={wallpaperStatus === "busy"}
+              title={
+                wallpaperStatus === "done"
+                  ? "Wallpaper set"
+                  : typeof wallpaperStatus === "object"
+                    ? wallpaperStatus.error
+                    : "Set as desktop wallpaper"
+              }
+              onClick={() => void handleSetWallpaper()}
+              className={
+                wallpaperStatus === "done"
+                  ? "!text-green-400"
+                  : typeof wallpaperStatus === "object"
+                    ? "!text-red-400"
+                    : ""
+              }
+            >
+              {wallpaperStatus === "busy" ? (
+                <Spinner size={16} />
+              ) : wallpaperStatus === "done" ? (
+                <Check size={16} />
+              ) : (
+                <Wallpaper size={16} />
+              )}
+            </IconButton>
+          )}
           <IconButton
             tone="invert"
             title="Share to Telegram"
