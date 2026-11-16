@@ -2437,3 +2437,22 @@ live call before implementing (per user instruction - no more guessing).
   multi-slide mode (the time dimension skipped from the original zhuzh). Card title becomes
   "2026, wrapped"; uploaded-scope card backgrounds stay inside the year. Year runs aren't put in
   the 30-minute all-time cache. `lib/yearInReview.ts`, tested. Not yet live-tested.
+- [x] **Settings overhaul** (v1.28.0) Settings is a two-pane sheet (`max-w-5xl`): a category
+  sidebar (Account, Content & filtering, Appearance, Gus, Viewing & downloads, Wallpaper,
+  Integrations, Privacy & data, About) with status dots (signed-in, blacklist line count /
+  auto-sync state) and a Ctrl+F search that filters every card across all categories by title +
+  keywords (`SETTINGS_INDEX` in `SettingsPanel.tsx`). Each card is its own component in
+  `SettingsCards.tsx` reading its stores directly; `controls.tsx` holds the card/row/switch/
+  segmented primitives. The last page sticks for the session. The inner *Section bodies
+  (Wallpaper, Backup, Seen posts, Source logins) weren't restyled and still use checkboxes. Not
+  yet live-tested.
+- [x] **Blacklist auto-sync** (v1.28.0) Fixes #29: Push overwrote lines added in the Android
+  app, and Import dropped desktop-only lines. `lib/blacklistMerge.ts` does a three-way merge
+  (remote - local deletions since base + local additions since base; line keys normalised like
+  parseBlacklist; no base = union) against `blacklistSyncBase[site]` saved after every sync /
+  import / push. `state/blacklistSync.ts` serialises syncs; an edit made while one is in flight is
+  rebased onto the merge so the follow-up doesn't read pulled lines as local deletions. With
+  "Sync automatically" on (`blacklistAutoSync`, default off), every `addToBlacklist()` (all five
+  tag-menu call sites now use it), editor Save and app launch syncs; "Sync now" does it on
+  demand. Import/push survive as confirm-gated "overwrite one side" actions. The blacklist is
+  one text for both sites; sync uses the active site. Merge unit-tested; not yet live-tested.
