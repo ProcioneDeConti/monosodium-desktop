@@ -4,6 +4,7 @@ import type { Site } from "../../models/site";
 import { usePoolPostsQuery, usePoolQuery } from "../../queries/usePoolQuery";
 import { useSettingsStore } from "../../state/settingsStore";
 import { parseBlacklist, visiblePosts } from "../../lib/blacklist";
+import { addToBlacklist } from "../../state/blacklistSync";
 import { PostGrid } from "../PostGrid/PostGrid";
 import { PostViewer } from "../PostViewer/PostViewer";
 import { DText, DTextLinkContext } from "../ui/DText";
@@ -49,7 +50,6 @@ export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile, onOp
   }, [viewerIndex, nestedPoolId]);
 
   const blacklist = useSettingsStore((s) => s.blacklist);
-  const setBlacklist = useSettingsStore((s) => s.setBlacklist);
   const blacklistDisabled = useSettingsStore((s) => s.blacklistDisabled);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
   const blacklistEntries = useMemo(() => parseBlacklist(blacklist), [blacklist]);
@@ -91,7 +91,7 @@ export function PoolPanel({ site, poolId, onClose, onSearch, onOpenProfile, onOp
   }
 
   function addTagToBlacklist(tag: string) {
-    setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`);
+    addToBlacklist(tag);
   }
 
   return (

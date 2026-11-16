@@ -5,6 +5,7 @@ import { e621Api } from "../../api/client";
 import { useSettingsStore } from "../../state/settingsStore";
 import { useAccountStore } from "../../state/accountStore";
 import { parseBlacklist, visiblePosts } from "../../lib/blacklist";
+import { addToBlacklist } from "../../state/blacklistSync";
 import { errorMessage } from "../../lib/errors";
 import type { TasteMode } from "../../lib/tasteProfile";
 import { resolveUser } from "../../queries/useFavoritesAnalysis";
@@ -224,7 +225,6 @@ export function ForYouPanel({
   }
 
   const blacklist = useSettingsStore((s) => s.blacklist);
-  const setBlacklist = useSettingsStore((s) => s.setBlacklist);
   const blacklistDisabled = useSettingsStore((s) => s.blacklistDisabled);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
   const blacklistEntries = useMemo(() => parseBlacklist(blacklist), [blacklist]);
@@ -240,7 +240,7 @@ export function ForYouPanel({
   }, [viewerIndex, shownPosts.length]);
 
   function addTagToBlacklist(tag: string) {
-    setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`);
+    addToBlacklist(tag);
   }
 
   const name = resolved?.name ?? ref ?? "";

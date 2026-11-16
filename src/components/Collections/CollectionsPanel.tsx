@@ -15,6 +15,7 @@ import { useCollectionsStore } from "../../state/collectionsStore";
 import { useCollectionPostsQuery } from "../../queries/useCollectionPosts";
 import { useSettingsStore } from "../../state/settingsStore";
 import { parseBlacklist, visiblePosts } from "../../lib/blacklist";
+import { addToBlacklist } from "../../state/blacklistSync";
 import { PostGrid } from "../PostGrid/PostGrid";
 import { PostViewer } from "../PostViewer/PostViewer";
 import { PoolPanel } from "../Pool/PoolPanel";
@@ -244,7 +245,6 @@ function CollectionGridView({
   const [nestedPoolId, setNestedPoolId] = useState<number | null>(null);
 
   const blacklist = useSettingsStore((s) => s.blacklist);
-  const setBlacklist = useSettingsStore((s) => s.setBlacklist);
   const blacklistDisabled = useSettingsStore((s) => s.blacklistDisabled);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
   const blacklistEntries = useMemo(() => parseBlacklist(blacklist), [blacklist]);
@@ -268,7 +268,7 @@ function CollectionGridView({
   }, [viewerIndex, shownPosts.length]);
 
   function addTagToBlacklist(tag: string) {
-    setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`);
+    addToBlacklist(tag);
   }
 
   async function pickAutoFolder() {

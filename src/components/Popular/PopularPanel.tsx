@@ -4,6 +4,7 @@ import type { Site } from "../../models/site";
 import { usePopularPostsQuery } from "../../queries/usePopularQuery";
 import { useSettingsStore } from "../../state/settingsStore";
 import { parseBlacklist, visiblePosts } from "../../lib/blacklist";
+import { addToBlacklist } from "../../state/blacklistSync";
 import {
   POPULAR_SCALES,
   formatPeriod,
@@ -61,7 +62,6 @@ export function PopularPanel({ site, onClose, onSearch, onOpenProfile, onOpenArt
   const { data: posts, isLoading, isError } = usePopularPostsQuery(site, date, scale, true);
 
   const blacklist = useSettingsStore((s) => s.blacklist);
-  const setBlacklist = useSettingsStore((s) => s.setBlacklist);
   const blacklistDisabled = useSettingsStore((s) => s.blacklistDisabled);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
   const blacklistEntries = useMemo(() => parseBlacklist(blacklist), [blacklist]);
@@ -108,7 +108,7 @@ export function PopularPanel({ site, onClose, onSearch, onOpenProfile, onOpenArt
   }, [remarks, nextRemark]);
 
   function addTagToBlacklist(tag: string) {
-    setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`);
+    addToBlacklist(tag);
   }
 
   function changeScale(next: PopularScale) {

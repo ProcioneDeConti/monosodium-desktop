@@ -177,7 +177,12 @@ const SECTIONS: HelpSection[] = [
           <Kbd>rating:explicit</Kbd> works as a tag here.
         </P>
         <UL>
-          <li>That section can import from or push to your e621 account, and <B>Sort A–Z</B> tidies the list.</li>
+          <li>
+            <B>Sync automatically</B> merges the blacklist with your account whenever you add or save
+            a line, and at launch. Lines added elsewhere (like the Android app) are kept, and lines
+            you delete here are deleted there too. <B>Sync now</B> does the same merge on demand.
+          </li>
+          <li><B>Sort A–Z</B> tidies the list. One-way replace/overwrite is still there, tucked under the buttons.</li>
           <li>
             The <B>blacklist tester</B> at the bottom of that section takes a post ID or URL. It shows,
             line by line, whether your blacklist (including unsaved edits) would hide that post and why.
@@ -543,19 +548,18 @@ const SECTIONS: HelpSection[] = [
     icon: SettingsIcon,
     body: (
       <UL>
+        <li>Settings is split into categories down the left. The <B>search box</B> at the top (<Kbd>Ctrl</Kbd>+<Kbd>F</Kbd>) finds any option across all of them.</li>
         <li><B>Account</B>: username and API key for each site.</li>
-        <li><B>Blacklist</B>: the blacklist editor, with import/push, sort and the tester.</li>
-        <li><B>Appearance</B>: <B>theme</B> (System / Light / Dark), accent color, thumbnail size, and how often <B>Gus</B> appears and talks.</li>
-        <li><B>Seen posts</B>: dim, hide or off, and clear the list of posts you've opened.</li>
-        <li><B>Video</B>: default loop, playback speed and autoplay.</li>
+        <li><B>Content &amp; filtering</B>: ratings and adult mode, the <B>blacklist</B> editor (with sync, sort and the tester), and seen posts.</li>
+        <li><B>Appearance</B>: theme (System / Light / Dark), palette, accent color, motion, glow effects and thumbnail size.</li>
+        <li><B>Gus</B>: how he appears and how much he talks.</li>
         <li>
-          <B>Favorites &amp; voting</B>: <B>Upvote posts when I favorite them</B>. This only works
-          one way: unfavoriting keeps the upvote, and upvoting never adds a favorite.
+          <B>Viewing &amp; downloads</B>: video defaults, <B>Upvote posts when I favorite them</B> (one
+          way only: unfavoriting keeps the upvote), and the download folder.
         </li>
-        <li><B>Cache</B>: size limit for saved images, and a button to clear them (takes effect next launch).</li>
-        <li><B>Encryption</B>: optionally protect local data with a password.</li>
-        <li><B>Backup &amp; Restore</B>: export or import an encrypted copy of your settings.</li>
-        <li><B>Updates</B>: check GitHub for a newer version.</li>
+        <li><B>Wallpaper</B> and <B>Integrations</B> (SauceNAO, source logins).</li>
+        <li><B>Privacy &amp; data</B>: password encryption, encrypted backup &amp; restore, and the image cache.</li>
+        <li><B>About</B>: updates, the EULA, and reset.</li>
       </UL>
     ),
   },

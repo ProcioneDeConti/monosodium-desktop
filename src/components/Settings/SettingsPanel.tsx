@@ -1,537 +1,303 @@
-import { MASCOT_NAME } from "../../lib/mascot";
-import { useEffect, useRef, useState } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { getVersion } from "@tauri-apps/api/app";
-import { CheckCircle2, FolderOpen, Monitor, Moon, Sun, X } from "lucide-react";
+// Settings: a two-pane sheet - category sidebar (with a search box that filters every card across
+// all categories) on the left, the selected category's cards on the right. Each card is its own
+// component in SettingsCards.tsx that reads the stores directly, so the panel itself only does
+// navigation. Card titles + keywords live in SETTINGS_INDEX below; that's what the search hits.
+
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import {
-  DEFAULT_THUMBNAIL_SIZE_PX,
-  MAX_VIDEO_SPEED,
-  MIN_VIDEO_SPEED,
-  STEP_VIDEO_SPEED,
-  useSettingsStore,
-  type MascotMode,
-  type MascotTalk,
-} from "../../state/settingsStore";
-import { useMascotStore } from "../../state/mascotStore";
+  Bot,
+  ChevronRight,
+  Film,
+  Image as ImageIcon,
+  Info,
+  Palette,
+  Plug,
+  Search,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserRound,
+  X,
+} from "lucide-react";
+import { MASCOT_NAME } from "../../lib/mascot";
+import { useSettingsStore } from "../../state/settingsStore";
 import { useAccountStore } from "../../state/accountStore";
-import { e621Api } from "../../api/client";
-import type { Rating } from "../../models/post";
+import { useBlacklistSyncStore } from "../../state/blacklistSync";
 import { randomGreeting } from "../../lib/greetings";
-import { SiteAccountCard } from "./SiteAccountCard";
-import { BlacklistSection } from "./BlacklistSection";
-import { BackupSection } from "./BackupSection";
-import { CacheSection } from "./CacheSection";
-import { UpdateSection } from "./UpdateSection";
-import { EncryptionSection } from "./EncryptionSection";
-import { ResetSection } from "./ResetSection";
-import { EulaReadOnlyDialog } from "../Eula/EulaReadOnlyDialog";
-import { SaucenaoSection } from "./SaucenaoSection";
-import { SourceLoginsSection } from "./SourceLoginsSection";
-import { SeenPostsSection } from "./SeenPostsSection";
-import { WallpaperSection } from "./WallpaperSection";
-import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
-import { MOTION_MODES, PALETTES } from "../../lib/theme";
-import { Section } from "../ui/Section";
-
-const MASCOT_TALK: { value: MascotTalk; label: string }[] = [
-  { value: "never", label: "Never" },
-  { value: "sometimes", label: "Sometimes" },
-  { value: "chatty", label: "Chatty" },
-  { value: "always", label: "Always" },
-];
-
-const MASCOT_MODES: { value: MascotMode; label: string }[] = [
-  { value: "companion", label: "Companion" },
-  { value: "cameos", label: "Cameos" },
-  { value: "off", label: "Off" },
-];
+import { EulaReadOnlyDialog } from "../Eula/EulaReadOnlyDialog";
+import * as Cards from "./SettingsCards";
 
 interface SettingsPanelProps {
   onClose: () => void;
   onOpenProfile: () => void;
 }
 
-const ACCENT_PRESETS = [
-  "#6366f1", // indigo (default)
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#ef4444", // red
-  "#f97316", // orange
-  "#eab308", // yellow
-  "#22c55e", // green
-  "#06b6d4", // cyan
+type PageId =
+  | "account"
+  | "content"
+  | "appearance"
+  | "mascot"
+  | "media"
+  | "wallpaper"
+  | "integrations"
+  | "privacy"
+  | "about";
+
+interface PageDef {
+  id: PageId;
+  label: string;
+  blurb: string;
+  icon: ComponentType<{ size?: number; className?: string }>;
+}
+
+const PAGES: PageDef[] = [
+  { id: "account", label: "Account", blurb: "Sign in to e621 and e6AI", icon: UserRound },
+  { id: "content", label: "Content & filtering", blurb: "Ratings, blacklist, seen posts", icon: SlidersHorizontal },
+  { id: "appearance", label: "Appearance", blurb: "Theme, colours, motion, grid", icon: Palette },
+  { id: "mascot", label: MASCOT_NAME, blurb: "Your raccoon companion", icon: Bot },
+  { id: "media", label: "Viewing & downloads", blurb: "Video, voting, download folder", icon: Film },
+  { id: "wallpaper", label: "Wallpaper", blurb: "Posts on your desktop", icon: ImageIcon },
+  { id: "integrations", label: "Integrations", blurb: "Reverse image search, source logins", icon: Plug },
+  { id: "privacy", label: "Privacy & data", blurb: "Encryption, backups, cache", icon: ShieldCheck },
+  { id: "about", label: "About", blurb: "Updates, legal, reset", icon: Info },
 ];
 
-const THEME_OPTIONS = [
-  { value: "system", label: "System", icon: Monitor },
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-] as const;
+interface CardDef {
+  id: string;
+  page: PageId;
+  title: string;
+  keywords: string;
+  Component: ComponentType<{ onOpenEula: () => void }>;
+}
 
-const RATING_OPTIONS: { value: Rating; label: string }[] = [
-  { value: "s", label: "Safe" },
-  { value: "q", label: "Questionable" },
-  { value: "e", label: "Explicit" },
+/** Every card, in display order. `keywords` is extra search text beyond the title. */
+const SETTINGS_INDEX: CardDef[] = [
+  { id: "accounts", page: "account", title: "Site accounts", keywords: "username api key login sign in e621 e6ai credentials", Component: Cards.AccountsCard },
+  { id: "ratings", page: "content", title: "Content ratings", keywords: "adult mode safe questionable explicit nsfw sfw rating filter", Component: Cards.RatingsCard },
+  { id: "blacklist", page: "content", title: "Blacklist", keywords: "blacklist block hide tags sync auto-sync android import push tester", Component: Cards.BlacklistCard },
+  { id: "seen", page: "content", title: "Seen posts", keywords: "seen viewed dim hide history clear", Component: Cards.SeenCard },
+  { id: "theme", page: "appearance", title: "Theme", keywords: "dark light system mode palette navy oled warm", Component: Cards.ThemeCard },
+  { id: "accent", page: "appearance", title: "Accent colour", keywords: "accent color colour highlight custom", Component: Cards.AccentCard },
+  { id: "effects", page: "appearance", title: "Motion & effects", keywords: "motion animation reduced ambient glow title bar viewer", Component: Cards.EffectsCard },
+  { id: "grid", page: "appearance", title: "Grid", keywords: "thumbnail size grid columns", Component: Cards.GridCard },
+  { id: "mascot", page: "mascot", title: MASCOT_NAME, keywords: "mascot raccoon companion cameos talk chatty speech cheeky spicy hidden restore", Component: Cards.MascotCard },
+  { id: "video", page: "media", title: "Video playback", keywords: "video loop autoplay speed playback webm mp4", Component: Cards.VideoCard },
+  { id: "voting", page: "media", title: "Favorites & voting", keywords: "favorite favourite upvote vote", Component: Cards.VotingCard },
+  { id: "downloads", page: "media", title: "Downloads", keywords: "download folder save location directory", Component: Cards.DownloadsCard },
+  { id: "wallpaper", page: "wallpaper", title: "Desktop wallpaper", keywords: "wallpaper desktop background rotate", Component: Cards.WallpaperCard },
+  { id: "saucenao", page: "integrations", title: "Reverse image search", keywords: "saucenao reverse image search sauce api key drag drop", Component: Cards.ReverseSearchCard },
+  { id: "source-logins", page: "integrations", title: "Source logins", keywords: "source login furaffinity fa recovery deleted cookie", Component: Cards.SourceLoginsCard },
+  { id: "encryption", page: "privacy", title: "Encryption", keywords: "password encryption lock vault protect", Component: Cards.EncryptionCard },
+  { id: "backup", page: "privacy", title: "Backup & restore", keywords: "backup restore export import", Component: Cards.BackupCard },
+  { id: "cache", page: "privacy", title: "Cache", keywords: "cache disk space clear size limit images", Component: Cards.CacheCard },
+  { id: "updates", page: "about", title: "Updates", keywords: "update version check github release install", Component: Cards.UpdatesCard },
+  { id: "legal", page: "about", title: "Legal", keywords: "eula license agreement terms", Component: Cards.LegalCard },
+  { id: "reset", page: "about", title: "Reset", keywords: "reset factory clear all data danger", Component: Cards.ResetCard },
 ];
+
+// Survives close/reopen within a session, so Settings reopens where you left it.
+let lastPage: PageId = "account";
+
+function matches(card: CardDef, words: string[]): boolean {
+  const page = PAGES.find((p) => p.id === card.page)!;
+  const hay = `${card.title} ${card.keywords} ${page.label}`.toLowerCase();
+  return words.every((w) => hay.includes(w));
+}
 
 export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   const site = useSettingsStore((s) => s.site);
   const account = useAccountStore((s) => s.accounts[site]);
-  // Re-picked every time Settings opens (mount = open, since this component is only ever
-  // rendered while open) - mirrors the reference Android app's nav drawer, which re-rolls its
-  // greeting every time it's opened rather than keeping the same one all session.
+  const signedInE621 = useAccountStore((s) => s.isAuthenticated("e621"));
+  const signedInE6ai = useAccountStore((s) => s.isAuthenticated("e6ai"));
+  const blacklistLines = useSettingsStore((s) => s.blacklistEntries.length);
+  const autoSync = useSettingsStore((s) => s.blacklistAutoSync);
+  const syncState = useBlacklistSyncStore((s) => s.state);
+  // Re-picked every time Settings opens - mirrors the reference Android app's nav drawer.
   const [greeting] = useState(randomGreeting);
+  const [page, setPageState] = useState<PageId>(lastPage);
+  const [query, setQuery] = useState("");
   const [showEula, setShowEula] = useState(false);
-  const [passwordProtected, setPasswordProtected] = useState<boolean | null>(null);
   const overlay = useRef<OverlayHandle>(null);
-  const adultModeEnabled = useSettingsStore((s) => s.adultModeEnabled);
-  const setAdultModeEnabled = useSettingsStore((s) => s.setAdultModeEnabled);
-  const enabledRatings = useSettingsStore((s) => s.enabledRatings);
-  const setEnabledRatings = useSettingsStore((s) => s.setEnabledRatings);
-  const accentColor = useSettingsStore((s) => s.accentColor);
-  const setAccentColor = useSettingsStore((s) => s.setAccentColor);
-  const themeMode = useSettingsStore((s) => s.themeMode);
-  const setThemeMode = useSettingsStore((s) => s.setThemeMode);
-  const palette = useSettingsStore((s) => s.palette);
-  const setPalette = useSettingsStore((s) => s.setPalette);
-  const motionMode = useSettingsStore((s) => s.motionMode);
-  const mascotMode = useSettingsStore((s) => s.mascotMode);
-  const setMascotMode = useSettingsStore((s) => s.setMascotMode);
-  const mascotTalk = useSettingsStore((s) => s.mascotTalk);
-  const setMascotTalk = useSettingsStore((s) => s.setMascotTalk);
-  const mascotSpicy = useSettingsStore((s) => s.mascotSpicy);
-  const setMascotSpicy = useSettingsStore((s) => s.setMascotSpicy);
-  const explicitOn = useSettingsStore((s) => s.adultModeEnabled && s.enabledRatings.includes("e"));
-  const mascotHidden = useMascotStore((s) => s.hiddenForSession);
-  const restoreMascot = useMascotStore((s) => s.restore);
-  const setMotionMode = useSettingsStore((s) => s.setMotionMode);
-  const ambientHeader = useSettingsStore((s) => s.ambientHeader);
-  const setAmbientHeader = useSettingsStore((s) => s.setAmbientHeader);
-  const viewerAmbient = useSettingsStore((s) => s.viewerAmbient);
-  const setViewerAmbient = useSettingsStore((s) => s.setViewerAmbient);
-  const videoLoopEnabled = useSettingsStore((s) => s.videoLoopEnabled);
-  const setVideoLoopEnabled = useSettingsStore((s) => s.setVideoLoopEnabled);
-  const videoAutoplayEnabled = useSettingsStore((s) => s.videoAutoplayEnabled);
-  const setVideoAutoplayEnabled = useSettingsStore((s) => s.setVideoAutoplayEnabled);
-  const videoPlaybackSpeed = useSettingsStore((s) => s.videoPlaybackSpeed);
-  const favUpvoteSync = useSettingsStore((s) => s.favUpvoteSync);
-  const setFavUpvoteSync = useSettingsStore((s) => s.setFavUpvoteSync);
-  const setVideoPlaybackSpeed = useSettingsStore((s) => s.setVideoPlaybackSpeed);
-  const gridThumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
-  const setGridThumbnailSizePx = useSettingsStore((s) => s.setGridThumbnailSizePx);
-  const downloadDir = useSettingsStore((s) => s.downloadDir);
-  const setDownloadDir = useSettingsStore((s) => s.setDownloadDir);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    void e621Api.getVaultStatus().then((status) => setPasswordProtected(status.password_protected));
-  }, []);
-
-  function toggleRating(rating: Rating) {
-    const next = enabledRatings.includes(rating)
-      ? enabledRatings.filter((r) => r !== rating)
-      : [...enabledRatings, rating];
-    if (next.length > 0) setEnabledRatings(next);
+  function setPage(id: PageId) {
+    lastPage = id;
+    setPageState(id);
+    setQuery("");
+    contentRef.current?.scrollTo({ top: 0 });
   }
 
-  async function chooseDownloadFolder() {
-    const selected = await open({ directory: true, multiple: false });
-    if (typeof selected === "string") setDownloadDir(selected);
+  // Ctrl+F jumps to the settings search.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "f" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const searching = words.length > 0;
+  const results = searching ? SETTINGS_INDEX.filter((c) => matches(c, words)) : [];
+  const hitPages = new Set(results.map((c) => c.page));
+
+  const current = PAGES.find((p) => p.id === page)!;
+  const cards = searching ? results : SETTINGS_INDEX.filter((c) => c.page === page);
+  const openEula = () => setShowEula(true);
+
+  function badge(id: PageId) {
+    if (id === "account") {
+      const n = Number(signedInE621) + Number(signedInE6ai);
+      return n > 0 ? <Dot tone="ok" title={`${n} signed in`} /> : <Dot tone="muted" title="Not signed in" />;
+    }
+    if (id === "content" && blacklistLines > 0) {
+      return (
+        <span className="flex items-center gap-1 text-[10px] tabular-nums opacity-60">
+          {autoSync && <Dot tone={syncState === "error" ? "error" : "ok"} title={syncState === "error" ? "Blacklist sync failed" : "Blacklist auto-sync on"} />}
+          {blacklistLines}
+        </span>
+      );
+    }
+    return null;
   }
 
   return (
-    <Overlay ref={overlay} onClose={onClose} variant="sheet" sheetWidth="max-w-2xl">
-        <div className="flex shrink-0 items-center gap-2 border-b border-black/10 dark:border-white/10 px-4 py-3">
-          <h1 className="text-sm font-semibold">Settings</h1>
-          <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
-            <X size={18} />
-          </IconButton>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-4 py-4">
-          <div className="mb-5">
-            <p className="text-xl font-black tracking-tight text-[rgb(var(--accent))]">{greeting},</p>
-            {account?.username && (
+    <Overlay ref={overlay} onClose={onClose} variant="sheet" sheetWidth="max-w-5xl">
+      <div className="flex min-h-0 flex-1">
+        {/* Sidebar */}
+        <nav className="flex w-64 shrink-0 flex-col border-r border-black/10 bg-black/[0.025] dark:border-white/10 dark:bg-white/[0.02]">
+          <div className="px-4 pb-3 pt-5">
+            <p className="text-lg font-black leading-tight tracking-tight text-[rgb(var(--accent))]">{greeting},</p>
+            {account?.username ? (
               <button
                 type="button"
                 onClick={() => {
                   onClose();
                   onOpenProfile();
                 }}
-                className="text-sm font-medium opacity-70 transition-opacity hover:text-[rgb(var(--accent))] hover:opacity-100"
+                className="mt-0.5 flex items-center gap-1 text-sm font-medium opacity-70 transition-opacity hover:text-[rgb(var(--accent))] hover:opacity-100"
               >
                 {account.username}
+                <ChevronRight size={13} />
               </button>
+            ) : (
+              <p className="mt-0.5 text-sm opacity-50">stranger</p>
             )}
           </div>
 
-          <Section title="Accounts">
-            <div className="flex flex-col gap-3">
-              <SiteAccountCard site="e621" />
-              <SiteAccountCard site="e6ai" />
-            </div>
-          </Section>
-
-          <Section title="Content ratings">
-            <label className="mb-2 flex items-center gap-2 text-sm">
+          <div className="px-3 pb-2">
+            <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-black/10 bg-white/70 px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-[rgb(var(--accent))] dark:border-white/10 dark:bg-black/30">
+              <Search size={14} className="shrink-0 opacity-50" />
               <input
-                type="checkbox"
-                checked={adultModeEnabled}
-                onChange={(e) => setAdultModeEnabled(e.target.checked)}
-                className="accent-[rgb(var(--accent))]"
+                ref={searchRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape" && query) {
+                    e.stopPropagation();
+                    setQuery("");
+                  }
+                }}
+                placeholder="Search settings"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:opacity-50"
               />
-              Adult mode (allow non-safe content)
-            </label>
-            <p className="mb-2 pl-1 text-xs opacity-60">
-              Master switch - while off, results are locked to Safe regardless of the checkboxes
-              below.
-            </p>
-            <div className="flex gap-4 pl-1">
-              {RATING_OPTIONS.map((r) => (
-                <label
-                  key={r.value}
-                  className={`flex items-center gap-1.5 text-sm ${!adultModeEnabled ? "opacity-40" : ""}`}
-                >
-                  <input
-                    type="checkbox"
-                    disabled={!adultModeEnabled}
-                    checked={enabledRatings.includes(r.value)}
-                    onChange={() => toggleRating(r.value)}
-                    className="accent-[rgb(var(--accent))]"
-                  />
-                  {r.label}
-                </label>
-              ))}
+              {query ? (
+                <button type="button" onClick={() => setQuery("")} className="opacity-50 hover:opacity-100" title="Clear">
+                  <X size={13} />
+                </button>
+              ) : (
+                <kbd className="rounded border border-black/10 px-1 text-[10px] opacity-40 dark:border-white/15">Ctrl F</kbd>
+              )}
             </div>
-          </Section>
+          </div>
 
-          <Section title="Blacklist">
-            <BlacklistSection site={site} />
-          </Section>
-
-          <Section title="Seen posts">
-            <SeenPostsSection />
-          </Section>
-
-          <Section title="Appearance">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-sm w-36 shrink-0">Theme</span>
-              <div className="inline-flex overflow-hidden rounded-[var(--radius-md)] border border-black/10 dark:border-white/10">
-                {THEME_OPTIONS.map((o) => (
+          <ul className="flex-1 overflow-y-auto px-2 pb-3">
+            {PAGES.map((p) => {
+              const active = !searching && p.id === page;
+              const dimmed = searching && !hitPages.has(p.id);
+              return (
+                <li key={p.id}>
                   <button
-                    key={o.value}
                     type="button"
-                    onClick={() => setThemeMode(o.value)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors ${
-                      themeMode === o.value
-                        ? "bg-[rgb(var(--accent))]/20 text-[rgb(var(--accent))]"
-                        : "hover:bg-black/5 dark:hover:bg-white/10"
-                    }`}
+                    onClick={() => setPage(p.id)}
+                    className={`group relative flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-2 text-left text-sm transition-colors ${
+                      active
+                        ? "bg-[rgb(var(--accent))]/15 font-semibold text-[rgb(var(--accent))]"
+                        : "hover:bg-black/5 dark:hover:bg-white/[0.06]"
+                    } ${dimmed ? "opacity-35" : ""}`}
                   >
-                    <o.icon size={14} />
-                    {o.label}
+                    {active && (
+                      <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-[rgb(var(--accent))]" />
+                    )}
+                    <p.icon size={16} className={active ? "" : "opacity-70"} />
+                    <span className="min-w-0 flex-1 truncate">{p.label}</span>
+                    {badge(p.id)}
                   </button>
-                ))}
-              </div>
-            </div>
+                </li>
+              );
+            })}
+          </ul>
 
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-sm w-36 shrink-0">Palette</span>
-              <Segmented value={palette} options={PALETTES} onChange={setPalette} />
-            </div>
-            <p className="-mt-3 mb-4 pl-[9.5rem] text-xs opacity-60">
-              Background and panel colours. Navy, OLED and Warm restyle dark mode; Warm also tints
-              light mode.
-            </p>
+          <Cards.CreditsFooter />
+        </nav>
 
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-sm w-36 shrink-0">Motion</span>
-              <Segmented value={motionMode} options={MOTION_MODES} onChange={setMotionMode} />
+        {/* Content */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-start gap-3 border-b border-black/10 px-6 pb-4 pt-5 dark:border-white/10">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-bold tracking-tight">
+                {searching ? `Results for “${query.trim()}”` : current.label}
+              </h1>
+              <p className="mt-0.5 text-xs opacity-60">
+                {searching
+                  ? `${results.length} ${results.length === 1 ? "match" : "matches"}`
+                  : current.blurb}
+              </p>
             </div>
-            <p className="-mt-3 mb-4 pl-[9.5rem] text-xs opacity-60">
-              Reduced turns off animations and transitions. System follows Windows' "Animation
-              effects" setting.
-            </p>
+            <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)">
+              <X size={18} />
+            </IconButton>
+          </div>
 
-            <label className="mb-2 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={ambientHeader}
-                onChange={(e) => setAmbientHeader(e.target.checked)}
-                className="accent-[rgb(var(--accent))]"
-              />
-              Ambient title bar (soft accent-coloured glow)
-            </label>
-            <label className="mb-4 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={viewerAmbient}
-                onChange={(e) => setViewerAmbient(e.target.checked)}
-                className="accent-[rgb(var(--accent))]"
-              />
-              Post viewer glows with each post's colours
-            </label>
-
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-sm w-36 shrink-0">Mascot ({MASCOT_NAME})</span>
-              <Segmented value={mascotMode} options={MASCOT_MODES} onChange={setMascotMode} />
-            </div>
-            <p className="-mt-3 mb-2 pl-[9.5rem] text-xs opacity-60">
-              {MASCOT_NAME} the raccoon reacts to favorites, votes, searches and more. Companion sits in a corner
-              of the grid (drag it to move, right-click to hide); Cameos pops in briefly instead.
-            </p>
-            <div className={`mb-4 flex items-center gap-2 ${mascotMode === "off" ? "pointer-events-none opacity-40" : ""}`}>
-              <span className="text-sm w-36 shrink-0">Talkativeness</span>
-              <Segmented value={mascotTalk} options={MASCOT_TALK} onChange={setMascotTalk} />
-            </div>
-            <p className="-mt-3 mb-3 pl-[9.5rem] text-xs opacity-60">
-              {mascotTalk === "always"
-                ? `Every reaction with something to say gets a line. ${MASCOT_NAME} will not shut up.`
-                : mascotTalk === "never"
-                  ? `${MASCOT_NAME} still reacts, but never says a word.`
-                  : mascotTalk === "chatty"
-                    ? `About twice as talkative - most reactions get a line, with a short breather between.`
-                    : `A line now and then - at most one every few minutes.`}
-            </p>
-            {explicitOn && (
-              <label
-                className={`-mt-2 mb-4 flex items-center gap-2 pl-[9.5rem] text-sm ${mascotMode === "off" || mascotTalk === "never" ? "opacity-40" : ""}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={mascotSpicy}
-                  disabled={mascotMode === "off" || mascotTalk === "never"}
-                  onChange={(e) => setMascotSpicy(e.target.checked)}
-                  className="accent-[rgb(var(--accent))]"
-                />
-                Let {MASCOT_NAME} get cheeky 😏
-              </label>
-            )}
-            {mascotHidden && mascotMode !== "off" && (
-              <div className="-mt-2 mb-4 flex items-center gap-2 pl-[9.5rem] text-xs">
-                <span className="opacity-60">{MASCOT_NAME} hidden</span>
-                <span className="opacity-30">-</span>
-                <button
-                  type="button"
-                  onClick={restoreMascot}
-                  className="font-semibold text-[rgb(var(--accent))] hover:underline"
-                >
-                  Restore
-                </button>
-              </div>
-            )}
-
-            <div className="flex items-center gap-2">
-              {ACCENT_PRESETS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setAccentColor(color)}
-                  title={color}
-                  className={`h-7 w-7 rounded-full ${accentColor === color ? "ring-2 ring-offset-2 ring-offset-[rgb(var(--lt-surface))] dark:ring-offset-[rgb(var(--dk-surface))] ring-black/50 dark:ring-white/70" : ""}`}
-                  style={{ backgroundColor: color }}
-                />
+          <div ref={contentRef} className="flex-1 overflow-y-auto px-6 py-5">
+            <div key={searching ? `q:${query}` : page} className="flex flex-col gap-4 animate-[fade-in_150ms_ease-out]">
+              {cards.map((c) => (
+                <div key={c.id}>
+                  {searching && (
+                    <button
+                      type="button"
+                      onClick={() => setPage(c.page)}
+                      className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide opacity-50 hover:text-[rgb(var(--accent))] hover:opacity-100"
+                    >
+                      {PAGES.find((p) => p.id === c.page)!.label}
+                      <ChevronRight size={11} />
+                    </button>
+                  )}
+                  <c.Component onOpenEula={openEula} />
+                </div>
               ))}
-              <input
-                type="color"
-                value={accentColor}
-                onChange={(e) => setAccentColor(e.target.value)}
-                className="h-7 w-9 cursor-pointer rounded border border-black/10 dark:border-white/10 bg-transparent"
-                title="Custom color"
-              />
-            </div>
-
-            <div className="mt-4 flex items-center gap-2">
-              <span className="text-sm w-36 shrink-0">Default thumbnail size</span>
-              <span className="text-xs tabular-nums opacity-60">{gridThumbnailSizePx}px</span>
-              {gridThumbnailSizePx !== DEFAULT_THUMBNAIL_SIZE_PX && (
-                <button
-                  type="button"
-                  onClick={() => setGridThumbnailSizePx(DEFAULT_THUMBNAIL_SIZE_PX)}
-                  className="text-xs text-[rgb(var(--accent))] hover:underline"
-                >
-                  Reset
-                </button>
+              {searching && results.length === 0 && (
+                <div className="py-16 text-center text-sm opacity-60">
+                  No settings match “{query.trim()}”.
+                </div>
               )}
             </div>
-          </Section>
-
-          <Section title="Video">
-            <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={videoLoopEnabled}
-                  onChange={(e) => setVideoLoopEnabled(e.target.checked)}
-                  className="accent-[rgb(var(--accent))]"
-                />
-                Loop videos by default
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={videoAutoplayEnabled}
-                  onChange={(e) => setVideoAutoplayEnabled(e.target.checked)}
-                  className="accent-[rgb(var(--accent))]"
-                />
-                Autoplay videos when opened
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm w-36 shrink-0">Default speed</span>
-                <input
-                  type="range"
-                  min={MIN_VIDEO_SPEED}
-                  max={MAX_VIDEO_SPEED}
-                  step={STEP_VIDEO_SPEED}
-                  value={videoPlaybackSpeed}
-                  onChange={(e) => setVideoPlaybackSpeed(Number(e.target.value))}
-                  className="w-40 accent-[rgb(var(--accent))]"
-                />
-                <span className="text-xs tabular-nums opacity-60">{videoPlaybackSpeed}×</span>
-              </div>
-            </div>
-          </Section>
-
-          <Section title="Favorites & voting">
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={favUpvoteSync}
-                onChange={(e) => setFavUpvoteSync(e.target.checked)}
-                className="mt-0.5 accent-[rgb(var(--accent))]"
-              />
-              <span>
-                Upvote posts when I favorite them
-                <span className="block text-xs opacity-60">
-                  One-way: unfavoriting keeps the upvote, and upvoting never adds a favorite.
-                </span>
-              </span>
-            </label>
-          </Section>
-
-          <Section title="Downloads">
-            <div className="flex items-center gap-2">
-              <span className="flex-1 truncate text-sm opacity-80">
-                {downloadDir ?? "Default (Pictures/Videos folder)"}
-              </span>
-              <Button icon={<FolderOpen size={13} />} onClick={() => void chooseDownloadFolder()}>
-                Choose folder…
-              </Button>
-              {downloadDir && (
-                <button
-                  type="button"
-                  onClick={() => setDownloadDir(null)}
-                  className="text-xs text-[rgb(var(--accent))] hover:underline"
-                >
-                  Reset
-                </button>
-              )}
-            </div>
-          </Section>
-
-          <Section title="Wallpaper">
-            <WallpaperSection />
-          </Section>
-
-          <Section title="Encryption">
-            {passwordProtected !== null && <EncryptionSection passwordProtected={passwordProtected} />}
-          </Section>
-
-          <Section title="Backup & Restore">
-            <BackupSection />
-          </Section>
-
-          <Section title="Reverse Image Search">
-            <SaucenaoSection />
-          </Section>
-
-          <Section title="Source logins">
-            <SourceLoginsSection />
-          </Section>
-
-          <Section title="Cache">
-            <CacheSection />
-          </Section>
-
-          <Section title="Legal">
-            <div className="flex items-center gap-2 text-sm">
-              <CheckCircle2 size={16} className="text-[rgb(var(--accent))]" />
-              User has agreed to EULA
-            </div>
-            <Button onClick={() => setShowEula(true)} className="mt-2">
-              Read EULA Again
-            </Button>
-          </Section>
-
-          <Section title="Updates">
-            <UpdateSection />
-          </Section>
-
-          <Section title="Reset">
-            <ResetSection />
-          </Section>
-
-          <CreditsFooter />
+          </div>
         </div>
+      </div>
 
       {showEula && <EulaReadOnlyDialog onClose={() => setShowEula(false)} />}
     </Overlay>
   );
 }
 
-/** Matches the reference Android app's Settings footer (app name + version, copyright, and a
- *  link to the developer's handle). The version comes from `getVersion()` rather than being
- *  hardcoded, so it always matches whatever's actually declared in tauri.conf.json/Cargo.toml. */
-function CreditsFooter() {
-  const [version, setVersion] = useState<string | null>(null);
-
-  useEffect(() => {
-    void getVersion().then(setVersion);
-  }, []);
-
-  return (
-    <div className="mt-2 flex flex-col items-center gap-0.5 pb-2 text-center text-xs opacity-60">
-      <p>Monosodium Desktop{version ? ` v${version}` : ""}</p>
-      <p>© {new Date().getFullYear()} Procione DeConti</p>
-      <button
-        type="button"
-        onClick={() => void openUrl("https://t.me/ProcioneDeConti")}
-        className="text-[rgb(var(--accent))] underline-offset-2 hover:underline"
-      >
-        @ProcioneDeConti
-      </button>
-    </div>
-  );
-}
-
-/** A small segmented control - same look as the Theme switcher above, without icons. */
-function Segmented<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="inline-flex overflow-hidden rounded-[var(--radius-md)] border border-black/10 dark:border-white/10">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => onChange(o.value)}
-          className={`px-3 py-1.5 text-xs transition-colors ${
-            value === o.value
-              ? "bg-[rgb(var(--accent))]/20 text-[rgb(var(--accent))]"
-              : "hover:bg-black/5 dark:hover:bg-white/10"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
+function Dot({ tone, title }: { tone: "ok" | "muted" | "error"; title: string }) {
+  const color = tone === "ok" ? "bg-green-500" : tone === "error" ? "bg-red-500" : "bg-black/25 dark:bg-white/25";
+  return <span title={title} className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />;
 }

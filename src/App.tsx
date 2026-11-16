@@ -71,6 +71,7 @@ import { startUsageSession } from "./lib/usageSession";
 import { useApiMetricsFold } from "./queries/useApiMetricsFold";
 import { useSaucenaoStore } from "./state/saucenaoStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
+import { addToBlacklist, autoSyncBlacklist } from "./state/blacklistSync";
 import { isOwnFavoritesView, normalizeQuery, withRandomOrder } from "./lib/searchQuery";
 import { useDownloadsStore } from "./state/downloadsStore";
 import { useFullscreen } from "./lib/useFullscreen";
@@ -288,6 +289,8 @@ function App() {
     ]).finally(() => {
       setBooted(true);
       startUsageSession();
+      // Pick up lines added on other clients (the Android app) since last launch.
+      autoSyncBlacklist();
     });
   }, [vaultLocked]);
 
@@ -340,7 +343,6 @@ function App() {
   const blacklist = useSettingsStore((s) => s.blacklist);
   const blacklistDisabled = useSettingsStore((s) => s.blacklistDisabled);
   const setBlacklistDisabled = useSettingsStore((s) => s.setBlacklistDisabled);
-  const setBlacklist = useSettingsStore((s) => s.setBlacklist);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
   const gridMode = useSettingsStore((s) => s.gridMode);
   const seenMode = useSettingsStore((s) => s.seenMode);
@@ -928,7 +930,7 @@ function App() {
   const openViewerAt = useCallback((i: number) => navigate({ viewerIndex: i }), [navigate]);
 
   function addTagToBlacklist(tag: string) {
-    setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`);
+    addToBlacklist(tag);
     mascotReact("blacklistAdd");
   }
 

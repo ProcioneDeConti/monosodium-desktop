@@ -56,6 +56,12 @@ interface SettingsState {
   blacklist: string;
   blacklistEntries: BlacklistEntries;
   blacklistDisabled: boolean;
+  /** Merge-sync the blacklist with the signed-in account whenever it changes here (and once at
+   *  launch) - see state/blacklistSync.ts. */
+  blacklistAutoSync: boolean;
+  /** Per site: the blacklist text as of the last successful sync/import/push - the common
+   *  ancestor for lib/blacklistMerge.ts's three-way merge. Absent = never synced. */
+  blacklistSyncBase: Partial<Record<Site, string>>;
   accentColor: string;
   /** "system" follows the OS; "light"/"dark" force it (see lib/theme.ts). */
   themeMode: ThemeMode;
@@ -99,6 +105,8 @@ interface SettingsState {
   setAdultModeEnabled: (enabled: boolean) => void;
   setBlacklist: (blacklist: string) => void;
   setBlacklistDisabled: (disabled: boolean) => void;
+  setBlacklistAutoSync: (enabled: boolean) => void;
+  setBlacklistSyncBase: (site: Site, text: string) => void;
   setAccentColor: (color: string) => void;
   setThemeMode: (mode: ThemeMode) => void;
   setPalette: (palette: Palette) => void;
@@ -158,6 +166,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   blacklist: "",
   blacklistEntries: [],
   blacklistDisabled: false,
+  blacklistAutoSync: false,
+  blacklistSyncBase: {},
   accentColor: "#6366f1",
   themeMode: "system",
   palette: "default",
@@ -200,6 +210,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     void persist("blacklist", blacklist);
   },
   setBlacklistDisabled: (blacklistDisabled) => set({ blacklistDisabled }),
+  setBlacklistAutoSync: (blacklistAutoSync) => {
+    set({ blacklistAutoSync });
+    void persist("blacklistAutoSync", blacklistAutoSync);
+  },
+  setBlacklistSyncBase: (site, text) => {
+    const blacklistSyncBase = { ...get().blacklistSyncBase, [site]: text };
+    set({ blacklistSyncBase });
+    void persist("blacklistSyncBase", blacklistSyncBase);
+  },
   setAccentColor: (accentColor) => {
     set({ accentColor });
     void persist("accentColor", accentColor);
@@ -323,6 +342,9 @@ export async function loadSettings(): Promise<void> {
       adultModeEnabled: (values.adultModeEnabled as boolean) ?? state.adultModeEnabled,
       blacklist,
       blacklistEntries: parseBlacklist(blacklist),
+      blacklistAutoSync: (values.blacklistAutoSync as boolean) ?? state.blacklistAutoSync,
+      blacklistSyncBase:
+        (values.blacklistSyncBase as Partial<Record<Site, string>>) ?? state.blacklistSyncBase,
       accentColor: (values.accentColor as string) ?? state.accentColor,
       themeMode: (values.themeMode as ThemeMode) ?? state.themeMode,
       palette: (values.palette as Palette) ?? state.palette,

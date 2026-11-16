@@ -127,12 +127,14 @@ src/
                                Android app's look exactly - click opens a menu: Search / Add to
                                search / Exclude / Add to blacklist) + InfoPanel (click-to-copy,
                                plus a clickable Uploader row that opens ProfilePanel)
-    Settings/                  full-screen overlay: SiteAccountCard (per-site username/API key,
-                               saves via accountStore -> Windows Credential Manager),
-                               BlacklistSection (textarea + import-from-account/push-to-account
-                               via e621Api.getCurrentUser/updateBlacklist), SettingsPanel (the
-                               rest inline: ratings/adult-mode, accent color, video defaults,
-                               download folder via @tauri-apps/plugin-dialog's `open()`)
+    Settings/                  two-pane sheet: SettingsPanel (category sidebar + search over
+                               SETTINGS_INDEX, the card registry), SettingsCards.tsx (one
+                               component per card, each reads its stores), controls.tsx (card/
+                               row/switch/segmented primitives), BlacklistEditor (auto-sync +
+                               merge "Sync now" via state/blacklistSync.ts - three-way merge in
+                               lib/blacklistMerge.ts against a per-site base, so lines added in
+                               the Android app aren't overwritten; one-way import/push kept
+                               behind a disclosure), SiteAccountCard, and the *Section bodies
     Profile/ProfilePanel.tsx  full-screen overlay for a user profile (own account via "me", or
                                any uploader by id): avatar (resolved from avatar_id via a
                                get_posts id: lookup, since profiles only carry a post id, not an
