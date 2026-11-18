@@ -2456,3 +2456,19 @@ live call before implementing (per user instruction - no more guessing).
   tag-menu call sites now use it), editor Save and app launch syncs; "Sync now" does it on
   demand. Import/push survive as confirm-gated "overwrite one side" actions. The blacklist is
   one text for both sites; sync uses the active site. Merge unit-tested; not yet live-tested.
+- [x] **e621 Post API v2** (v1.28.1) e621 made its new post format the default on 2026-11-13
+  (e621ng f3c1163, forum topic 63849; legacy via `v1=true` removed ~May 2027), so every search
+  failed with "bad posts JSON: invalid type: map, expected a sequence". `PostsResponse`/`AnyPost`
+  in models.rs now accept the bare array (and still the legacy envelope) and convert v2 posts
+  (`files.meta/original/preview/sample/video`, `stats`, `has`) into the unchanged legacy-shaped
+  `Post`, so the frontend didn't change. v2 tags are a flat list unless `mode=extended`
+  (`api::POST_MODE`, sent only on search/favorites/popular, because e621 asks clients to request
+  categories only where they're used); the upload MD5 check stays on basic and the health check
+  uses `mode=thumbnails`. The new `contributor` tag category (id 2) is kept and shown as a neutral
+  "Contributors" section. Found while auditing every endpoint against the live API and e621ng
+  source: v2's `files.sample` falls back to the original file when there's no sample (now nulled,
+  as legacy did); IQDB matches embed v2 posts, so upload similar-post thumbnails were blank (now
+  read `files.preview`); `comments.json` sends `vote`, not `vote_by`, so your own comment votes
+  never showed after a reload (aliased); `artists.json` sends `notes: null`, which broke the
+  artist card (null-tolerant now). Every other endpoint is unchanged. Unit-tested and parsed
+  against live responses; not yet live-tested in the app.

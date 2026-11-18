@@ -20,6 +20,7 @@ export function makePost(
       character: [],
       copyright: [],
       artist: [],
+      contributor: [],
       invalid: [],
       lore: [],
       meta: [],

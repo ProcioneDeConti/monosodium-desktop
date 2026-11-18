@@ -16,6 +16,7 @@ interface TagsPanelProps {
 
 const CATEGORY_ORDER: TagCategory[] = [
   "artist",
+  "contributor",
   "copyright",
   "character",
   "species",

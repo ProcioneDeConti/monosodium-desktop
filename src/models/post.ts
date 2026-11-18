@@ -45,6 +45,7 @@ export interface PostTags {
   character: string[];
   copyright: string[];
   artist: string[];
+  contributor: string[];
   invalid: string[];
   lore: string[];
   meta: string[];
@@ -107,6 +108,7 @@ export const RATING_TAG: Record<Rating, string> = {
 
 export type TagCategory =
   | "artist"
+  | "contributor"
   | "copyright"
   | "character"
   | "species"
@@ -167,6 +169,7 @@ export function categorizedTags(post: Post): CategorizedTag[] {
   const { tags } = post;
   return [
     ...tags.artist.map((name) => ({ name, category: "artist" as const })),
+    ...(tags.contributor ?? []).map((name) => ({ name, category: "contributor" as const })),
     ...tags.copyright.map((name) => ({ name, category: "copyright" as const })),
     ...tags.character.map((name) => ({ name, category: "character" as const })),
     ...tags.species.map((name) => ({ name, category: "species" as const })),

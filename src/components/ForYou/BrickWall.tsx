@@ -80,7 +80,7 @@ interface Body {
   el: HTMLElement | null;
 }
 
-const NEUTRAL = new Set(["general", "lore", "meta"]);
+const NEUTRAL = new Set(["general", "contributor", "lore", "meta"]);
 
 function rnd(min: number, max: number): number {
   return min + Math.random() * (max - min);

@@ -160,6 +160,14 @@ impl SendRetry for reqwest::RequestBuilder {
     }
 }
 
+/// Post API v2 (e621 forum topic 63849): default since Nov 2026, legacy `{"posts": [...]}` format
+/// (opt-in via `v1=true`) removed ~May 2027 - so we parse v2 and don't opt back into v1. v2's
+/// default `mode=basic` sends `tags` as a flat list; `mode=extended` restores per-category
+/// grouping, at extra DB cost to e621, so only send it where categories are actually used: the
+/// grid feeds (search/favorites/popular), whose posts the viewer's tag chips, For-you and Wrapped
+/// read. Existence-only lookups (upload MD5 check) stay on basic. `ModernTags` accepts both forms.
+pub(crate) const POST_MODE: (&str, &str) = ("mode", "extended");
+
 /// Turns a non-2xx response into a descriptive error, calling out the documented 503 (rate
 /// limit exceeded) case specifically so the UI can explain what happened.
 pub(crate) async fn ensure_success(response: reqwest::Response) -> Result<reqwest::Response, String> {
@@ -209,6 +217,7 @@ pub async fn get_posts(
     let response = request(&state, site, Method::GET, "posts.json")
         .await?
         .query(&query)
+        .query(&[POST_MODE])
         .send_retry(&state, site)
         .await
         .map_err(|e| error_chain(&e))?;
@@ -266,6 +275,7 @@ pub async fn get_favorites(
     let response = request(&state, site, Method::GET, "favorites.json")
         .await?
         .query(&query)
+        .query(&[POST_MODE])
         .send_retry(&state, site)
         .await
         .map_err(|e| error_chain(&e))?;
@@ -1486,6 +1496,7 @@ pub async fn get_popular_posts(
     let response = request(&state, site, Method::GET, "popular.json")
         .await?
         .query(&query)
+        .query(&[POST_MODE])
         .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;
@@ -1502,7 +1513,7 @@ pub async fn get_popular_posts(
 pub async fn health_check(state: tauri::State<'_, AppState>, site: Site) -> Result<(), String> {
     let response = request(&state, site, Method::GET, "posts.json")
         .await?
-        .query(&[("limit", "1")])
+        .query(&[("limit", "1"), ("mode", "thumbnails")]) // body discarded - lightest v2 payload
         .send_retry(&state, site)
         .await
         .map_err(|e| e.to_string())?;

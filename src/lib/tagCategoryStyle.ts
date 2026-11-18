@@ -14,6 +14,7 @@ export interface TagCategoryStyle {
 
 export const TAG_CATEGORY_STYLE: Record<TagCategory, TagCategoryStyle> = {
   artist: { label: "Artists", chipBg: "#D4AF37", chipFg: "#000000", headerColor: "#D4AF37" },
+  contributor: { label: "Contributors", chipBg: "rgb(255 255 255 / 0.15)", chipFg: "#FFFFFF", headerColor: null },
   copyright: { label: "Copyright", chipBg: "#8E44AD", chipFg: "#FFFFFF", headerColor: "#8E44AD" },
   character: { label: "Characters", chipBg: "#CDDC39", chipFg: "#000000", headerColor: "#CDDC39" },
   species: { label: "Species", chipBg: "#E04B4B", chipFg: "#FFFFFF", headerColor: "#E04B4B" },

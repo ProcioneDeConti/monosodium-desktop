@@ -1,9 +1,50 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Serializes to the frontend as `{ posts: [...] }` regardless of wire format. Deserializes from
+/// either e621 response shape: the legacy `{"posts": [...]}` envelope, or the bare array e621
+/// switched `posts.json` / `favorites.json` to in Nov 2026 (see `ModernPost`).
+#[derive(Debug, Clone, Serialize)]
 pub struct PostsResponse {
-    #[serde(default)]
     pub posts: Vec<Post>,
+}
+
+impl<'de> Deserialize<'de> for PostsResponse {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error;
+        let list = match serde_json::Value::deserialize(deserializer)? {
+            serde_json::Value::Array(items) => items,
+            serde_json::Value::Object(mut map) => match map.remove("posts") {
+                Some(serde_json::Value::Array(items)) => items,
+                None | Some(serde_json::Value::Null) => Vec::new(),
+                Some(_) => return Err(D::Error::custom("`posts` is not an array")),
+            },
+            _ => return Err(D::Error::custom("expected a post list (array or {\"posts\": [...]})")),
+        };
+        let posts = list
+            .into_iter()
+            .map(|v| AnyPost::deserialize(v).map(|p| p.0).map_err(D::Error::custom))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(PostsResponse { posts })
+    }
+}
+
+/// A post in either wire format: modern posts carry a `files` object, legacy ones a `file`
+/// object. Dispatches on that key (rather than `#[serde(untagged)]`) so a field-level mismatch
+/// still produces a specific error instead of "did not match any variant".
+struct AnyPost(Post);
+
+impl<'de> Deserialize<'de> for AnyPost {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error;
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let id = value.get("id").and_then(|v| v.as_i64()).unwrap_or_default();
+        let post = if value.get("files").is_some() {
+            serde_json::from_value::<ModernPost>(value).map(Post::from)
+        } else {
+            serde_json::from_value::<Post>(value)
+        };
+        post.map(AnyPost).map_err(|e| D::Error::custom(format!("post #{id}: {e}")))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,7 +83,7 @@ pub struct Post {
     #[serde(default)]
     pub relationships: PostRelationships,
     /// The authenticated user's own vote: 1 up, -1 down, 0 none. Always 0 when not signed in.
-    #[serde(default)]
+    #[serde(default, alias = "vote")] // legacy blueprint field name
     pub vote_by: i64,
     pub uploader_id: Option<i64>,
     pub approver_id: Option<i64>,
@@ -142,6 +183,9 @@ pub struct PostTags {
     pub copyright: Vec<String>,
     #[serde(default)]
     pub artist: Vec<String>,
+    /// e621 tag category 2 (people credited besides the artist, e.g. commissioners/VAs).
+    #[serde(default)]
+    pub contributor: Vec<String>,
     #[serde(default)]
     pub invalid: Vec<String>,
     #[serde(default)]
@@ -175,6 +219,276 @@ pub struct PostRelationships {
     pub has_active_children: bool,
     #[serde(default)]
     pub children: Vec<i64>,
+}
+
+/// e621's post serialization as of Nov 2026: media regrouped under `files` (meta / original /
+/// preview / sample / video), counters under `stats`, booleans under `has`, and `tags` a flat
+/// list unless requested with `mode=extended` (api::POST_MODE). Wire-only - converted into the legacy-shaped `Post` (which is
+/// what the frontend receives) by `From<ModernPost>`.
+#[derive(Debug, Deserialize)]
+struct ModernPost {
+    id: i64,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+    files: ModernFiles,
+    #[serde(default)]
+    stats: ModernStats,
+    #[serde(default)]
+    flags: PostFlags,
+    #[serde(default)]
+    has: ModernHas,
+    #[serde(default)]
+    relationships: ModernRelationships,
+    #[serde(default, deserialize_with = "null_to_default")]
+    pools: Vec<i64>,
+    #[serde(default = "default_rating")]
+    rating: String,
+    #[serde(default, deserialize_with = "null_to_default")]
+    locked_tags: Vec<String>,
+    #[serde(default, deserialize_with = "null_to_default")]
+    sources: Vec<String>,
+    #[serde(default, deserialize_with = "null_to_empty_string")]
+    description: String,
+    #[serde(default)]
+    tags: ModernTags,
+    uploader_id: Option<i64>,
+    approver_id: Option<i64>,
+}
+
+fn null_to_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Default + Deserialize<'de>,
+{
+    Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ModernFiles {
+    #[serde(default)]
+    meta: ModernFileMeta,
+    #[serde(default)]
+    original: ModernMedia,
+    #[serde(default)]
+    preview: ModernMedia,
+    #[serde(default)]
+    sample: ModernMedia,
+    #[serde(default)]
+    video: Option<ModernVideo>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ModernFileMeta {
+    md5: Option<String>,
+    ext: Option<String>,
+    #[serde(default)]
+    size: i64,
+    duration: Option<f64>,
+    #[serde(default)]
+    has_sample: bool,
+}
+
+/// `original` carries `url`; `preview`/`sample` carry `jpg` + `webp` instead.
+#[derive(Debug, Default, Deserialize)]
+struct ModernMedia {
+    #[serde(default)]
+    width: i64,
+    #[serde(default)]
+    height: i64,
+    url: Option<String>,
+    jpg: Option<String>,
+    webp: Option<String>,
+}
+
+impl ModernMedia {
+    /// jpg first: it's what the legacy `url` field always pointed at.
+    fn best_url(&self) -> Option<String> {
+        self.url.clone().or_else(|| self.jpg.clone()).or_else(|| self.webp.clone())
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ModernVideo {
+    #[serde(default)]
+    samples: std::collections::HashMap<String, VideoSample>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ModernStats {
+    #[serde(default)]
+    score: PostScore,
+    #[serde(default)]
+    fav_count: i64,
+    #[serde(default)]
+    is_favorited: bool,
+    #[serde(default)]
+    vote: i64,
+    #[serde(default)]
+    comment_count: i64,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ModernHas {
+    #[serde(default)]
+    children: bool,
+    #[serde(default)]
+    active_children: bool,
+    #[serde(default)]
+    notes: bool,
+    #[serde(default)]
+    sample: bool,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ModernRelationships {
+    parent_id: Option<i64>,
+    #[serde(default, deserialize_with = "null_to_default")]
+    children: Vec<i64>,
+}
+
+/// Flat list in the current format; still accepts the old per-category object in case e621
+/// returns it on some endpoint.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum ModernTags {
+    Flat(Vec<String>),
+    Grouped(PostTags),
+}
+
+impl Default for ModernTags {
+    fn default() -> Self {
+        ModernTags::Flat(Vec::new())
+    }
+}
+
+impl From<ModernPost> for Post {
+    fn from(p: ModernPost) -> Self {
+        let ModernFiles { meta, original, preview, sample, video } = p.files;
+        let tags = match p.tags {
+            // Endpoint ignored `mode=extended` - no categories, so everything lands in `general` (neutral chip
+            // style) so search, blacklist matching and tag menus keep working.
+            ModernTags::Flat(all) => PostTags { general: all, ..Default::default() },
+            ModernTags::Grouped(t) => t,
+        };
+        // v2's `sample_url_pair` falls back to the *original* file when there's no sample (legacy
+        // sent null). Keep null: every `sample.url ?? preview.url` thumbnail fallback in the
+        // frontend would otherwise pull the full original (or a .webm into an <img>).
+        let has_sample = meta.has_sample || p.has.sample;
+        Post {
+            id: p.id,
+            created_at: p.created_at,
+            updated_at: p.updated_at,
+            file: PostFile {
+                width: original.width,
+                height: original.height,
+                ext: meta.ext.unwrap_or_else(default_ext),
+                size: meta.size,
+                md5: meta.md5,
+                url: original.best_url(),
+            },
+            preview: PostPreview { width: preview.width, height: preview.height, url: preview.best_url() },
+            sample: PostSample {
+                has: has_sample,
+                width: sample.width,
+                height: sample.height,
+                url: if has_sample { sample.best_url() } else { None },
+                alternates: video
+                    .filter(|v| !v.samples.is_empty())
+                    .map(|v| PostAlternates { samples: v.samples }),
+            },
+            score: p.stats.score,
+            tags,
+            locked_tags: p.locked_tags,
+            rating: p.rating,
+            fav_count: p.stats.fav_count,
+            sources: p.sources,
+            pools: p.pools,
+            description: p.description,
+            comment_count: p.stats.comment_count,
+            is_favorited: p.stats.is_favorited,
+            has_notes: p.has.notes,
+            duration: meta.duration,
+            flags: p.flags,
+            relationships: PostRelationships {
+                parent_id: p.relationships.parent_id,
+                has_children: p.has.children,
+                has_active_children: p.has.active_children,
+                children: p.relationships.children,
+            },
+            vote_by: p.stats.vote,
+            uploader_id: p.uploader_id,
+            approver_id: p.approver_id,
+        }
+    }
+}
+
+#[cfg(test)]
+mod post_wire_tests {
+    use super::*;
+
+    const MODERN: &str = r#"[{"id":1,"created_at":null,"updated_at":null,"files":{"meta":{"md5":"ab","ext":"webm","size":10,"duration":5.5,"has_sample":true},"original":{"width":1280,"height":720,"url":"https://x/o.webm"},"preview":{"width":256,"height":144,"jpg":"https://x/p.jpg","webp":"https://x/p.webp"},"sample":{"width":850,"height":478,"jpg":"https://x/s.jpg","webp":"https://x/s.webp"},"video":{"has":true,"samples":{"480p":{"fps":24.0,"size":5,"codec":"avc1","width":854,"height":480,"url":"https://x/480.mp4"}}}},"uploader_id":7,"approver_id":null,"stats":{"score":{"up":3,"down":-1,"total":2},"fav_count":4,"is_favorited":true,"vote":1,"comment_count":2},"flags":{"pending":true,"deleted":false},"has":{"children":true,"active_children":false,"notes":true,"sample":true},"relationships":{"parent_id":9,"children":[2]},"pools":[],"rating":"s","locked_tags":[],"sources":["https://src"],"description":"d","tags":["a","b"]}]"#;
+
+    #[test]
+    fn parses_modern_bare_array() {
+        let r: PostsResponse = serde_json::from_str(MODERN).unwrap();
+        let p = &r.posts[0];
+        assert_eq!(p.file.url.as_deref(), Some("https://x/o.webm"));
+        assert_eq!((p.file.width, p.file.ext.as_str(), p.duration), (1280, "webm", Some(5.5)));
+        assert_eq!(p.preview.url.as_deref(), Some("https://x/p.jpg"));
+        assert!(p.sample.has);
+        assert_eq!(p.sample.alternates.as_ref().unwrap().samples["480p"].width, 854);
+        assert_eq!((p.score.total, p.fav_count, p.vote_by, p.comment_count), (2, 4, 1, 2));
+        assert!(p.is_favorited && p.has_notes && p.relationships.has_children);
+        assert_eq!(p.relationships.parent_id, Some(9));
+        assert_eq!(p.tags.general, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn no_sample_keeps_sample_url_null() {
+        // v2 fills sample.jpg with the original file when there's no sample; legacy sent null.
+        let json = MODERN.replace(r#""has_sample":true"#, r#""has_sample":false"#).replace(r#""sample":true"#, r#""sample":false"#);
+        let r: PostsResponse = serde_json::from_str(&json).unwrap();
+        assert!(!r.posts[0].sample.has);
+        assert_eq!(r.posts[0].sample.url, None);
+    }
+
+    #[test]
+    fn vote_aliases() {
+        let json = r#"{"posts":[{"id":5,"created_at":null,"updated_at":null,"file":{},"preview":{},"sample":{},"vote":-1,"duration":null,"uploader_id":null,"approver_id":null}]}"#;
+        assert_eq!(serde_json::from_str::<PostsResponse>(json).unwrap().posts[0].vote_by, -1);
+    }
+
+    #[test]
+    fn artist_null_notes() {
+        let a: Artist = serde_json::from_str(r#"{"id":1,"name":"x","group_name":"","notes":null,"urls":[]}"#).unwrap();
+        assert_eq!(a.notes, "");
+    }
+
+    #[test]
+    fn parses_modern_extended_tags() {
+        let json = MODERN.replace(
+            r#""tags":["a","b"]"#,
+            r#""tags":{"general":["a"],"artist":["x"],"contributor":["c"],"copyright":[],"character":[],"species":["s"],"invalid":[],"meta":[],"lore":[]}"#,
+        );
+        let r: PostsResponse = serde_json::from_str(&json).unwrap();
+        let t = &r.posts[0].tags;
+        assert_eq!((t.artist.as_slice(), t.contributor.as_slice(), t.species.as_slice()), (&["x".to_string()][..], &["c".to_string()][..], &["s".to_string()][..]));
+        assert_eq!(t.general, vec!["a"]);
+    }
+
+    #[test]
+    fn parses_legacy_envelope() {
+        let json = r#"{"posts":[{"id":5,"created_at":null,"updated_at":null,"file":{"width":1,"height":2,"ext":"png","size":3,"md5":"m","url":"u"},"preview":{"width":1,"height":1,"url":"p"},"sample":{"has":false,"width":1,"height":2,"url":"s"},"tags":{"artist":["x"]},"duration":null,"uploader_id":null,"approver_id":null}]}"#;
+        let r: PostsResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(r.posts[0].tags.artist, vec!["x"]);
+        assert_eq!(r.posts[0].file.ext, "png");
+    }
+
+    #[test]
+    fn empty_results() {
+        assert!(serde_json::from_str::<PostsResponse>("[]").unwrap().posts.is_empty());
+        assert!(serde_json::from_str::<PostsResponse>(r#"{"posts":[]}"#).unwrap().posts.is_empty());
+    }
 }
 
 /// Subset of https://e621.net/users/<id>.json - blacklisted_tags/has_mail/unread_dmail_count/
@@ -288,7 +602,7 @@ pub struct Comment {
     pub is_hidden: bool,
     /// The authenticated user's own vote on this comment: 1 up, -1 down, 0 none/not signed in.
     /// Patched locally from a vote mutation's response too - see queries/useCommentMutations.ts.
-    #[serde(default)]
+    #[serde(default, alias = "vote")] // CommentBlueprint emits `vote`
     pub vote_by: i64,
 }
 
@@ -462,17 +776,17 @@ pub struct CreatePostSetRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Artist {
     pub id: i64,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_to_empty_string")]
     pub name: String,
     #[serde(default)]
     pub other_names: Vec<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_to_empty_string")]
     pub group_name: String,
     #[serde(default)]
     pub is_active: bool,
     #[serde(default)]
     pub is_locked: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_to_empty_string")]
     pub notes: String,
     pub created_at: Option<String>,
     pub linked_user_id: Option<i64>,
@@ -482,7 +796,7 @@ pub struct Artist {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArtistUrl {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_to_empty_string")]
     pub url: String,
     #[serde(default)]
     pub is_active: bool,
@@ -493,7 +807,7 @@ pub struct ArtistUrl {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DnpEntry {
     pub id: i64,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_to_empty_string")]
     pub details: String,
     #[serde(default)]
     pub is_active: bool,

@@ -167,13 +167,13 @@ pub struct IqdbMatch {
     pub rating: Option<String>,
 }
 
-/// Pulls a thumbnail URL out of either post serialization IQDB may return (the nested
-/// `preview.url` blueprint shape or the flat legacy `preview_file_url`).
+/// Pulls a thumbnail URL out of the post serializations IQDB may return: v2 (`files.preview.jpg`/
+/// `webp` - the default since Nov 2026, e621ng `IqdbProxy#process_iqdb_result` renders
+/// `PostBlueprint` basic view), legacy blueprint (`preview.url`), or flat (`preview_file_url`).
 fn iqdb_preview(post: &serde_json::Value) -> Option<String> {
-    post.pointer("/preview/url")
-        .or_else(|| post.get("preview_file_url"))
-        .or_else(|| post.get("preview_url"))
-        .and_then(|v| v.as_str())
+    ["/files/preview/jpg", "/files/preview/webp", "/preview/url", "/preview_file_url", "/preview_url"]
+        .iter()
+        .find_map(|p| post.pointer(p).and_then(|v| v.as_str()))
         .map(str::to_owned)
 }
 
@@ -196,7 +196,6 @@ pub async fn upload_iqdb(
         .part("search[file]", reqwest::multipart::Part::bytes(bytes).file_name(name));
     let response = request(&state, site, Method::POST, "iqdb_queries.json")
         .await?
-        .query(&[("v2", "true")])
         .timeout(Duration::from_secs(90))
         .multipart(form)
         .send()
@@ -417,5 +416,20 @@ mod tests {
         assert_eq!(sniff_ext(&[0x1A, 0x45, 0xDF, 0xA3, 0]), "webm");
         assert_eq!(sniff_ext(b"\0\0\0\x18ftypmp42"), "mp4");
         assert_eq!(sniff_ext(b"<html>"), "");
+    }
+}
+
+#[cfg(test)]
+mod iqdb_preview_tests {
+    use super::iqdb_preview;
+
+    #[test]
+    fn reads_v2_legacy_and_flat_shapes() {
+        let v2 = serde_json::json!({"files": {"preview": {"jpg": null, "webp": "https://x/p.webp"}}});
+        assert_eq!(iqdb_preview(&v2).as_deref(), Some("https://x/p.webp"));
+        let legacy = serde_json::json!({"preview": {"url": "https://x/p.jpg"}});
+        assert_eq!(iqdb_preview(&legacy).as_deref(), Some("https://x/p.jpg"));
+        let flat = serde_json::json!({"preview_file_url": "https://x/f.jpg"});
+        assert_eq!(iqdb_preview(&flat).as_deref(), Some("https://x/f.jpg"));
     }
 }

@@ -114,6 +114,7 @@ export interface TagSuggestion {
 
 const TAG_SUGGESTION_CATEGORY_MAP: Record<number, TagCategory> = {
   1: "artist",
+  2: "contributor",
   3: "copyright",
   4: "character",
   5: "species",

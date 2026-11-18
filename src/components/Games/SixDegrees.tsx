@@ -544,6 +544,7 @@ function Endpoints({
 const CATEGORY_BY_ID: Record<number, TagCategory> = {
   0: "general",
   1: "artist",
+  2: "contributor",
   3: "copyright",
   4: "character",
   5: "species",
