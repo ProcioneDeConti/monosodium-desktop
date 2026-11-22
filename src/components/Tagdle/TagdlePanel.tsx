@@ -90,6 +90,16 @@ export function TagdleGame({ site }: { site: Site }) {
           the resident raccoon parked bottom-right outside the scroll area so it stays put. */}
       <div className="tagdle-alley relative min-h-0 flex-1 text-white">
         <Graffiti />
+        {/* Painted on the wall, not stuck on it: no shadow, and hard-light blending lets the
+            brick texture and mortar lines show through the paint while the dark outlines hold.
+            Rendered before the scroll area so the cards always paint over it. */}
+        <img
+          src={raccoonUrl}
+          alt=""
+          draggable={false}
+          className="tagdle-eroded pointer-events-none absolute bottom-1 right-1 h-56 select-none"
+          style={{ mixBlendMode: "hard-light", opacity: 0.9 }}
+        />
         <div className="relative h-full overflow-y-auto px-4 pb-48 pt-4">
           {showOptions && <OptionsSection />}
           {!isLoaded ? (
@@ -100,15 +110,6 @@ export function TagdleGame({ site }: { site: Site }) {
             <EndlessGame key={`endless:${site}:${prefs.categories.join(",")}`} site={site} categories={prefs.categories} />
           )}
         </div>
-        {/* Painted on the wall, not stuck on it: no shadow, and hard-light blending lets the
-            brick texture and mortar lines show through the paint while the dark outlines hold. */}
-        <img
-          src={raccoonUrl}
-          alt=""
-          draggable={false}
-          className="tagdle-eroded pointer-events-none absolute bottom-1 right-1 h-56 select-none"
-          style={{ mixBlendMode: "hard-light", opacity: 0.9 }}
-        />
       </div>
     </div>
   );
@@ -573,12 +574,12 @@ function TagCard({
   const revealed = picked !== null;
   // Hold the right/wrong colouring until the race ends so it doesn't give the result away.
   const ring = !finished
-    ? `border-transparent ${revealed ? "" : "hover:border-[rgb(var(--accent))] hover:-translate-y-1"}`
+    ? `border-[rgb(10_8_12)] ${revealed ? "" : "hover:border-[rgb(var(--accent))] hover:-translate-y-1"}`
     : side === correct
       ? "border-green-500"
       : side === picked
         ? "border-red-500"
-        : "border-transparent opacity-70";
+        : "border-[rgb(10_8_12)] opacity-70";
 
   const celebrate = finished && side === correct && picked === correct;
   const anim = !finished
@@ -596,8 +597,9 @@ function TagCard({
         type="button"
         disabled={revealed}
         onClick={() => onPick(side)}
-        // Hard offset shadow like the other games' stickers, tinted by the tag's category until revealed.
-        style={{ boxShadow: `5px 5px 0 ${finished ? "rgb(10 8 12 / 0.9)" : style.chipBg}` }}
+        // Hard dark offset shadow like the other games' stickers - the category colour lives on
+        // the top stripe and the tag chip only.
+        style={{ boxShadow: "5px 5px 0 rgb(10 8 12 / 0.9)" }}
         className={`group relative flex aspect-[5/7] w-full flex-col overflow-hidden rounded-2xl border-2
                     bg-gradient-to-b from-neutral-800/95 to-neutral-900/95 backdrop-blur-sm
                     text-center transition-all duration-200 ${ring} ${anim}`}
