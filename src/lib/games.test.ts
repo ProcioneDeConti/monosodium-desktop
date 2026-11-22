@@ -89,8 +89,8 @@ describe("run summaries", () => {
     expect(runShareText("Whodunnit", "e621", 8, 10, "correct", [1, 1, 0, 1, 1, 1, 1, 1, 0, 1])).toBe(
       "🎮 Whodunnit · e621\n8/10 correct · Grade A\n🟩🟩🟥🟩🟩\n🟩🟩🟩🟥🟩\n🔥 Best streak: 5",
     );
-    expect(runShareText("Time Machine", "e6AI", 250, 300, "pts", [1, 0.5, 1])).toBe(
-      "🎮 Time Machine · e6AI\n250/300 pts · Grade A\n🟩🟨🟩",
+    expect(runShareText("Time Machine", "floofgens", 250, 300, "pts", [1, 0.5, 1])).toBe(
+      "🎮 Time Machine · floofgens\n250/300 pts · Grade A\n🟩🟨🟩",
     );
   });
 });
@@ -100,7 +100,7 @@ describe("launcherBest", () => {
     "artist:easy:e621": 6,
     "artist:hard:e621": 8,
     "artist:fav:e621": 10,
-    "artist:easy:e6ai": 9,
+    "artist:easy:floofgens": 9,
     "rating:e621:sqe": 7,
     "sixDegrees:e621": 4,
     "sixDegrees:fav:e621": 1,
@@ -111,7 +111,7 @@ describe("launcherBest", () => {
 
   it("takes the best across modes for the site, skipping favorites runs", () => {
     expect(launcherBest("artist", best, "e621")).toBe("Best 8/10");
-    expect(launcherBest("artist", best, "e6ai")).toBe("Best 9/10");
+    expect(launcherBest("artist", best, "floofgens")).toBe("Best 9/10");
     expect(launcherBest("rating", best, "e621")).toBe("Best 7/10");
   });
 
@@ -391,7 +391,7 @@ describe("review pass helpers", () => {
 
   it("keeps the bingo best key format", () => {
     expect(bingoBestKey("e621", false, null, false)).toBe("bingo2:line:random:e621");
-    expect(bingoBestKey("e6ai", true, "2026-11-08", true)).toBe("bingo2:blackout:daily:2026-11-08:e6ai:fav");
+    expect(bingoBestKey("floofgens", true, "2026-11-08", true)).toBe("bingo2:blackout:daily:2026-11-08:floofgens:fav");
   });
 
   it("draws the bingo card without tags", () => {

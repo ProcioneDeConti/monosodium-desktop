@@ -36,6 +36,6 @@ describe("recoverablePosts", () => {
     ]);
     expect(picked.map((p) => p.id)).toEqual([2, 5, 6]);
     // The recovered copy only counts on its own site.
-    expect(recoverablePosts("e6ai", [deleted(3, { sources: ["https://x.com/a/status/2"] })]).map((p) => p.id)).toEqual([3]);
+    expect(recoverablePosts("floofgens", [deleted(3, { sources: ["https://x.com/a/status/2"] })]).map((p) => p.id)).toEqual([3]);
   });
 });

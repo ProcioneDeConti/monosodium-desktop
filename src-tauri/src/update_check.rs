@@ -8,7 +8,7 @@ use crate::api::AppState;
 const REPO_OWNER: &str = "ProcioneDeConti";
 const REPO_NAME: &str = "monosodium-desktop";
 
-/// Wholly separate from api.rs's `request()` helper - a different host (GitHub, not e621/e6AI),
+/// Wholly separate from api.rs's `request()` helper - a different host (GitHub, not e621-family),
 /// with no auth/site-switching/rate-limit-courtesy machinery to share with it (GitHub's own
 /// unauthenticated limit, 60/hour per IP, is tracked via the response headers below instead).
 /// Manual-only (Settings > Updates > Check for Updates), never called automatically.

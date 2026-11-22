@@ -1,35 +1,39 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownAZ, Download, RefreshCw, Upload } from "lucide-react";
 import { e621Api } from "../../api/client";
-import type { Site } from "../../models/site";
+import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { useAccountStore } from "../../state/accountStore";
 import { useSettingsStore } from "../../state/settingsStore";
 import {
   autoSyncBlacklist,
   markBlacklistSynced,
   syncBlacklist,
-  useBlacklistSyncStore,
+  useBlacklistSyncStatus,
 } from "../../state/blacklistSync";
 import { parseBlacklist } from "../../lib/blacklist";
 import { errorMessage } from "../../lib/errors";
 import { Button } from "../ui/Button";
-import { Toggle } from "./controls";
+import { Segmented, Toggle } from "./controls";
+import { BlacklistChips } from "./BlacklistChips";
 import { BlacklistTester } from "./BlacklistTester";
 
 /** The blacklist editor: auto-sync switch, the text itself, save/sort/sync, and (tucked away)
  *  the destructive one-way import/push. */
 export function BlacklistEditor({ site }: { site: Site }) {
-  const blacklist = useSettingsStore((s) => s.blacklist);
-  const setBlacklist = useSettingsStore((s) => s.setBlacklist);
+  // This site's own list - not necessarily the active site's (the Blacklist page can switch).
+  const blacklist = useSettingsStore((s) => s.blacklistBySite[site]);
+  const setSiteBlacklist = useSettingsStore((s) => s.setBlacklist);
+  const setBlacklist = (text: string) => setSiteBlacklist(text, site);
   const autoSync = useSettingsStore((s) => s.blacklistAutoSync);
   const setAutoSync = useSettingsStore((s) => s.setBlacklistAutoSync);
   const isAuthenticated = useAccountStore((s) => s.isAuthenticated(site));
-  const sync = useBlacklistSyncStore();
-  const siteName = site === "e621" ? "e621" : "e6AI";
+  const sync = useBlacklistSyncStatus(site);
+  const siteName = SITE_DISPLAY_NAME[site];
 
   const [draft, setDraft] = useState(blacklist);
   const [busy, setBusy] = useState<"import" | "push" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [view, setView] = useState<"chips" | "text">("chips");
 
   // Follow outside changes (a tag menu's "Add to blacklist", a background sync) - but only while
   // there are no unsaved edits, so a sync landing mid-typing doesn't wipe them.
@@ -67,7 +71,7 @@ export function BlacklistEditor({ site }: { site: Site }) {
   function save() {
     setMessage(null);
     setBlacklist(draft);
-    autoSyncBlacklist();
+    autoSyncBlacklist(site);
   }
 
   async function handleSyncNow() {
@@ -151,24 +155,42 @@ export function BlacklistEditor({ site }: { site: Site }) {
         />
       </div>
 
-      <p className="text-xs opacity-60">
-        One entry per line. Tags on the same line must all match (AND); separate lines are
-        alternatives (OR). Example: <code className="opacity-80">young -age_difference</code>
-      </p>
-      <textarea
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="min-w-0 flex-1 text-xs opacity-60">
+          One entry per line. Tags on the same line must all match (AND); separate lines are
+          alternatives (OR). Example: <code className="opacity-80">young -age_difference</code>
+        </p>
+        <Segmented
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "chips", label: "Chips" },
+            { value: "text", label: "Text" },
+          ]}
+        />
+      </div>
+      {/* Ctrl+S saves from either view. */}
+      <div
         onKeyDown={(e) => {
           if (e.key === "s" && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
             if (dirty) save();
           }
         }}
-        rows={9}
-        spellCheck={false}
-        className="resize-y rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/30 px-2.5 py-2 font-mono text-sm leading-relaxed outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
-        placeholder={"rating:explicit\nyoung -age_difference"}
-      />
+      >
+        {view === "chips" ? (
+          <BlacklistChips site={site} draft={draft} onChange={setDraft} />
+        ) : (
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={9}
+            spellCheck={false}
+            className="block w-full resize-y rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/30 px-2.5 py-2 font-mono text-sm leading-relaxed outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+            placeholder={"rating:explicit\nyoung -age_difference"}
+          />
+        )}
+      </div>
       <div className="-mt-1 flex items-center gap-2 text-xs">
         {dirty && (
           <span className="font-semibold text-amber-600 dark:text-amber-400">

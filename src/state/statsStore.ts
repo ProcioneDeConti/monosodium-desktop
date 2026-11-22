@@ -13,7 +13,7 @@ import { load, type Store } from "@tauri-apps/plugin-store";
 import { e621Api } from "../api/client";
 import { useSettingsStore } from "./settingsStore";
 import type { Post } from "../models/post";
-import type { Site } from "../models/site";
+import { SITES, type Site } from "../models/site";
 
 const STORE_FILE = "stats.json";
 const KEY = "stats";
@@ -136,15 +136,20 @@ function freshSnapshot(): StatsSnapshot {
   return {
     firstLaunch: null,
     lifetime: freshLifetime(),
-    perSite: {
-      e621: { postsViewed: 0, searches: 0, apiCalls: 0 },
-      e6ai: { postsViewed: 0, searches: 0, apiCalls: 0 },
-    },
+    perSite: mergePerSite(undefined),
     daily: {},
     seenPostIds: [],
     searchTermCounts: {},
     viewedTags: { artist: {}, character: {}, copyright: {} },
   };
+}
+
+/** Fresh per-site counters overlaid with whatever was saved. Keys for sites that no longer
+ *  exist (e6AI, shut down Nov 2026) are dropped; new sites start at zero. */
+function mergePerSite(saved: Partial<Record<string, Partial<SiteCounters>>> | undefined): Record<Site, SiteCounters> {
+  return Object.fromEntries(
+    SITES.map((site) => [site, { postsViewed: 0, searches: 0, apiCalls: 0, ...saved?.[site] }]),
+  ) as Record<Site, SiteCounters>;
 }
 
 function tracking(): boolean {
@@ -443,10 +448,7 @@ export async function loadStats(): Promise<void> {
   const merged: StatsSnapshot = {
     firstLaunch: saved?.firstLaunch ?? Date.now(),
     lifetime: { ...base.lifetime, ...saved?.lifetime },
-    perSite: {
-      e621: { ...base.perSite.e621, ...saved?.perSite?.e621 },
-      e6ai: { ...base.perSite.e6ai, ...saved?.perSite?.e6ai },
-    },
+    perSite: mergePerSite(saved?.perSite),
     daily: saved?.daily ?? {},
     seenPostIds: saved?.seenPostIds ?? [],
     searchTermCounts: saved?.searchTermCounts ?? {},
@@ -481,10 +483,7 @@ export function applyStatsBackup(agg: StatsBackupAggregates | undefined): void {
   useStatsStore.setState((s) => ({
     firstLaunch: agg.firstLaunch ?? s.firstLaunch,
     lifetime: { ...base.lifetime, ...agg.lifetime },
-    perSite: {
-      e621: { ...base.perSite.e621, ...agg.perSite?.e621 },
-      e6ai: { ...base.perSite.e6ai, ...agg.perSite?.e6ai },
-    },
+    perSite: mergePerSite(agg.perSite),
   }));
   void flushStats();
 }

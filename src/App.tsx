@@ -72,7 +72,7 @@ import { useApiMetricsFold } from "./queries/useApiMetricsFold";
 import { useSaucenaoStore } from "./state/saucenaoStore";
 import { useShlinkStore } from "./state/shlinkStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
-import { addToBlacklist, autoSyncBlacklist } from "./state/blacklistSync";
+import { addToBlacklist, autoSyncAllBlacklists, autoSyncBlacklist } from "./state/blacklistSync";
 import { isOwnFavoritesView, normalizeQuery, withRandomOrder } from "./lib/searchQuery";
 import { useDownloadsStore } from "./state/downloadsStore";
 import { useFullscreen } from "./lib/useFullscreen";
@@ -291,8 +291,9 @@ function App() {
     ]).finally(() => {
       setBooted(true);
       startUsageSession();
-      // Pick up lines added on other clients (the Android app) since last launch.
-      autoSyncBlacklist();
+      // Pick up lines added on other clients (the Android app) since last launch - every signed-in
+      // site, since each has its own list.
+      autoSyncAllBlacklists();
     });
   }, [vaultLocked]);
 
@@ -349,6 +350,13 @@ function App() {
 
   const site = useSettingsStore((s) => s.site);
   const blacklist = useSettingsStore((s) => s.blacklist);
+  // Switching sites: refresh that site's list from its account (launch already synced them all).
+  const syncedSite = useRef(site);
+  useEffect(() => {
+    if (syncedSite.current === site) return;
+    syncedSite.current = site;
+    autoSyncBlacklist(site);
+  }, [site]);
   const blacklistDisabled = useSettingsStore((s) => s.blacklistDisabled);
   const setBlacklistDisabled = useSettingsStore((s) => s.setBlacklistDisabled);
   const thumbnailSizePx = useSettingsStore((s) => s.gridThumbnailSizePx);
@@ -1359,7 +1367,7 @@ function App() {
             navigate({ settingsOpen: true });
           }}
           onOpenSiteUrl={(url) => {
-            // e621/e6AI matches open in-app (SauceNAO links e621 as legacy /post/show/<id>);
+            // e621-family matches open in-app (SauceNAO links e621 as legacy /post/show/<id>);
             // other sources (FA, Pixiv...) still go to the browser.
             if (!parseSiteUrl(url)) return false;
             setDroppedImagePath(null);

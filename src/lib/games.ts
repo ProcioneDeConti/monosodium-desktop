@@ -386,7 +386,7 @@ export function favoriteEndpoints(posts: readonly Post[], minCount = 3): PoolTag
  *  judgement calls), the pool by size minus its top `skip` (`solo`, `hi_res` - on half the site, so
  *  they'd be on the odd post too often to read as "shared") and capped at `take`, so the tag is
  *  common enough to be something you'd notice. Rank-based rather than a post-count band so it
- *  scales to e6AI's much smaller counts. */
+ *  scales to the AI sites' much smaller counts. */
 export function oddOneOutCandidates(pool: readonly PoolTag[], skip = 40, take = 250): string[] {
   return [...pool]
     .filter((t) => t.category === 0 && isFairVisualTag(t.name))
@@ -464,7 +464,7 @@ export function assembleOddRound(tag: string, shared: Post[], odd: Post, rand: (
 // --- Year Guesser ----------------------------------------------------------------------------
 
 /** First upload year per site - the year slider's floor. */
-export const FIRST_YEAR: Record<string, number> = { e621: 2007, e6ai: 2022 };
+export const FIRST_YEAR: Record<string, number> = { e621: 2007, floofgens: 2023, blep: 2023 };
 
 /** A post's upload year (UTC), or null when the API left created_at out. */
 export function uploadYear(post: Post): number | null {

@@ -1,14 +1,14 @@
 # Monosodium Desktop
 
-An unofficial Windows desktop client for [e621](https://e621.net) and [e6AI](https://e6ai.net), built with Tauri and React. It's the desktop counterpart to [MonosodiumPDC](https://github.com/ProcioneDeConti/MonosodiumPDC), the same author's Android client - the name is a nod to that project's own codename.
+An unofficial Windows desktop client for [e621](https://e621.net) and the AI-art boorus [floofgens](https://floofgens.net) and [blep](https://blep.art), built with Tauri and React. It's the desktop counterpart to [MonosodiumPDC](https://github.com/ProcioneDeConti/MonosodiumPDC), the same author's Android client - the name is a nod to that project's own codename.
 
-This is a personal project, not affiliated with or endorsed by e621 or e6AI. It talks to them exclusively through their official public API, and it respects that API's rate limits and User-Agent requirements.
+This is a personal project, not affiliated with or endorsed by e621, floofgens or blep. It talks to them exclusively through their official public API, and it respects that API's rate limits and User-Agent requirements.
 
 **Full documentation is in the [wiki](https://github.com/ProcioneDeConti/monosodium-desktop/wiki)** - features, every settings section, keyboard shortcuts, data/privacy, troubleshooting and build notes. The same guide is in the app under Menu -> Help.
 
 ## Features
 
-- **e621 and e6AI in one app** - switch between e621 and e6AI (e621's AI-generated-content sister site) with a single toggle, each keeping its own separate login. A health-check dot next to the toggle shows whether the active site is reachable (green / checking / red), and both the window title bar and the shell's own site button always reflect which one you're browsing - click that button to jump back to the default search from anywhere.
+- **e621, floofgens and blep in one app** - switch between e621 and the AI-generated-content boorus floofgens and blep (all three run e621's e621ng software; they replace e6AI, which shut down in November 2026) from the shell's site menu, each keeping its own separate login. A health-check dot next to the toggle shows whether the active site is reachable (green / checking / red), and both the window title bar and the shell's own site button always reflect which one you're browsing - click that button to jump back to the default search from anywhere.
 - **Search and browsing** - a tag-chip search bar with live, category-colored autocomplete. A Pinterest-style masonry grid keeps every post's real aspect ratio instead of cropping to a square, with an always-visible info dock (rating, score, favorite status, filetype) on each thumbnail and a duration badge on video and animated posts. A dedicated refresh button jumps back to the first page instead of re-validating a long scroll history.
 - **Post viewer** - a full-screen viewer for images, GIFs, APNGs, and video (decoded natively by WebView2, so there's no bundled video engine), with wheel-zoom and drag-to-pan on images, custom loop / speed / mute controls on video, voting, favoriting, tag actions (search, add to search, exclude, add to blacklist) from a category-colored tag-chip menu, and a detailed info panel where clicking any value copies it.
 - **Client-side blacklist** - the same matching rules as the Android app, with a quick disable / re-enable toggle (temporarily unhidden posts get a caution-stripe border) and import/export against the blacklist saved on your account.
@@ -48,7 +48,7 @@ A Games panel built around e621's own data - every post-based game pulls real po
 
 - **Windows 10 (version 1809 / build 17763 or newer) or Windows 11**, 64-bit. This is what Tauri 2 itself supports; older builds of Windows are not supported.
 - **The WebView2 runtime.** Windows 11 ships it by default, and most up-to-date Windows 10 machines already have it via Microsoft Edge. If it's missing, the *offline* installer carries a full copy and installs it with no internet connection; the *online* installer downloads it from Microsoft during setup. The portable build carries neither, so it needs the runtime to already be present.
-- **An e621 and/or e6AI account** is optional and separate per site. It's required for voting, favoriting, dmail, comments, and blacklist sync; plain browsing works without one.
+- **An e621, floofgens and/or blep account** is optional and separate per site. It's required for voting, favoriting, dmail, comments, and blacklist sync; plain browsing works without one.
 
 ## Install
 
@@ -62,7 +62,7 @@ All three are the same compiled build - the only difference is how (or whether) 
 
 ## How it works
 
-- The frontend never calls e621 or e6AI directly. Every API request goes through the Rust backend, which sets the required descriptive `User-Agent` and passes each call through a per-site rate limiter (a 2-request burst refilling at 1/second) so the app stays within the API's limits.
+- The frontend never calls e621, floofgens or blep directly. Every API request goes through the Rust backend, which sets the required descriptive `User-Agent` and passes each call through a per-site rate limiter (a 2-request burst refilling at 1/second) so the app stays within the API's limits.
 - Media (thumbnails, samples, full files) loads straight from the CDN as plain `<img>` / `<video>` URLs. It never goes through the backend, so your API key is never sent to a CDN host.
 - Your login for each site is stored in an encrypted local vault on your machine, not in plain text.
 

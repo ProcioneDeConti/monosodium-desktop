@@ -13,7 +13,7 @@ interface ReverseSearchPanelProps {
   apiKey: string | null;
   onClose: () => void;
   onOpenSettings: () => void;
-  /** Opens an e621/e6AI result in the app; returns false for anything the app can't show. */
+  /** Opens an e621-family result in the app; returns false for anything the app can't show. */
   onOpenSiteUrl: (url: string) => boolean;
 }
 

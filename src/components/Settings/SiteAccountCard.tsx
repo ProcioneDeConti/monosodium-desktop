@@ -68,7 +68,7 @@ export function SiteAccountCard({ site }: SiteAccountCardProps) {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="rounded-[var(--radius-sm)] border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/30 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
-            placeholder="e621 username"
+            placeholder={`${SITE_DISPLAY_NAME[site]} username`}
           />
         </label>
 

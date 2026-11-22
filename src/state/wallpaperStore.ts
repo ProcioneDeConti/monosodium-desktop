@@ -5,6 +5,7 @@
 import { create } from "zustand";
 import { load, type Store } from "@tauri-apps/plugin-store";
 import { e621Api } from "../api/client";
+import { SITES } from "../models/site";
 import {
   DEFAULT_ROTATION_INTERVAL_MIN,
   pushRecent,
@@ -113,14 +114,17 @@ export const useWallpaperStore = create<WallpaperState>((set, get) => ({
 export async function loadWallpaperSettings(): Promise<void> {
   const store = await getStore();
   const values = Object.fromEntries(await store.entries<unknown>()) as Partial<Persisted>;
+  // A source/current saved against a site that's gone (e6AI, shut down Nov 2026) would fail every
+  // rotation - drop it instead.
+  const live = <T extends { site: string }>(v: T | null | undefined): T | null => (v && SITES.includes(v.site as never) ? v : null);
   useWallpaperStore.setState({
     rotationEnabled: values.rotationEnabled ?? DEFAULTS.rotationEnabled,
-    source: values.source ?? DEFAULTS.source,
+    source: live(values.source) ?? DEFAULTS.source,
     intervalMin: values.intervalMin ?? DEFAULTS.intervalMin,
     fit: values.fit ?? DEFAULTS.fit,
     safeOnly: values.safeOnly ?? DEFAULTS.safeOnly,
     lastChangedAt: values.lastChangedAt ?? DEFAULTS.lastChangedAt,
-    current: values.current ?? DEFAULTS.current,
+    current: live(values.current) ?? DEFAULTS.current,
     recentIds: values.recentIds ?? DEFAULTS.recentIds,
     isLoaded: true,
   });

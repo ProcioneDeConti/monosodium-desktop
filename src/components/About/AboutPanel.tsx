@@ -294,7 +294,7 @@ export function AboutPanel({ onClose }: AboutPanelProps) {
               {version ? `Version ${version}` : " "}
             </p>
             <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed opacity-75">
-              A desktop browser for e621 and its sister site e6AI. Not
+              A desktop browser for e621 and the AI-art boorus floofgens and blep. Not
               affiliated with, endorsed by, or operated by either site.
             </p>
           </div>

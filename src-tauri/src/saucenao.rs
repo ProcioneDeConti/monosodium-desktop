@@ -5,7 +5,7 @@ use crate::api::AppState;
 /// Reverse image search via SauceNAO (https://saucenao.com) - drag-and-drop a local image file
 /// onto the window (App.tsx listens for Tauri's native drag-drop event, which hands over file
 /// system paths directly rather than requiring the HTML5 File API) and this uploads it as
-/// multipart form data. Wholly separate from api.rs's e621/e6AI `request()` helper - a different
+/// multipart form data. Wholly separate from api.rs's e621-family `request()` helper - a different
 /// host entirely, with its own unrelated API key and rate limit (SauceNAO's own, not e621's).
 ///
 /// **An API key is mandatory, not just a rate-limit nicety** - confirmed live (curl, no key):

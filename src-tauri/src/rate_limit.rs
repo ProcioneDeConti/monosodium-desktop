@@ -21,37 +21,27 @@ fn write_quota() -> Quota {
     Quota::per_minute(NonZeroU32::new(50).unwrap()).allow_burst(NonZeroU32::new(5).unwrap())
 }
 
-/// One limiter per site host - e621 and e6AI are independent servers/accounts, so traffic to one
-/// must not throttle the other.
+/// One limiter per site host - each e621ng site is an independent server with its own accounts, so
+/// traffic to one must not throttle another. Arrays are in E621, Floofgens, Blep order.
 pub struct SiteRateLimiters {
-    e621: DefaultDirectRateLimiter,
-    e6ai: DefaultDirectRateLimiter,
-    e621_writes: DefaultDirectRateLimiter,
-    e6ai_writes: DefaultDirectRateLimiter,
+    reads: [DefaultDirectRateLimiter; 3],
+    writes: [DefaultDirectRateLimiter; 3],
 }
 
 impl SiteRateLimiters {
     pub fn new() -> Self {
         Self {
-            e621: RateLimiter::direct(quota()),
-            e6ai: RateLimiter::direct(quota()),
-            e621_writes: RateLimiter::direct(write_quota()),
-            e6ai_writes: RateLimiter::direct(write_quota()),
+            reads: std::array::from_fn(|_| RateLimiter::direct(quota())),
+            writes: std::array::from_fn(|_| RateLimiter::direct(write_quota())),
         }
     }
 
     pub async fn wait(&self, site: Site) {
-        match site {
-            Site::E621 => self.e621.until_ready().await,
-            Site::E6ai => self.e6ai.until_ready().await,
-        }
+        site.slot(&self.reads).until_ready().await
     }
 
     /// Waits for a write slot (see [`write_quota`]) - call before [`Self::wait`] for any non-GET.
     pub async fn wait_write(&self, site: Site) {
-        match site {
-            Site::E621 => self.e621_writes.until_ready().await,
-            Site::E6ai => self.e6ai_writes.until_ready().await,
-        }
+        site.slot(&self.writes).until_ready().await
     }
 }

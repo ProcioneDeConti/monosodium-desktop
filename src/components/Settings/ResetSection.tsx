@@ -133,7 +133,7 @@ export function ResetSection() {
 
       <p className="text-xs opacity-60">
         Erases everything this app has saved: settings, blacklist, saved searches, search
-        history, collections, usage stats, the media cache, and every stored login (e621, e6AI,
+        history, collections, usage stats, the media cache, and every stored login (e621, floofgens, blep,
         and the SauceNAO key), plus any encryption password. Both storage locations are cleared.
         Downloaded image and video files on your disk are left alone. The app restarts afterwards.
       </p>

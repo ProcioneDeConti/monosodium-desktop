@@ -73,7 +73,7 @@ export const SPICY_LINES: Partial<Record<ReactionKind, string[]>> = {
   gameWin: ["Winner! You're good with your hands.", "Nailed it. Like everything else today.", "Winner! Treat yourself. You know how.", "Victory! Now go reward yourself - privately.", "Winner winner! Celebrate however you celebrate. I won't watch."],
   gameLose: ["Rough one. Want me to kiss it better?", "Lost? Happens to the best of us. Usually after a long session.", "You lost. Go blow off some steam. You know where the posts are.", "Lost? Shake it off. Or… something else off.", "Lost again? Your hands must be tired from… everything."],
   queasy: ["Blacklist off? Brave. Or very, very horny.", "No filters? Somebody's adventurous tonight.", "Blacklist OFF. Oh, we're doing THIS tonight.", "No blacklist? Feral. I respect it. I'm a raccoon, I'd know.", "Blacklist down. Shields down. Pants… also down?"],
-  robot: ["AI-made? Hey, whatever gets you going.", "Robots need love too, I guess.", "e6AI? Sometimes you just want it made to order, huh?", "Robot-made smut. The future is horny."],
+  robot: ["AI-made? Hey, whatever gets you going.", "Robots need love too, I guess.", "AI art? Sometimes you just want it made to order, huh?", "Robot-made smut. The future is horny."],
   dice: ["Random! Roll the dice and pray it's your type.", "Living dangerously. I like it.", "Random! Spin the wheel of kinks.", "Feeling lucky? Or just desperate?"],
   selfie: ["Searching raccoons? Down bad for trash pandas, huh?", "Oh, so you DO have a type. 😏", "Raccoons, huh? I'm RIGHT HERE, you know. 😏", "Searching for my kind? I'm flattered. And a little exposed.", "Raccoon porn. In front of a raccoon. The audacity."],
   longScroll: [
@@ -343,7 +343,7 @@ export function spicyDashboardRemarks(f: DashboardFacts): string[] {
     out.push("You keep coming back to the same posts. Loyal. Or obsessed.");
   }
   if (f.slideshowMs > 0) out.push("You use the slideshow. Hands-free browsing. I see why.");
-  if (f.e6aiViewed > 0) out.push("You've dabbled in AI porn. The robots thank you for your service.");
+  if (f.aiViewed > 0) out.push("You've dabbled in AI porn. The robots thank you for your service.");
   if (f.activeDays >= 7) out.push(`${n(f.activeDays)} active days. Consistency is key. So is lube.`);
   if (artist) out.push(`I'd tell ${artist} you're their biggest fan, but I think they'd get a restraining order.`);
   if (char) out.push(`If ${char} were real, you'd need to buy them dinner first.`);

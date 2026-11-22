@@ -9,6 +9,7 @@ import { BrowserNotice } from "./components/BrowserNotice";
 import { WindowFrame } from "./components/shell/WindowFrame";
 import { applyTheme, cachedThemeMode } from "./lib/theme";
 import "./index.css";
+import { toSite } from "./models/site";
 
 // Stamp the theme before first paint from the localStorage cache (settingsStore re-applies the
 // authoritative value once it hydrates) so a forced light/dark doesn't flash the OS theme.
@@ -28,7 +29,7 @@ const content = !isTauri() ? (
   <BrowserNotice />
 ) : postId && site ? (
   <WindowFrame title={`Post #${postId} - Monosodium Desktop`}>
-    <PostWindow postId={Number(postId)} site={site as "e621" | "e6ai"} />
+    <PostWindow postId={Number(postId)} site={toSite(site)} />
   </WindowFrame>
 ) : (
   <WindowFrame>

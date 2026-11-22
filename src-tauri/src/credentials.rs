@@ -18,14 +18,19 @@ pub struct SiteCredentials {
 }
 
 /// Everything this app keeps secret, in one encrypted file next to the exe instead of Windows
-/// Credential Manager - see paths.rs's doc comment for why. e621/e6ai credentials and the
+/// Credential Manager - see paths.rs's doc comment for why. Per-site booru credentials and the
 /// SauceNAO key used to be three separate Credential Manager entries; they're one file now since
 /// there's no per-secret benefit to splitting them once they're not living in a shared OS vault
 /// alongside every other app's entries.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct CredentialsFile {
     e621: Option<SiteCredentials>,
-    e6ai: Option<SiteCredentials>,
+    // A pre-Nov-2026 file may still carry an `e6ai` entry (the site shut down) - serde skips the
+    // unknown field on read and it's dropped on the next write.
+    #[serde(default)]
+    floofgens: Option<SiteCredentials>,
+    #[serde(default)]
+    blep: Option<SiteCredentials>,
     saucenao: Option<String>,
     /// Session cookies for third-party sites the deleted-post recovery signs in to (see
     /// source_login.rs), keyed by registrable host (e.g. `furaffinity.net`) and stored as a ready
@@ -87,7 +92,7 @@ fn machine_secret() -> String {
 }
 
 /// In-memory cache of the last decrypted credentials, keyed by the secret string they were
-/// decrypted under. `read_all()` runs on **every** e621/e6AI API request (`api.rs::request()`
+/// decrypted under. `read_all()` runs on **every** booru API request (`api.rs::request()`
 /// loads the site's credentials to attach Basic Auth), and each miss is a full
 /// PBKDF2-HMAC-SHA256 key derivation (crypto.rs, 210k iterations - deliberately ~100ms) plus an
 /// AES-GCM decrypt. Without this cache that cost is paid per request, adding real latency to
@@ -155,7 +160,8 @@ pub(crate) fn clear_cache() {
 fn site_slot(data: &mut CredentialsFile, site: Site) -> &mut Option<SiteCredentials> {
     match site {
         Site::E621 => &mut data.e621,
-        Site::E6ai => &mut data.e6ai,
+        Site::Floofgens => &mut data.floofgens,
+        Site::Blep => &mut data.blep,
     }
 }
 
@@ -186,7 +192,7 @@ pub fn delete_credentials(site: Site) -> Result<(), String> {
 /// The user's own SauceNAO API key (Settings > Reverse Image Search) - optional, required for any
 /// search to succeed at all (SauceNAO rejects anonymous API requests outright - see saucenao.rs),
 /// kept in this same file rather than the plain settings JSON store or `lib/backup.ts`'s snapshot,
-/// same treatment as e621/e6ai credentials - it's a third-party secret, not an e621 one.
+/// same treatment as per-site booru credentials - it's a third-party secret, not an e621 one.
 #[tauri::command]
 pub fn save_saucenao_key(api_key: String) -> Result<(), String> {
     let mut data = read_all();
@@ -323,7 +329,7 @@ pub(crate) fn export_source_secrets() -> SourceSecrets {
 }
 
 /// Merges a backup's recovery-source secrets in - entries in the backup overwrite this machine's,
-/// anything only saved here is left alone (same as the e621/e6AI credentials, which restore only
+/// anything only saved here is left alone (same as the booru credentials, which restore only
 /// when the backup has them). Keys for sites this build doesn't know are dropped.
 pub(crate) fn import_source_secrets(secrets: SourceSecrets) -> Result<(), String> {
     if secrets.is_empty() {

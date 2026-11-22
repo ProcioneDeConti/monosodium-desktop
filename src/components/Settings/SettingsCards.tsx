@@ -65,6 +65,7 @@ import { VpnSection } from "./VpnSection";
 import { SourceLoginsSection } from "./SourceLoginsSection";
 import { SeenPostsSection } from "./SeenPostsSection";
 import { WallpaperSection } from "./WallpaperSection";
+import { SITES, SITE_DISPLAY_NAME, type Site } from "../../models/site";
 
 interface CardProps {
   onOpenEula: () => void;
@@ -82,8 +83,9 @@ export function AccountsCard(_: CardProps) {
       description="Your username and API key for each site. Stored encrypted on this device and only ever sent to that site."
     >
       <div className="grid gap-3 lg:grid-cols-2">
-        <SiteAccountCard site="e621" />
-        <SiteAccountCard site="e6ai" />
+        {SITES.map((s) => (
+          <SiteAccountCard key={s} site={s} />
+        ))}
       </div>
     </SettingCard>
   );
@@ -146,14 +148,32 @@ export function RatingsCard(_: CardProps) {
 }
 
 export function BlacklistCard(_: CardProps) {
-  const site = useSettingsStore((s) => s.site);
+  const activeSite = useSettingsStore((s) => s.site);
+  // Which site's list is being edited - starts on the site being browsed, switchable here without
+  // changing the browsing site.
+  const [site, setSite] = useState<Site>(activeSite);
+  const lineCounts = useSettingsStore((s) => s.blacklistBySite);
   return (
     <SettingCard
       title="Blacklist"
       icon={<ShieldBan size={ICON} />}
-      description="Posts matching any line are hidden everywhere in the app."
+      description="Each site has its own blacklist, synced with that site's account. Posts matching any line of the current site's list are hidden everywhere in the app."
     >
-      <BlacklistEditor site={site} />
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Segmented
+          value={site}
+          onChange={setSite}
+          options={SITES.map((s) => {
+            const n = lineCounts[s].split("\n").filter((l) => l.trim()).length;
+            return { value: s, label: `${SITE_DISPLAY_NAME[s]}${n ? ` (${n})` : ""}` };
+          })}
+        />
+        {site !== activeSite && (
+          <span className="text-xs opacity-60">Not the site you're browsing - applies when you switch to {SITE_DISPLAY_NAME[site]}.</span>
+        )}
+      </div>
+      {/* key: a fresh editor per site, so one site's unsaved draft never lands in another's list */}
+      <BlacklistEditor key={site} site={site} />
     </SettingCard>
   );
 }

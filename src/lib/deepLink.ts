@@ -1,4 +1,4 @@
-// `monosodium://` deep links - how the browser extension (browser-extension/) hands e621/e6AI
+// `monosodium://` deep links - how the browser extension (browser-extension/) hands e621-family
 // pages to the app. The link wraps the original page URL: `monosodium://open?url=<encoded URL>`,
 // so the extension never has to know the app's routes; this module maps the e621 URL to an
 // in-app destination. Anything unrecognised comes back as `null` (the caller opens it in the
@@ -18,7 +18,8 @@ export type DeepLinkTarget =
 const SITE_BY_HOST: Record<string, Site> = {
   "e621.net": "e621",
   "e926.net": "e621",
-  "e6ai.net": "e6ai",
+  "floofgens.net": "floofgens",
+  "blep.art": "blep",
 };
 
 /** The wrapped e621 URL out of a `monosodium://` link (also accepts a bare e621 URL). */
@@ -33,7 +34,7 @@ export function unwrapDeepLink(raw: string): string | null {
   return null;
 }
 
-/** Map an e621/e6AI page URL to an in-app destination, or null if it isn't one we handle. */
+/** Map an e621/floofgens/blep page URL to an in-app destination, or null if it isn't one we handle. */
 export function parseSiteUrl(raw: string): DeepLinkTarget | null {
   let u: URL;
   try {

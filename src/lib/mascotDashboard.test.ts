@@ -5,7 +5,7 @@ import type { FavoritesAnalysis } from "./favoritesAnalysis";
 const facts = (over: Partial<DashboardFacts> = {}): DashboardFacts => ({
   activeMs: 0, sessions: 1, longestSessionMs: 0, postsViewed: 10, uniquePostsViewed: 10, searches: 2,
   favoritesAdded: 0, favoritesRemoved: 0, votesUp: 0, votesDown: 0, downloads: 0, apiCalls: 0,
-  dataBytes: 0, slideshowMs: 0, e621Viewed: 10, e6aiViewed: 0, daysUsing: 3, activeDays: 3,
+  dataBytes: 0, slideshowMs: 0, e621Viewed: 10, aiViewed: 0, daysUsing: 3, activeDays: 3,
   streakDays: 0, postsToday: 0, busiestDay: null, topSearched: [], topArtists: [], topCharacters: [],
   ...over,
 });

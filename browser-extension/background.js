@@ -1,6 +1,6 @@
-// Open in Monosodium Desktop - hands e621 / e6AI page loads to the desktop app.
+// Open in Monosodium Desktop - hands e621 / floofgens / blep page loads to the desktop app.
 //
-// When a tab is about to load a supported e621/e6AI page, the tab is sent to handoff.html, which
+// When a tab is about to load a supported e621-family page, the tab is sent to handoff.html, which
 // launches `monosodium://open?url=<page>` (the app maps the page to its own screens - see
 // src/lib/deepLink.ts in the app) and offers "close tab" / "view in browser instead".
 //
@@ -10,7 +10,7 @@
 
 const api = globalThis.browser ?? globalThis.chrome;
 
-const HOSTS = new Set(["e621.net", "e926.net", "e6ai.net"]);
+const HOSTS = new Set(["e621.net", "e926.net", "floofgens.net", "blep.art"]);
 /** Pages the app handles - keep in sync with parseSiteUrl() in the app's src/lib/deepLink.ts. */
 const SUPPORTED = [
   /^\/$/,
@@ -110,7 +110,7 @@ function setupMenu() {
       id: "open-in-monosodium",
       title: "Open in Monosodium Desktop",
       contexts: ["link"],
-      targetUrlPatterns: ["*://e621.net/*", "*://e926.net/*", "*://e6ai.net/*", "*://*.e621.net/*", "*://*.e926.net/*", "*://*.e6ai.net/*"],
+      targetUrlPatterns: ["*://e621.net/*", "*://e926.net/*", "*://floofgens.net/*", "*://blep.art/*", "*://*.e621.net/*", "*://*.e926.net/*", "*://*.floofgens.net/*", "*://*.blep.art/*"],
     });
   });
 }

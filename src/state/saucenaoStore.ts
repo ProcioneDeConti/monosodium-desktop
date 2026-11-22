@@ -2,8 +2,8 @@
 // SauceNAO's API rejects anonymous requests outright (confirmed live - see saucenao.rs's doc
 // comment), it isn't just a lower rate limit without one. Goes through the encrypted
 // credentials.dat file next to the exe (src-tauri/src/credentials.rs's
-// save/load/delete_saucenao_key), same as e621/e6AI credentials - not the plain settings.json
-// store. It IS included in lib/backup.ts's snapshot, same as e621/e6AI credentials.
+// save/load/delete_saucenao_key), same as e621-family site credentials - not the plain settings.json
+// store. It IS included in lib/backup.ts's snapshot, same as e621-family site credentials.
 
 import { create } from "zustand";
 import { e621Api } from "../api/client";

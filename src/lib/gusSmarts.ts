@@ -228,7 +228,7 @@ export function statsAnswer(text: string, s: ChatStats, tier: Tier): string | nu
 // ---- Tag counts (looked up live by the chat UI) ------------------------------------------------
 
 const COUNT_RE = [
-  /^how many (.+?) (?:posts|pics|pictures|images|arts?)(?: (?:are there|exist|is there|on here|on e621|on e6ai))?\??$/i,
+  /^how many (.+?) (?:posts|pics|pictures|images|arts?)(?: (?:are there|exist|is there|on here|on e621|on floofgens|on blep))?\??$/i,
   /^how many posts (?:are )?(?:tagged|of|with|for) (.+?)(?: are there)?\??$/i,
   /^how many (.+?) (?:are there|exist|is there)\??$/i,
 ];

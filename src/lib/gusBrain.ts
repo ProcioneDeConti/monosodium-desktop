@@ -160,7 +160,7 @@ const OPINIONS: [RegExp, T, Mood?][] = [
   [/\b(anime)\b/, { clean: ["Anime's great. Have you seen how many raccoon girls are in Pom Poko? Iconic."], cheeky: ["Anime? I know what tags you pair it with."] }],
   [/\b(furr(y|ies)|the fandom|fursuits?)\b/, { clean: ["I'm the mascot of a furry art browser. I'm not just in the fandom, I'm load-bearing."], cheeky: ["Furries? Pal, look where we are."] }],
   [/\b(e621|e6)\b/, { clean: ["It's my home! Well, I live in the app. e621 is the dumpster I raid."], cheeky: ["e621 is the world's biggest, horniest library and I'm the librarian."] }],
-  [/\b(ai art|e6ai|ai)\b/, { clean: ["AI art? Robots drawing raccoons. Weird times. I prefer hand-drawn, personally."], cheeky: ["AI art? Too many fingers. Although… some people are into that."] }, "meh"],
+  [/\b(ai art|e6ai|floofgens|blep|ai)\b/, { clean: ["AI art? Robots drawing raccoons. Weird times. I prefer hand-drawn, personally."], cheeky: ["AI art? Too many fingers. Although… some people are into that."] }, "meh"],
   [/\b(humans?|people)\b/, { clean: ["Humans are weird hairless giants who throw away perfectly good food. I love them."] }, "meh"],
   [/\b(raccoons?|trash pandas?)\b/, { clean: ["Raccoons are the peak of evolution. I'm not biased. I'm correct."] }],
   [/\b(red pandas?)\b/, { clean: ["Red pandas! Cousins. Sort of. Distant. They got the cute marketing, we got the bins."] }],

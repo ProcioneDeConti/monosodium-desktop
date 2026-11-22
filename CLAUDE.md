@@ -1,6 +1,6 @@
 # Monosodium Desktop
 
-A standalone Windows 10/11 desktop e621/e6AI browser (tag search, resizable post grid, full post
+A standalone Windows 10/11 desktop e621/floofgens/blep browser (tag search, resizable post grid, full post
 viewer, voting, favorites, client-side blacklist, account settings). Built as the desktop
 counterpart to an existing Android client — see **Reference app** below.
 
@@ -205,7 +205,7 @@ cd src-tauri && cargo check  # Rust compile-check (fast after first build)
 ```
 
 If the user asks you to run it yourself: `npm run tauri dev` starts Vite + `cargo run`, opens a
-live window titled "Monosodium Desktop - e621" (title bar swaps to "- e6AI" when you toggle
+live window titled "Monosodium Desktop - e621" (title bar swaps to "- floofgens"/"- blep" when you toggle
 sites). **The window's close (X) button now hides it to the tray instead of quitting** (see
 Progress' "Global hotkey, system tray, and native notifications" entry) - to actually stop a dev
 instance, use the tray icon's "Quit" item, `Ctrl+C` in the terminal running `tauri dev`, or kill

@@ -165,7 +165,9 @@ export function shortPath(url: string | null): string {
   if (!url) return "";
   try {
     const u = new URL(url);
-    if (/^static1\.(e621|e6ai)\.net$/.test(u.hostname)) return "e621's own copy of the file";
+    if (u.hostname === "static1.e621.net") return "e621's own copy of the file";
+    if (u.hostname === "static1.floofgens.net") return "floofgens' own copy of the file";
+    if (u.hostname === "cdn.blep.art") return "blep's own copy of the file";
     const path = decodeURIComponent(u.pathname + u.search);
     return path === "/" ? "" : path;
   } catch {

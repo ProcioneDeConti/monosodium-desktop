@@ -12,7 +12,9 @@ describe("deep links", () => {
     expect(parseSiteUrl("https://e621.net/posts/42")).toEqual({ kind: "post", site: "e621", id: 42 });
     expect(parseSiteUrl("https://e621.net/post/show/42")).toEqual({ kind: "post", site: "e621", id: 42 });
     expect(parseSiteUrl("https://e621.net/post/index")).toBeNull();
-    expect(parseSiteUrl("https://e6ai.net/posts?tags=wolf+rating%3As")).toEqual({ kind: "search", site: "e6ai", query: "wolf rating:s" });
+    expect(parseSiteUrl("https://floofgens.net/posts?tags=wolf+rating%3As")).toEqual({ kind: "search", site: "floofgens", query: "wolf rating:s" });
+    expect(parseSiteUrl("https://blep.art/posts/42")).toEqual({ kind: "post", site: "blep", id: 42 });
+    expect(parseSiteUrl("https://e6ai.net/posts/42")).toBeNull();
     expect(parseSiteUrl("https://e621.net/pools/7")).toEqual({ kind: "pool", site: "e621", id: 7 });
     expect(parseSiteUrl("https://e621.net/users/99")).toEqual({ kind: "user", site: "e621", id: 99 });
     expect(parseSiteUrl("https://e621.net/wiki_pages/show_or_new?title=wolf")).toEqual({ kind: "wiki", site: "e621", tag: "wolf" });

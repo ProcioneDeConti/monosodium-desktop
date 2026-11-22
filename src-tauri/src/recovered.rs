@@ -23,10 +23,7 @@ pub fn root() -> PathBuf {
 }
 
 fn site_key(site: Site) -> &'static str {
-    match site {
-        Site::E621 => "e621",
-        Site::E6ai => "e6ai",
-    }
+    site.key()
 }
 
 pub fn post_dir(site: Site, post_id: i64) -> PathBuf {

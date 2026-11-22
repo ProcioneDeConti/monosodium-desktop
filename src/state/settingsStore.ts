@@ -9,7 +9,7 @@ import { create } from "zustand";
 import { load, type Store } from "@tauri-apps/plugin-store";
 import { e621Api } from "../api/client";
 import type { Rating } from "../models/post";
-import type { Site } from "../models/site";
+import { SITES, toSite, type Site } from "../models/site";
 import { parseBlacklist, type BlacklistEntries } from "../lib/blacklist";
 import type { MotionMode, Palette, ThemeMode } from "../lib/theme";
 import {
@@ -53,6 +53,11 @@ interface SettingsState {
   enabledRatings: Rating[];
   /** While false, the app is locked to safe-rated content regardless of enabledRatings. */
   adultModeEnabled: boolean;
+  /** Each site's own blacklist text - every site is a separate account with its own server-side
+   *  blacklist, so they're kept apart rather than one list leaking into every account on sync. */
+  blacklistBySite: Record<Site, string>;
+  /** The **active** site's blacklist (mirrors `blacklistBySite[site]`, swapped on setSite) - what
+   *  the grid, viewer and panels filter with. */
   blacklist: string;
   blacklistEntries: BlacklistEntries;
   blacklistDisabled: boolean;
@@ -103,7 +108,8 @@ interface SettingsState {
   setSite: (site: Site) => void;
   setEnabledRatings: (ratings: Rating[]) => void;
   setAdultModeEnabled: (enabled: boolean) => void;
-  setBlacklist: (blacklist: string) => void;
+  /** Sets `site`'s blacklist (default: the active site). */
+  setBlacklist: (blacklist: string, site?: Site) => void;
   setBlacklistDisabled: (disabled: boolean) => void;
   setBlacklistAutoSync: (enabled: boolean) => void;
   setBlacklistSyncBase: (site: Site, text: string) => void;
@@ -163,6 +169,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   site: "e621",
   enabledRatings: DEFAULT_RATINGS,
   adultModeEnabled: false,
+  blacklistBySite: emptyBlacklists(),
   blacklist: "",
   blacklistEntries: [],
   blacklistDisabled: false,
@@ -194,7 +201,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   usageStatsEnabled: true,
 
   setSite: (site) => {
-    set({ site });
+    const blacklist = get().blacklistBySite[site];
+    set({ site, blacklist, blacklistEntries: parseBlacklist(blacklist) });
     void persist("site", site);
   },
   setEnabledRatings: (enabledRatings) => {
@@ -205,9 +213,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ adultModeEnabled });
     void persist("adultModeEnabled", adultModeEnabled);
   },
-  setBlacklist: (blacklist) => {
-    set({ blacklist, blacklistEntries: parseBlacklist(blacklist) });
-    void persist("blacklist", blacklist);
+  setBlacklist: (blacklist, site = get().site) => {
+    const blacklistBySite = { ...get().blacklistBySite, [site]: blacklist };
+    set(site === get().site ? { blacklistBySite, blacklist, blacklistEntries: parseBlacklist(blacklist) } : { blacklistBySite });
+    void persist("blacklistBySite", blacklistBySite);
   },
   setBlacklistDisabled: (blacklistDisabled) => set({ blacklistDisabled }),
   setBlacklistAutoSync: (blacklistAutoSync) => {
@@ -334,17 +343,33 @@ export async function loadSettings(): Promise<void> {
   const entries = await store.entries<unknown>();
   const values = Object.fromEntries(entries);
   useSettingsStore.setState((state) => {
-    const blacklist = (values.blacklist as string) ?? state.blacklist;
+    // Before per-site blacklists there was one shared `blacklist` key, synced with e621 in practice
+    // - it becomes e621's list. The other sites start empty and fill from their accounts on sync.
+    const savedBySite = (values.blacklistBySite as Partial<Record<string, string>> | undefined) ?? {};
+    const blacklistBySite = emptyBlacklists();
+    for (const s of SITES) blacklistBySite[s] = savedBySite[s] ?? "";
+    let blacklistSyncBase =
+      (values.blacklistSyncBase as Partial<Record<Site, string>> | undefined) ?? state.blacklistSyncBase;
+    if (values.blacklistBySite === undefined) {
+      if (typeof values.blacklist === "string") blacklistBySite.e621 = values.blacklist;
+      // Only e621's base still describes its (inherited) list. Any other site's base was taken
+      // against the old shared text: next to its now-empty list it would read as "every line
+      // deleted here" and wipe that account's blacklist - so drop it, making the first sync a pull.
+      blacklistSyncBase = blacklistSyncBase.e621 === undefined ? {} : { e621: blacklistSyncBase.e621 };
+    }
+    const site = values.site === undefined ? state.site : toSite(values.site);
+    const blacklist = blacklistBySite[site];
     return {
       ...state,
-      site: (values.site as Site) ?? state.site,
+      // toSite: a saved "e6ai" (shut down Nov 2026) lands back on e621.
+      site,
+      blacklistBySite,
       enabledRatings: (values.enabledRatings as Rating[]) ?? state.enabledRatings,
       adultModeEnabled: (values.adultModeEnabled as boolean) ?? state.adultModeEnabled,
       blacklist,
       blacklistEntries: parseBlacklist(blacklist),
       blacklistAutoSync: (values.blacklistAutoSync as boolean) ?? state.blacklistAutoSync,
-      blacklistSyncBase:
-        (values.blacklistSyncBase as Partial<Record<Site, string>>) ?? state.blacklistSyncBase,
+      blacklistSyncBase,
       accentColor: (values.accentColor as string) ?? state.accentColor,
       themeMode: (values.themeMode as ThemeMode) ?? state.themeMode,
       palette: (values.palette as Palette) ?? state.palette,
@@ -380,6 +405,23 @@ export async function loadSettings(): Promise<void> {
       isLoaded: true,
     };
   });
+  // Write the per-site migration out once, so it doesn't re-run (and re-drop bases) every launch.
+  if (values.blacklistBySite === undefined) {
+    const s = useSettingsStore.getState();
+    void persist("blacklistBySite", s.blacklistBySite);
+    void persist("blacklistSyncBase", s.blacklistSyncBase);
+  }
+}
+
+function emptyBlacklists(): Record<Site, string> {
+  return Object.fromEntries(SITES.map((s) => [s, ""])) as Record<Site, string>;
+}
+
+/** Parsed blacklist for any site (not just the active one) - for a post window or wallpaper
+ *  source that's on a different site than the main window. */
+export function blacklistEntriesFor(site: Site): BlacklistEntries {
+  const s = useSettingsStore.getState();
+  return site === s.site ? s.blacklistEntries : parseBlacklist(s.blacklistBySite[site]);
 }
 
 const NO_BLACKLIST: BlacklistEntries = [];

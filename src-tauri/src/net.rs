@@ -47,7 +47,7 @@ fn with_proxy(builder: reqwest::ClientBuilder, scheme: &str) -> reqwest::ClientB
     }
 }
 
-/// For known hosts (e621/e6AI, Shlink, update checks): through the tunnel with DNS resolved on the
+/// For known hosts (e621-family, Shlink, update checks): through the tunnel with DNS resolved on the
 /// far side too (`socks5h`), so nothing about the destination leaks outside the tunnel.
 pub(crate) fn client_builder() -> reqwest::ClientBuilder {
     with_proxy(reqwest::Client::builder(), "socks5h")

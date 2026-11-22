@@ -21,7 +21,7 @@ pub struct AppState {
 }
 
 /// Process-lifetime API-usage counters (reset to 0 on launch). `request()` - the one chokepoint
-/// every e621/e6AI call passes through - bumps `API_CALLS`; `ensure_success` adds each response's
+/// every e621-family call passes through - bumps `API_CALLS`; `ensure_success` adds each response's
 /// `Content-Length` to `API_RESPONSE_BYTES`. The frontend's User Dashboard polls `get_api_metrics`
 /// and folds the delta into its own persisted all-time stats (`src/state/statsStore.ts`). Module
 /// statics rather than `AppState` fields so `ensure_success` needn't thread state through its ~40

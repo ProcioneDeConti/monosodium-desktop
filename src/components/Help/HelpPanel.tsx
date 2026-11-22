@@ -101,7 +101,7 @@ const SECTIONS: HelpSection[] = [
     body: (
       <>
         <P>
-          Monosodium Desktop is a browser for <B>e621</B> and its sister site <B>e6AI</B>. You can
+          Monosodium Desktop is a browser for <B>e621</B> and the AI-art boorus <B>floofgens</B> and <B>blep</B>. You can
           browse, search, read pools and the forum, and view posts without an account.
         </P>
         <P>
@@ -574,7 +574,7 @@ const SECTIONS: HelpSection[] = [
         <li>While the window is hidden, you'll get a notification for new messages or forum activity.</li>
         <li>Press <Kbd>?</Kbd> any time for the full list of keyboard shortcuts.</li>
         <li>
-          With the optional <B>browser extension</B>, e621 and e6AI links you open in your browser
+          With the optional <B>browser extension</B>, e621, floofgens and blep links you open in your browser
           open in the matching screen here. Pages the app doesn't have stay in the browser.
         </li>
       </UL>

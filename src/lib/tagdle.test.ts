@@ -17,7 +17,7 @@ describe("tagdle", () => {
   });
 
   it("never pairs equal counts and doesn't repeat tags within a day", () => {
-    const pairs = dailyPairs(pool, "e6ai", "2026-01-01");
+    const pairs = dailyPairs(pool, "floofgens", "2026-01-01");
     const names = pairs.flatMap((p) => [p.left.name, p.right.name]);
     expect(new Set(names).size).toBe(names.length);
     for (const p of pairs) expect(p.left.post_count).not.toBe(p.right.post_count);
@@ -38,8 +38,8 @@ describe("tagdle", () => {
       "🦝 Tagdle · e621 · Oct 14, 2026\n2/3 · Sharp eye\n🟩🟥🟩\n🔥 Longest run: 1",
     );
     const ten = [true, true, false, true, true, true, true, true, false, true];
-    expect(shareText("e6AI", "2026-01-05", ten)).toBe(
-      "🦝 Tagdle · e6AI · Jan 5, 2026\n8/10 · Tag sommelier\n🟩🟩🟥🟩🟩\n🟩🟩🟩🟥🟩\n🔥 Longest run: 5",
+    expect(shareText("floofgens", "2026-01-05", ten)).toBe(
+      "🦝 Tagdle · floofgens · Jan 5, 2026\n8/10 · Tag sommelier\n🟩🟩🟥🟩🟩\n🟩🟩🟩🟥🟩\n🔥 Longest run: 5",
     );
     // No run line for a perfect game or a shutout - it would only repeat the score.
     expect(shareText("e621", "2026-10-14", [true, true])).toBe("🦝 Tagdle · e621 · Oct 14, 2026\n2/2 · Flawless\n🟩🟩");

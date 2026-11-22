@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import type { Site } from "../../models/site";
-import { SITE_DISPLAY_NAME } from "../../models/site";
+import { AI_SITES, SITES, SITE_DISPLAY_NAME } from "../../models/site";
 import { uploadKarmaProgress } from "../../models/user";
 import { useAccountStore } from "../../state/accountStore";
 import { useSettingsStore } from "../../state/settingsStore";
@@ -162,7 +162,7 @@ export function DashboardPanel({ site, onClose, onSearch }: DashboardPanelProps)
         ...lifetime,
         dataBytes: dataUsedEst,
         e621Viewed: perSite.e621.postsViewed,
-        e6aiViewed: perSite.e6ai.postsViewed,
+        aiViewed: AI_SITES.reduce((n, s) => n + perSite[s].postsViewed, 0),
         daysUsing,
         activeDays: keys.filter(active).length,
         streakDays,
@@ -318,10 +318,7 @@ export function DashboardPanel({ site, onClose, onSearch }: DashboardPanelProps)
                 Posts viewed by site
               </div>
               <SplitBar
-                segments={[
-                  { label: SITE_DISPLAY_NAME.e621, value: perSite.e621.postsViewed },
-                  { label: SITE_DISPLAY_NAME.e6ai, value: perSite.e6ai.postsViewed },
-                ]}
+                segments={SITES.map((s) => ({ label: SITE_DISPLAY_NAME[s], value: perSite[s].postsViewed }))}
               />
             </div>
           </Section>

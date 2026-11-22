@@ -1,7 +1,7 @@
 // The tab lands here instead of the e621 page: launch the app, then offer close / retry / bypass.
 const api = globalThis.browser ?? globalThis.chrome;
 const pageUrl = new URLSearchParams(location.search).get("url") ?? "";
-const SITES = ["e621.net", "e926.net", "e6ai.net"];
+const SITES = ["e621.net", "e926.net", "floofgens.net", "blep.art"];
 
 /** The page rebuilt as https on a fixed, allowlisted host, or null if it isn't an e621-family
  *  page (background.js only hands off bare / www. hosts). Never navigate to the raw ?url= value -

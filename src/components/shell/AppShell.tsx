@@ -2,9 +2,9 @@ import { useEffect, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   ArrowLeft,
-  ArrowRightLeft,
   BarChart3,
   BookOpen,
+  Check,
   Bookmark,
   CheckSquare,
   Columns2,
@@ -36,7 +36,7 @@ import {
   Upload,
   Recycle,
 } from "lucide-react";
-import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
+import { SITES, SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import { errorMessage } from "../../lib/errors";
 import { SearchBar } from "../SearchBar/SearchBar";
 import {
@@ -56,6 +56,7 @@ import { useFullscreen } from "../../lib/useFullscreen";
 import { Avatar } from "../ui/Avatar";
 import { IconButton } from "../ui/IconButton";
 import { Menu, MenuItem, MenuLabel, MenuRow, MenuSeparator } from "../ui/Menu";
+import { useAccountStore } from "../../state/accountStore";
 import { TopProgressBar } from "../ui/TopProgressBar";
 
 interface AppShellProps {
@@ -178,9 +179,10 @@ export function AppShell({
   const { data: avatarUrl } = useAvatarUrl(site, accountAvatarId);
 
   const signedIn = !!onOpenProfile;
-  const otherSite: Site = site === "e621" ? "e6ai" : "e621";
 
   const health = useHealthCheck(site);
+  // Joined to a string so the selector result is stable between renders (no new array each time).
+  const signedInSites = useAccountStore((st) => SITES.filter((x) => st.isAuthenticated(x)).join(","));
   const healthColor =
     health.status === "error"
       ? "bg-red-500"
@@ -488,13 +490,35 @@ export function AppShell({
           )}
 
           <MenuSeparator />
-          <MenuItem icon={<ArrowRightLeft size={15} />} onClick={() => setSite(otherSite)}>
-            Switch to {SITE_DISPLAY_NAME[otherSite]}
-          </MenuItem>
-          <div className="flex items-center gap-2 px-2.5 py-1.5 text-xs opacity-60">
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${healthColor}`} />
-            <span className="truncate">{healthText}</span>
-          </div>
+          {/* Every site listed, the current one checked (with its reachability dot) - picking
+              another switches to it. Clearer than "Switch to X" lines that omit where you are. */}
+          <MenuLabel>Site</MenuLabel>
+          {SITES.map((s) => {
+            const current = s === site;
+            return (
+              <MenuItem
+                key={s}
+                icon={current ? <Check size={15} /> : <span className="inline-block w-[15px]" />}
+                onClick={current ? undefined : () => setSite(s)}
+                keepOpen={current}
+                trailing={
+                  current ? (
+                    <span className="flex items-center gap-1.5" title={healthText}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${healthColor}`} />
+                      {health.status === "error" ? "unreachable" : health.status === "success" ? "online" : "checking"}
+                    </span>
+                  ) : signedInSites.split(",").includes(s) ? (
+                    "signed in"
+                  ) : null
+                }
+              >
+                <span className={current ? "font-semibold" : ""}>{SITE_DISPLAY_NAME[s]}</span>
+              </MenuItem>
+            );
+          })}
+          {health.status === "error" && (
+            <div className="px-2.5 pb-1.5 text-xs text-red-500 opacity-80">{healthText}</div>
+          )}
         </Menu>
       </header>
 

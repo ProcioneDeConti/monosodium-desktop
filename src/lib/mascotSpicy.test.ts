@@ -30,7 +30,7 @@ describe("spicyDashboardRemarks", () => {
     const remarks = spicyDashboardRemarks({
       activeMs: 0, sessions: 1, longestSessionMs: 0, postsViewed: 5, uniquePostsViewed: 5, searches: 1,
       favoritesAdded: 0, favoritesRemoved: 0, votesUp: 0, votesDown: 0, downloads: 0, apiCalls: 0,
-      dataBytes: 0, slideshowMs: 0, e621Viewed: 5, e6aiViewed: 0, daysUsing: 1, activeDays: 1,
+      dataBytes: 0, slideshowMs: 0, e621Viewed: 5, aiViewed: 0, daysUsing: 1, activeDays: 1,
       streakDays: 0, postsToday: 0, busiestDay: null, topSearched: [], topArtists: [], topCharacters: [],
     });
     expect(remarks.length).toBeGreaterThan(1);

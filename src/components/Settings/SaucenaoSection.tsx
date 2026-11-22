@@ -7,7 +7,7 @@ import { IconButton } from "../ui/IconButton";
 
 /** SauceNAO API key for the drag-and-drop reverse image search feature - required, SauceNAO
  *  rejects anonymous API requests outright. Stored in credentials.dat next to the exe, same
- *  treatment as e621/e6AI credentials - see state/saucenaoStore.ts. */
+ *  treatment as e621-family site credentials - see state/saucenaoStore.ts. */
 export function SaucenaoSection() {
   const savedKey = useSaucenaoStore((s) => s.apiKey);
   const save = useSaucenaoStore((s) => s.save);

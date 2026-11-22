@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { FlaskConical } from "lucide-react";
 import { e621Api } from "../../api/client";
-import type { Site } from "../../models/site";
+import { SITE_DISPLAY_NAME, type Site } from "../../models/site";
 import type { Post } from "../../models/post";
 import { parseBlacklist, testBlacklist } from "../../lib/blacklist";
 import { errorMessage } from "../../lib/errors";
 import { Button } from "../ui/Button";
 
-/** Paste a post ID or e621/e6AI URL and see, line by line, how the (unsaved) draft blacklist
+/** Paste a post ID or e621/floofgens/blep URL and see, line by line, how the (unsaved) draft blacklist
  *  above would treat it. */
 export function BlacklistTester({ site, draft }: { site: Site; draft: string }) {
   const [input, setInput] = useState("");
@@ -33,7 +33,7 @@ export function BlacklistTester({ site, draft }: { site: Site; draft: string }) 
     try {
       const res = await e621Api.getPosts(site, `id:${id}`, 1);
       const found = res.posts[0] ?? null;
-      if (!found) setError(`No post #${id} on ${site === "e621" ? "e621" : "e6AI"}.`);
+      if (!found) setError(`No post #${id} on ${SITE_DISPLAY_NAME[site]}.`);
       setPost(found);
     } catch (e) {
       setError(errorMessage(e, "Lookup failed."));

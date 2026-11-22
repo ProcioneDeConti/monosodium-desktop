@@ -9,7 +9,7 @@ import { e621Api } from "../api/client";
 import type { Post } from "../models/post";
 import type { Site } from "../models/site";
 import { useCollectionsStore } from "../state/collectionsStore";
-import { useSettingsStore } from "../state/settingsStore";
+import { blacklistEntriesFor, useSettingsStore } from "../state/settingsStore";
 import { useWallpaperStore } from "../state/wallpaperStore";
 import { errorMessage } from "./errors";
 import {
@@ -60,7 +60,8 @@ async function rotateOnce(): Promise<void> {
     const source = state.source;
     if (!source) throw new Error("Pick a source for the rotation first.");
     const posts = await fetchCandidates();
-    const { adultModeEnabled, enabledRatings, blacklistEntries } = useSettingsStore.getState();
+    const { adultModeEnabled, enabledRatings } = useSettingsStore.getState();
+    const blacklistEntries = blacklistEntriesFor(source.site);
     const pick = pickWallpaper(posts, {
       // Always the real blacklist - "Show blacklisted posts" is a browsing toggle, not a desktop one.
       blacklist: blacklistEntries,

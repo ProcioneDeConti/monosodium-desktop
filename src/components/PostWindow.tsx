@@ -31,7 +31,8 @@ export function PostWindow({ postId, site }: PostWindowProps) {
   const [booted, setBooted] = useState(false);
   const accentColor = useSettingsStore((s) => s.accentColor);
   const themeMode = useSettingsStore((s) => s.themeMode);
-  const blacklist = useSettingsStore((s) => s.blacklist);
+  // This window's own site, which may differ from the main window's active site.
+  const blacklist = useSettingsStore((s) => s.blacklistBySite[site]);
   const blacklistDisabled = useSettingsStore((s) => s.blacklistDisabled);
 
   useEffect(() => {
@@ -92,7 +93,7 @@ export function PostWindow({ postId, site }: PostWindowProps) {
         onBlacklistTag={(tag) =>
           useSettingsStore
             .getState()
-            .setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`)
+            .setBlacklist(blacklist.trim() === "" ? tag : `${blacklist}\n${tag}`, site)
         }
         onOpenProfile={(id) => void openUrl(`${SITE_WEB_BASE_URL[site]}/users/${id}`)}
         onOpenPool={(id) => void openUrl(`${SITE_WEB_BASE_URL[site]}/pools/${id}`)}

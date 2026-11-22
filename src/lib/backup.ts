@@ -16,7 +16,7 @@
 
 import { e621Api } from "../api/client";
 import type { Rating } from "../models/post";
-import type { Site } from "../models/site";
+import { SITES, toSite, type Site } from "../models/site";
 import type { SlideshowTransition } from "./slideshow";
 import type { MotionMode, Palette, ThemeMode } from "./theme";
 import { useAccountStore } from "../state/accountStore";
@@ -32,8 +32,12 @@ export interface SettingsBackup {
   version: 1;
   e621Username: string;
   e621ApiKey: string;
-  e6aiUsername: string;
-  e6aiApiKey: string;
+  /** Optional: backups made before these sites were added don't have them (and their old
+   *  `e6aiUsername`/`e6aiApiKey` fields - e6AI shut down Nov 2026 - are ignored on restore). */
+  floofgensUsername?: string;
+  floofgensApiKey?: string;
+  blepUsername?: string;
+  blepApiKey?: string;
   /** `?? ""` on read for forward compatibility with a backup made before this field existed. */
   saucenaoApiKey?: string;
   /** Settings > Cache's size limit - lives outside settingsStore.ts entirely (src-tauri/src/
@@ -45,7 +49,10 @@ export interface SettingsBackup {
   site: Site;
   enabledRatings: Rating[];
   adultModeEnabled: boolean;
+  /** e621's blacklist (the only one before per-site lists). */
   blacklist: string;
+  /** Every site's blacklist; absent in older backups. */
+  blacklistBySite?: Partial<Record<Site, string>>;
   accentColor: string;
   /** Absent on a backup made before this field existed - `?? "system"` on read. */
   themeMode?: ThemeMode;
@@ -90,14 +97,19 @@ export async function buildBackup(): Promise<SettingsBackup> {
     version: 1,
     e621Username: accounts.e621?.username ?? "",
     e621ApiKey: accounts.e621?.apiKey ?? "",
-    e6aiUsername: accounts.e6ai?.username ?? "",
-    e6aiApiKey: accounts.e6ai?.apiKey ?? "",
+    floofgensUsername: accounts.floofgens?.username ?? "",
+    floofgensApiKey: accounts.floofgens?.apiKey ?? "",
+    blepUsername: accounts.blep?.username ?? "",
+    blepApiKey: accounts.blep?.apiKey ?? "",
     saucenaoApiKey: useSaucenaoStore.getState().apiKey ?? "",
     cacheLimitMb: cacheInfo && cacheInfo.limit_mb,
     site: settings.site,
     enabledRatings: settings.enabledRatings,
     adultModeEnabled: settings.adultModeEnabled,
-    blacklist: settings.blacklist,
+    // `blacklist` stays e621's list (what older builds and the Android app read); the rest of the
+    // sites ride along in blacklistBySite.
+    blacklist: settings.blacklistBySite.e621,
+    blacklistBySite: settings.blacklistBySite,
     accentColor: settings.accentColor,
     themeMode: settings.themeMode,
     palette: settings.palette,
@@ -138,10 +150,16 @@ export function isSettingsBackup(value: unknown): value is SettingsBackup {
 /** Applies a parsed backup to the settings store and (if present) both sites' credentials. */
 export async function applyBackup(backup: SettingsBackup): Promise<void> {
   const settings = useSettingsStore.getState();
-  settings.setSite(backup.site);
+  settings.setSite(toSite(backup.site));
   settings.setEnabledRatings(backup.enabledRatings);
   settings.setAdultModeEnabled(backup.adultModeEnabled);
-  settings.setBlacklist(backup.blacklist);
+  settings.setBlacklist(backup.blacklist, "e621");
+  // Only sites the backup actually has: blanking a list the backup predates would read as "every
+  // line deleted" on the next sync and wipe that account's blacklist.
+  for (const s of SITES) {
+    const text = backup.blacklistBySite?.[s];
+    if (s !== "e621" && typeof text === "string") settings.setBlacklist(text, s);
+  }
   settings.setAccentColor(backup.accentColor);
   settings.setThemeMode(backup.themeMode ?? "system");
   settings.setPalette(backup.palette ?? "default");
@@ -172,8 +190,11 @@ export async function applyBackup(backup: SettingsBackup): Promise<void> {
   if (backup.e621Username || backup.e621ApiKey) {
     tasks.push(accountStore.save("e621", backup.e621Username, backup.e621ApiKey));
   }
-  if (backup.e6aiUsername || backup.e6aiApiKey) {
-    tasks.push(accountStore.save("e6ai", backup.e6aiUsername, backup.e6aiApiKey));
+  if (backup.floofgensUsername || backup.floofgensApiKey) {
+    tasks.push(accountStore.save("floofgens", backup.floofgensUsername ?? "", backup.floofgensApiKey ?? ""));
+  }
+  if (backup.blepUsername || backup.blepApiKey) {
+    tasks.push(accountStore.save("blep", backup.blepUsername ?? "", backup.blepApiKey ?? ""));
   }
   if (backup.saucenaoApiKey) {
     tasks.push(useSaucenaoStore.getState().save(backup.saucenaoApiKey));

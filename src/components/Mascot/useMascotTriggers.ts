@@ -15,7 +15,7 @@ import {
   TAB_SPREE,
 } from "../../lib/mascot";
 import { mascotReact, useMascotStore } from "../../state/mascotStore";
-import type { Site } from "../../models/site";
+import { isAiSite, type Site } from "../../models/site";
 import { MAX_THUMBNAIL_SIZE_PX, MIN_THUMBNAIL_SIZE_PX, useSettingsStore } from "../../state/settingsStore";
 
 /** Wheel events in this window that count as fling-scrolling (dizzy). */
@@ -181,12 +181,12 @@ export function useMascotTriggers({
     };
   }, []);
 
-  // Site switch: e6AI gets the robot, coming home to e621 a little fox nod. Not on launch.
+  // Site switch: the AI-art sites get the robot, coming home to e621 a little fox nod. Not on launch.
   const prevSite = useRef(site);
   useEffect(() => {
     if (prevSite.current === site) return;
     prevSite.current = site;
-    mascotReact(site === "e6ai" ? "robot" : "homeSite");
+    mascotReact(isAiSite(site) ? "robot" : "homeSite");
   }, [site]);
 
   // What's being searched: species, ordering, your own favorites, a very long query.

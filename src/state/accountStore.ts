@@ -1,11 +1,11 @@
 // Per-site account credentials, loaded from/saved to the encrypted credentials.dat file next to
 // the exe via the Rust `credentials` commands (src-tauri/src/credentials.rs) - never persisted in
-// the plain-JSON settings store. e621 and e6AI are separate accounts (see the reference app's
+// the plain-JSON settings store. each site is a separate account (see the reference app's
 // UserSettings.username/apiKey), so each site's credentials are tracked independently.
 
 import { create } from "zustand";
 import { e621Api } from "../api/client";
-import type { Site } from "../models/site";
+import { SITES, type Site } from "../models/site";
 
 interface SiteAccount {
   username: string;
@@ -54,5 +54,5 @@ export const useAccountStore = create<AccountState>((set, get) => ({
 
 export async function loadAllAccounts(): Promise<void> {
   const store = useAccountStore.getState();
-  await Promise.all([store.loadFromKeyring("e621"), store.loadFromKeyring("e6ai")]);
+  await Promise.all(SITES.map((site) => store.loadFromKeyring(site)));
 }

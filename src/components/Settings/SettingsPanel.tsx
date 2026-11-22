@@ -27,6 +27,7 @@ import { IconButton } from "../ui/IconButton";
 import { Overlay, type OverlayHandle } from "../ui/Overlay";
 import { EulaReadOnlyDialog } from "../Eula/EulaReadOnlyDialog";
 import * as Cards from "./SettingsCards";
+import { SITES } from "../../models/site";
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -52,7 +53,7 @@ interface PageDef {
 }
 
 const PAGES: PageDef[] = [
-  { id: "account", label: "Account", blurb: "Sign in to e621 and e6AI", icon: UserRound },
+  { id: "account", label: "Account", blurb: "Sign in to e621, floofgens and blep", icon: UserRound },
   { id: "content", label: "Content & filtering", blurb: "Ratings, blacklist, seen posts", icon: SlidersHorizontal },
   { id: "appearance", label: "Appearance", blurb: "Theme, colours, motion, grid", icon: Palette },
   { id: "mascot", label: MASCOT_NAME, blurb: "Your raccoon companion", icon: Bot },
@@ -73,9 +74,9 @@ interface CardDef {
 
 /** Every card, in display order. `keywords` is extra search text beyond the title. */
 const SETTINGS_INDEX: CardDef[] = [
-  { id: "accounts", page: "account", title: "Site accounts", keywords: "username api key login sign in e621 e6ai credentials", Component: Cards.AccountsCard },
+  { id: "accounts", page: "account", title: "Site accounts", keywords: "username api key login sign in e621 floofgens blep credentials", Component: Cards.AccountsCard },
   { id: "ratings", page: "content", title: "Content ratings", keywords: "adult mode safe questionable explicit nsfw sfw rating filter", Component: Cards.RatingsCard },
-  { id: "blacklist", page: "content", title: "Blacklist", keywords: "blacklist block hide tags sync auto-sync android import push tester", Component: Cards.BlacklistCard },
+  { id: "blacklist", page: "content", title: "Blacklist", keywords: "blacklist block hide tags sync auto-sync android import push tester per site e621 floofgens blep", Component: Cards.BlacklistCard },
   { id: "seen", page: "content", title: "Seen posts", keywords: "seen viewed dim hide history clear", Component: Cards.SeenCard },
   { id: "theme", page: "appearance", title: "Theme", keywords: "dark light system mode palette navy oled warm", Component: Cards.ThemeCard },
   { id: "accent", page: "appearance", title: "Accent colour", keywords: "accent color colour highlight custom", Component: Cards.AccentCard },
@@ -110,11 +111,11 @@ function matches(card: CardDef, words: string[]): boolean {
 export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
   const site = useSettingsStore((s) => s.site);
   const account = useAccountStore((s) => s.accounts[site]);
-  const signedInE621 = useAccountStore((s) => s.isAuthenticated("e621"));
-  const signedInE6ai = useAccountStore((s) => s.isAuthenticated("e6ai"));
+  const signedInCount = useAccountStore((s) => SITES.filter((site) => s.isAuthenticated(site)).length);
   const blacklistLines = useSettingsStore((s) => s.blacklistEntries.length);
   const autoSync = useSettingsStore((s) => s.blacklistAutoSync);
-  const syncState = useBlacklistSyncStore((s) => s.state);
+  // Any site's sync failing flags the Blacklist page, not just the active site's.
+  const syncState = useBlacklistSyncStore((s) => (Object.values(s).some((v) => v?.state === "error") ? "error" : "ok"));
   // Re-picked every time Settings opens - mirrors the reference Android app's nav drawer.
   const [greeting] = useState(randomGreeting);
   const [page, setPageState] = useState<PageId>(lastPage);
@@ -155,7 +156,7 @@ export function SettingsPanel({ onClose, onOpenProfile }: SettingsPanelProps) {
 
   function badge(id: PageId) {
     if (id === "account") {
-      const n = Number(signedInE621) + Number(signedInE6ai);
+      const n = signedInCount;
       return n > 0 ? <Dot tone="ok" title={`${n} signed in`} /> : <Dot tone="muted" title="Not signed in" />;
     }
     if (id === "content" && blacklistLines > 0) {

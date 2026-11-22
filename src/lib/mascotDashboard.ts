@@ -17,7 +17,8 @@ export interface DashboardFacts {
   dataBytes: number;
   slideshowMs: number;
   e621Viewed: number;
-  e6aiViewed: number;
+  /** Posts viewed on the AI-art sites (floofgens + blep). */
+  aiViewed: number;
   daysUsing: number;
   /** Days with any activity in the heatmap window (last 120). */
   activeDays: number;
@@ -132,11 +133,11 @@ export function dashboardRemarks(f: DashboardFacts): string[] {
   else if (f.dataBytes >= 50 * MB) out.push(`${Math.round(f.dataBytes / MB)} MB of data so far. Light snacking.`);
   if (f.downloads > 0) out.push(`${plural(f.downloads, "download")}. Building a collection?`);
   if (f.apiCalls >= 100) out.push(`${n(f.apiCalls)} API calls, all politely rate-limited. e621 likes us.`);
-  const sitesTotal = f.e621Viewed + f.e6aiViewed;
+  const sitesTotal = f.e621Viewed + f.aiViewed;
   if (sitesTotal >= 20) {
-    if (f.e6aiViewed / sitesTotal >= 0.5) out.push("More e6AI than e621? Team robot, huh.");
-    else if (f.e6aiViewed === 0) out.push("Never touched e6AI. A purist!");
-    else out.push(`${Math.round((f.e6aiViewed / sitesTotal) * 100)}% of your views are on e6AI.`);
+    if (f.aiViewed / sitesTotal >= 0.5) out.push("More AI art than e621? Team robot, huh.");
+    else if (f.aiViewed === 0) out.push("Never touched the AI sites. A purist!");
+    else out.push(`${Math.round((f.aiViewed / sitesTotal) * 100)}% of your views are AI art.`);
   }
   if (f.slideshowMs >= 10 * 60_000) out.push("Slideshow enjoyer. Sit back, relax, I get it.");
   if (f.uniquePostsViewed >= 100 && f.postsViewed >= f.uniquePostsViewed * 1.5) {
