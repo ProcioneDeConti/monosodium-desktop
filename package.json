@@ -13,8 +13,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "build:portable": "node scripts/build-portable.mjs",
-    "dist": "tauri build && npm run build:portable",
-    "release": "node scripts/build-release.mjs",
+    "dist": "node scripts/fetch-wireproxy.mjs && tauri build && npm run build:portable",
+    "fetch:wireproxy": "node scripts/fetch-wireproxy.mjs",
+    "release": "node scripts/fetch-wireproxy.mjs && node scripts/build-release.mjs",
     "test": "vitest run"
   },
   "dependencies": {

@@ -52,7 +52,7 @@ impl AppState {
         // is plenty. No total-request timeout here: `download_post_file` reuses this client for
         // full media files that can legitimately take minutes; the JSON API calls in
         // `request()` set their own per-request `.timeout()` instead.
-        let mut builder = reqwest::Client::builder()
+        let mut builder = crate::net::client_builder()
             .connect_timeout(std::time::Duration::from_secs(15))
             .pool_max_idle_per_host(2);
         // Dev builds only: under `tauri dev`, HTTP/2 API responses were seen stalling with the

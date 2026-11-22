@@ -81,7 +81,7 @@ fn session_cookie(window: &WebviewWindow, s: &LoginSite) -> Option<String> {
 /// Asks the site whether `cookie` is a live session: `Some(true)` signed in, `Some(false)` the site
 /// answered as logged out (expired or signed out elsewhere), `None` couldn't reach it.
 async fn check_session(s: &LoginSite, cookie: &str) -> Option<bool> {
-    let client = reqwest::Client::builder().timeout(Duration::from_secs(20)).build().ok()?;
+    let client = crate::net::client_builder().timeout(Duration::from_secs(20)).build().ok()?;
     let ua = format!("MonosodiumDesktop/{} (source recovery for deleted e621 posts)", env!("CARGO_PKG_VERSION"));
     let response = client.get(s.check_url).header(COOKIE, cookie).header(USER_AGENT, ua).send().await.ok()?;
     if !response.status().is_success() {

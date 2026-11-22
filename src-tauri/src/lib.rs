@@ -7,10 +7,12 @@ mod downloads;
 mod install_info;
 mod export;
 mod models;
+mod net;
 mod paths;
 mod rate_limit;
 mod recovered;
 mod saucenao;
+mod shlink;
 mod site;
 mod source_fetch;
 mod source_login;
@@ -18,6 +20,7 @@ mod update_check;
 mod upload;
 mod vault;
 mod wallpaper;
+mod wireguard;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -67,6 +70,9 @@ pub fn run() {
 
     // Must run before the webview is created - see cache.rs's module doc comment.
     cache::bootstrap();
+    // Decides whether this session runs through the WireGuard tunnel - must follow
+    // cache::bootstrap() (same WebView2 env var) and precede every HTTP client and webview.
+    net::init();
     // Restore settings.json / saved-searches.json from a .bak if a previous run's store write was
     // truncated (tauri-plugin-store's fs::write isn't atomic) - must run before the store plugin.
     paths::guard_store_files(vault::is_password_protected());
@@ -105,6 +111,9 @@ pub fn run() {
         .manage(api::AppState::new())
         .setup(|app| {
             let window = app.get_webview_window("main").expect("main window");
+
+            // VPN on at launch: bring the tunnel up (or wait for the vault unlock - see wireguard.rs).
+            wireguard::start_if_enabled(app.handle());
 
             // The asset protocol (`convertFileSrc` in the frontend) serves recovered deleted-post
             // files from their on-disk cache - and nothing else: its static scope in
@@ -278,6 +287,15 @@ pub fn run() {
             credentials::source_key_status,
             credentials::delete_source_key,
             saucenao::reverse_image_search,
+            shlink::save_shlink_config,
+            shlink::shlink_status,
+            shlink::delete_shlink_config,
+            shlink::shorten_url,
+            wireguard::vpn_status,
+            wireguard::vpn_import_config,
+            wireguard::vpn_remove_config,
+            wireguard::vpn_set_enabled,
+            wireguard::vpn_reconnect,
             paths::get_data_dir,
             paths::storage_location,
             install_info::get_install_info,

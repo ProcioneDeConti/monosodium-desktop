@@ -425,7 +425,7 @@ impl Resolve for PublicOnlyResolver {
 /// addresses only, checked per redirect hop and per DNS answer). Also used by the uploader to
 /// fetch a direct-URL upload locally for its duplicate checks.
 pub(crate) fn public_client(timeout: Duration, purpose: &str) -> Result<Client, String> {
-    Client::builder()
+    crate::net::guarded_client_builder()
         .connect_timeout(Duration::from_secs(10))
         .timeout(timeout)
         .redirect(redirect_policy())
@@ -2042,7 +2042,7 @@ fn valid_md5(md5: Option<&str>) -> Option<String> {
 }
 
 fn recovery_client() -> Result<Client, String> {
-    Client::builder()
+    crate::net::guarded_client_builder()
         .connect_timeout(Duration::from_secs(10))
         .read_timeout(READ_IDLE_TIMEOUT)
         .redirect(redirect_policy())

@@ -19,6 +19,7 @@ import type { PostNote } from "../models/note";
 import type { PostVersion } from "../models/postVersion";
 import type { TagInfo, TagRelations, WikiPage } from "../models/wiki";
 import type { SauceResult } from "../models/saucenao";
+import type { VpnProfileSummary, VpnStatus } from "../models/vpn";
 import type { SearchReport } from "../lib/recoveryReport";
 import type { WallpaperFit } from "../lib/wallpaper";
 
@@ -565,6 +566,48 @@ export const e621Api = {
 
   deleteSaucenaoKey(): Promise<void> {
     return invoke("delete_saucenao_key");
+  },
+
+  /** Validates against the server before saving (throws a readable message on a bad URL/key). */
+  saveShlinkConfig(serverUrl: string, apiKey: string, tag: string): Promise<void> {
+    return invoke("save_shlink_config", { serverUrl, apiKey, tag });
+  },
+
+  /** Server URL + tag when Shlink is set up; the API key never leaves the backend. */
+  shlinkStatus(): Promise<{ server_url: string; tag: string } | null> {
+    return invoke("shlink_status");
+  },
+
+  deleteShlinkConfig(): Promise<void> {
+    return invoke("delete_shlink_config");
+  },
+
+  /** Reuses an existing short URL for the same long URL + tag (Shlink's findIfExists). */
+  shortenUrl(longUrl: string): Promise<string> {
+    return invoke("shorten_url", { longUrl });
+  },
+
+  /** App-only WireGuard tunnel - see src-tauri/src/wireguard.rs. */
+  vpnStatus(): Promise<VpnStatus> {
+    return invoke("vpn_status");
+  },
+
+  /** Validates + stores a WireGuard .conf (keys stay in the backend). */
+  vpnImportConfig(text: string, name: string): Promise<VpnProfileSummary> {
+    return invoke("vpn_import_config", { text, name });
+  },
+
+  vpnRemoveConfig(): Promise<void> {
+    return invoke("vpn_remove_config");
+  },
+
+  /** Takes effect at the next launch - callers relaunch right after. */
+  vpnSetEnabled(enabled: boolean): Promise<void> {
+    return invoke("vpn_set_enabled", { enabled });
+  },
+
+  vpnReconnect(): Promise<void> {
+    return invoke("vpn_reconnect");
   },
 
   reverseImageSearch(apiKey: string | null, filePath: string): Promise<SauceResult[]> {

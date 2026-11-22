@@ -174,6 +174,8 @@ pub fn unlock_vault(app: AppHandle, password: String) -> Result<(), String> {
         set_key(None);
         return Err(e);
     }
+    // The WireGuard profile lives in credentials.dat, so a VPN that was on at launch waits for this.
+    crate::wireguard::start_if_enabled(&app);
     Ok(())
 }
 

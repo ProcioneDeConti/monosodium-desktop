@@ -27,3 +27,6 @@ dist-release
 
 # Raw music downloads, staged before encoding into bgmusic/
 bgmusic-incoming/
+
+# Fetched by scripts/fetch-wireproxy.mjs (pinned + checksummed), embedded at build time
+src-tauri/vendor/wireproxy.exe

@@ -70,6 +70,7 @@ import { loadStats, flushStats, useStatsStore } from "./state/statsStore";
 import { startUsageSession } from "./lib/usageSession";
 import { useApiMetricsFold } from "./queries/useApiMetricsFold";
 import { useSaucenaoStore } from "./state/saucenaoStore";
+import { useShlinkStore } from "./state/shlinkStore";
 import { parseBlacklist, visiblePosts } from "./lib/blacklist";
 import { addToBlacklist, autoSyncBlacklist } from "./state/blacklistSync";
 import { isOwnFavoritesView, normalizeQuery, withRandomOrder } from "./lib/searchQuery";
@@ -285,6 +286,7 @@ function App() {
       loadFavoritesAnalysisCache(),
       loadTasteProfiles(),
       useSaucenaoStore.getState().load(),
+      useShlinkStore.getState().load(),
       loadWallpaperSettings(),
     ]).finally(() => {
       setBooted(true);
@@ -293,6 +295,12 @@ function App() {
       autoSyncBlacklist();
     });
   }, [vaultLocked]);
+
+  // A restored backup can carry a Shlink config (backend-only secret, spliced in by backup.rs).
+  useEffect(() => {
+    const unlisten = listen("source-secrets-restored", () => void useShlinkStore.getState().load());
+    return () => void unlisten.then((f) => f());
+  }, []);
 
   // Force a stats write when the window is hidden (tray / minimise) so a later kill doesn't lose
   // the tail; usageSession.ts handles beforeunload + the periodic flush itself.

@@ -15,6 +15,8 @@ import {
   Heart,
   Image as ImageIcon,
   KeyRound,
+  Link2,
+  Network,
   Lock,
   Monitor,
   Moon,
@@ -58,6 +60,8 @@ import { UpdateSection } from "./UpdateSection";
 import { EncryptionSection } from "./EncryptionSection";
 import { ResetSection } from "./ResetSection";
 import { SaucenaoSection } from "./SaucenaoSection";
+import { ShlinkSection } from "./ShlinkSection";
+import { VpnSection } from "./VpnSection";
 import { SourceLoginsSection } from "./SourceLoginsSection";
 import { SeenPostsSection } from "./SeenPostsSection";
 import { WallpaperSection } from "./WallpaperSection";
@@ -482,6 +486,22 @@ export function ReverseSearchCard(_: CardProps) {
   return (
     <SettingCard title="Reverse image search" icon={<ScanSearch size={ICON} />}>
       <SaucenaoSection />
+    </SettingCard>
+  );
+}
+
+export function VpnCard(_: CardProps) {
+  return (
+    <SettingCard title="WireGuard VPN" icon={<Network size={ICON} />}>
+      <VpnSection />
+    </SettingCard>
+  );
+}
+
+export function ShlinkCard(_: CardProps) {
+  return (
+    <SettingCard title="Link shortener" icon={<Link2 size={ICON} />}>
+      <ShlinkSection />
     </SettingCard>
   );
 }

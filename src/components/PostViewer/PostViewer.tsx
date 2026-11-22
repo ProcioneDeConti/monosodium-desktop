@@ -12,6 +12,7 @@ import {
   MessageCircleHeart,
   Heart,
   Expand,
+  Link2,
   Maximize,
   Minimize,
   Minus,
@@ -63,6 +64,7 @@ import { Spinner } from "../ui/Spinner";
 import { isWallpaperable } from "../../lib/wallpaper";
 import { errorMessage } from "../../lib/errors";
 import { setPostAsWallpaper } from "../../lib/wallpaperRotation";
+import { maybeShorten, useShlinkStore } from "../../state/shlinkStore";
 
 const SLIDESHOW_TRANSITION_ANIMATION: Record<string, string> = {
   fade: "animate-[fade-in_450ms_ease-out]",
@@ -141,6 +143,10 @@ export function PostViewer({
   const setSlideshowShuffle = useSettingsStore((s) => s.setSlideshowShuffle);
   const [downloadStatus, setDownloadStatus] = useState<"idle" | "queued">("idle");
   const [wallpaperStatus, setWallpaperStatus] = useState<
+    "idle" | "busy" | "done" | { error: string }
+  >("idle");
+  const shlinkReady = useShlinkStore((s) => s.serverUrl !== null);
+  const [shortLinkStatus, setShortLinkStatus] = useState<
     "idle" | "busy" | "done" | { error: string }
   >("idle");
   // Images display the ~850px `sample` by default - decoding a full-res original (routinely
@@ -226,6 +232,7 @@ export function PostViewer({
   useEffect(() => {
     setDownloadStatus("idle");
     setWallpaperStatus("idle");
+    setShortLinkStatus("idle");
     setShowOriginal(false);
   }, [post?.id]);
 
@@ -239,6 +246,19 @@ export function PostViewer({
       setWallpaperStatus({ error: errorMessage(e, "Couldn't set the wallpaper.") });
     }
     setTimeout(() => setWallpaperStatus("idle"), 2500);
+  }
+
+  async function handleCopyShortLink() {
+    if (!post) return;
+    setShortLinkStatus("busy");
+    try {
+      const short = await maybeShorten(`${SITE_WEB_BASE_URL[site]}/posts/${post.id}`, false);
+      await navigator.clipboard.writeText(short);
+      setShortLinkStatus("done");
+    } catch (e) {
+      setShortLinkStatus({ error: errorMessage(e, "Couldn't shorten the link.") });
+    }
+    setTimeout(() => setShortLinkStatus("idle"), 2500);
   }
 
   function handleDownload() {
@@ -532,6 +552,28 @@ export function PostViewer({
               )}
             </IconButton>
           )}
+          {shlinkReady && (
+            <IconButton
+              tone="invert"
+              title={
+                shortLinkStatus === "done"
+                  ? "Short link copied"
+                  : typeof shortLinkStatus === "object"
+                    ? shortLinkStatus.error
+                    : "Copy short link"
+              }
+              disabled={shortLinkStatus === "busy"}
+              onClick={() => void handleCopyShortLink()}
+            >
+              {shortLinkStatus === "busy" ? (
+                <Spinner size={16} />
+              ) : shortLinkStatus === "done" ? (
+                <Check size={16} />
+              ) : (
+                <Link2 size={16} />
+              )}
+            </IconButton>
+          )}
           <IconButton
             tone="invert"
             title="Share to Telegram"
@@ -816,9 +858,10 @@ export function PostViewer({
 
 /** Hands a post link to Telegram's own "Share to..." chat picker (no bot/token involved). Goes
  *  straight to Telegram Desktop via tg:// when it's installed; otherwise falls back to the t.me
- *  web share page, avoiding Windows' "get an app to open this link" prompt. */
+ *  web share page, avoiding Windows' "get an app to open this link" prompt. Sends the Shlink
+ *  short link when a shortener is set up (falling back to the full link if it's unreachable). */
 async function shareToTelegram(postUrl: string): Promise<void> {
-  const url = encodeURIComponent(postUrl);
+  const url = encodeURIComponent(await maybeShorten(postUrl));
   const installed = await e621Api.telegramInstalled().catch(() => false);
   await openUrl(installed ? `tg://msg_url?url=${url}` : `https://t.me/share/url?url=${url}`);
 }

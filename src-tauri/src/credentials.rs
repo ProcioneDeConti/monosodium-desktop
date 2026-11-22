@@ -36,6 +36,13 @@ pub(crate) struct CredentialsFile {
     /// site id. Like the cookies, never sent back to the frontend - it only learns whether one is set.
     #[serde(default)]
     source_keys: HashMap<String, SourceKey>,
+    /// The user's Shlink server + API key (shlink.rs). The key never goes back to the frontend.
+    #[serde(default)]
+    shlink: Option<crate::shlink::ShlinkConfig>,
+    /// The imported WireGuard profile (wireguard.rs), private key included. Never sent to the
+    /// frontend - it only sees a summary.
+    #[serde(default)]
+    wireguard: Option<crate::wireguard::WgProfile>,
 }
 
 /// An API key for a recovery source. `user_id` is empty for sites that only take a key.
@@ -251,7 +258,39 @@ pub fn delete_source_key(site: String) -> Result<(), String> {
     write_all(&data)
 }
 
-/// Recovery-source secrets (API keys + sign-in cookies) as they travel inside a Settings > Backup
+pub(crate) fn shlink_config() -> Option<crate::shlink::ShlinkConfig> {
+    read_all().shlink
+}
+
+pub(crate) fn save_shlink_config(cfg: crate::shlink::ShlinkConfig) -> Result<(), String> {
+    let mut data = read_all();
+    data.shlink = Some(cfg);
+    write_all(&data)
+}
+
+pub(crate) fn delete_shlink_config() -> Result<(), String> {
+    let mut data = read_all();
+    data.shlink = None;
+    write_all(&data)
+}
+
+pub(crate) fn wireguard_profile() -> Option<crate::wireguard::WgProfile> {
+    read_all().wireguard
+}
+
+pub(crate) fn save_wireguard_profile(profile: crate::wireguard::WgProfile) -> Result<(), String> {
+    let mut data = read_all();
+    data.wireguard = Some(profile);
+    write_all(&data)
+}
+
+pub(crate) fn delete_wireguard_profile() -> Result<(), String> {
+    let mut data = read_all();
+    data.wireguard = None;
+    write_all(&data)
+}
+
+/// Recovery-source secrets (API keys + sign-in cookies), plus the Shlink config, as they travel inside a Settings > Backup
 /// & Restore file. These never reach the frontend, so `lib/backup.ts` can't put them in the
 /// snapshot itself - backup.rs splices this into the plaintext on export and pulls it back out
 /// on import instead.
@@ -261,17 +300,26 @@ pub(crate) struct SourceSecrets {
     keys: HashMap<String, SourceKey>,
     #[serde(default)]
     cookies: HashMap<String, String>,
+    #[serde(default)]
+    shlink: Option<crate::shlink::ShlinkConfig>,
+    #[serde(default)]
+    wireguard: Option<crate::wireguard::WgProfile>,
 }
 
 impl SourceSecrets {
     pub(crate) fn is_empty(&self) -> bool {
-        self.keys.is_empty() && self.cookies.is_empty()
+        self.keys.is_empty() && self.cookies.is_empty() && self.shlink.is_none() && self.wireguard.is_none()
     }
 }
 
 pub(crate) fn export_source_secrets() -> SourceSecrets {
     let data = read_all();
-    SourceSecrets { keys: data.source_keys, cookies: data.source_cookies }
+    SourceSecrets {
+        keys: data.source_keys,
+        cookies: data.source_cookies,
+        shlink: data.shlink,
+        wireguard: data.wireguard,
+    }
 }
 
 /// Merges a backup's recovery-source secrets in - entries in the backup overwrite this machine's,
@@ -291,6 +339,14 @@ pub(crate) fn import_source_secrets(secrets: SourceSecrets) -> Result<(), String
         if !cookie.is_empty() {
             data.source_cookies.insert(host, cookie);
         }
+    }
+    if let Some(cfg) = secrets.shlink.filter(|c| !c.server_url.is_empty() && !c.api_key.is_empty()) {
+        data.shlink = Some(cfg);
+    }
+    // The VPN's on/off flag isn't part of a backup (it's per-machine, in vpn.json) - restoring
+    // only brings the profile back, ready to switch on.
+    if let Some(profile) = secrets.wireguard {
+        data.wireguard = Some(profile);
     }
     write_all(&data)
 }

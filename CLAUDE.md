@@ -76,6 +76,19 @@ src-tauri/src/
   wallpaper.rs    desktop wallpaper: CDN image -> JPEG in <data>/wallpaper/ -> SystemParametersInfoW
                   (+ fit via HKCU registry, previous-wallpaper snapshot/restore, tray "Next
                   wallpaper" item). Which post to use is decided in lib/wallpaper*.ts
+  net.rs          builders every outbound reqwest client starts from - applies the VPN proxy
+                  (socks5h; `guarded_client_builder` = socks5 so source_fetch's SSRF resolver still
+                  runs). Also adds --proxy-server to WebView2's args env var at launch
+  wireguard.rs    app-only WireGuard VPN: embedded wireproxy.exe (fetched by
+                  scripts/fetch-wireproxy.mjs into src-tauri/vendor/, gitignored, pinned SHA-256;
+                  build.rs sets cfg(has_wireproxy)) run as a job-object child exposing SOCKS5 on
+                  loopback. On/off in <data>/vpn.json, applied per launch (relaunch to toggle);
+                  profile in credentials.dat; private key passed via env, never on disk.
+                  Fail-closed. wireproxy's `-i` /metrics (loopback, unauthenticated) includes the
+                  private key - enabled anyway for handshake/traffic stats (owner's call, private
+                  machines); `parse_metrics` whitelists fields so the key never leaves it
+  shlink.rs       user's own Shlink shortener (config in credentials.dat) - "Copy short link" +
+                  shortened Telegram shares (state/shlinkStore.ts maybeShorten)
   install_info.rs how this copy was installed (setup.exe / legacy MSI / portable) from the
                   registry + uninstall.exe; shown in Settings > Updates
   lib.rs          plugin/window/command wiring, tray icon, global shortcut (window is opaque -

@@ -58,8 +58,8 @@ const PAGES: PageDef[] = [
   { id: "mascot", label: MASCOT_NAME, blurb: "Your raccoon companion", icon: Bot },
   { id: "media", label: "Viewing & downloads", blurb: "Video, voting, download folder", icon: Film },
   { id: "wallpaper", label: "Wallpaper", blurb: "Posts on your desktop", icon: ImageIcon },
-  { id: "integrations", label: "Integrations", blurb: "Reverse image search, source logins", icon: Plug },
-  { id: "privacy", label: "Privacy & data", blurb: "Encryption, backups, cache", icon: ShieldCheck },
+  { id: "integrations", label: "Integrations", blurb: "Reverse image search, link shortener, source logins", icon: Plug },
+  { id: "privacy", label: "Privacy & data", blurb: "VPN, encryption, backups, cache", icon: ShieldCheck },
   { id: "about", label: "About", blurb: "Updates, legal, reset", icon: Info },
 ];
 
@@ -87,7 +87,9 @@ const SETTINGS_INDEX: CardDef[] = [
   { id: "downloads", page: "media", title: "Downloads", keywords: "download folder save location directory", Component: Cards.DownloadsCard },
   { id: "wallpaper", page: "wallpaper", title: "Desktop wallpaper", keywords: "wallpaper desktop background rotate", Component: Cards.WallpaperCard },
   { id: "saucenao", page: "integrations", title: "Reverse image search", keywords: "saucenao reverse image search sauce api key drag drop", Component: Cards.ReverseSearchCard },
+  { id: "shlink", page: "integrations", title: "Link shortener", keywords: "shlink short link url shortener share telegram api key", Component: Cards.ShlinkCard },
   { id: "source-logins", page: "integrations", title: "Source logins", keywords: "source login furaffinity fa recovery deleted cookie", Component: Cards.SourceLoginsCard },
+  { id: "vpn", page: "privacy", title: "WireGuard VPN", keywords: "vpn wireguard tunnel proxy socks privacy ip conf network", Component: Cards.VpnCard },
   { id: "encryption", page: "privacy", title: "Encryption", keywords: "password encryption lock vault protect", Component: Cards.EncryptionCard },
   { id: "backup", page: "privacy", title: "Backup & restore", keywords: "backup restore export import", Component: Cards.BackupCard },
   { id: "cache", page: "privacy", title: "Cache", keywords: "cache disk space clear size limit images", Component: Cards.CacheCard },
