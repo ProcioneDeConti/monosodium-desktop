@@ -52,6 +52,7 @@ import {
 } from "../../lib/slideshow";
 import { useHealthCheck } from "../../queries/useHealthCheck";
 import { useAvatarUrl } from "../../queries/useAvatarUrl";
+import { useUserProfileQuery } from "../../queries/useUserProfileQuery";
 import { useFullscreen } from "../../lib/useFullscreen";
 import { Avatar } from "../ui/Avatar";
 import { IconButton } from "../ui/IconButton";
@@ -498,7 +499,6 @@ export function AppShell({
             return (
               <MenuItem
                 key={s}
-                icon={current ? <Check size={15} /> : <span className="inline-block w-[15px]" />}
                 onClick={current ? undefined : () => setSite(s)}
                 keepOpen={current}
                 trailing={
@@ -507,12 +507,15 @@ export function AppShell({
                       <span className={`h-1.5 w-1.5 rounded-full ${healthColor}`} />
                       {health.status === "error" ? "unreachable" : health.status === "success" ? "online" : "checking"}
                     </span>
-                  ) : signedInSites.split(",").includes(s) ? (
-                    "signed in"
-                  ) : null
+                  ) : signedInSites.split(",").includes(s) ? null : (
+                    "signed out"
+                  )
                 }
               >
-                <span className={current ? "font-semibold" : ""}>{SITE_DISPLAY_NAME[s]}</span>
+                <span className="flex items-center gap-2.5">
+                  <SiteMenuAvatar site={s} signedIn={signedInSites.split(",").includes(s)} current={current} />
+                  <span className={current ? "font-semibold" : ""}>{SITE_DISPLAY_NAME[s]}</span>
+                </span>
               </MenuItem>
             );
           })}
@@ -528,5 +531,32 @@ export function AppShell({
 
       <main className="flex-1 min-h-0">{children}</main>
     </div>
+  );
+}
+
+/** A site row's identifier in the profile menu: your avatar on that site (each site is a separate
+ *  account), with a check badge over it on the current site. Only mounted while the menu is open,
+ *  so the users/me + avatar lookups for other sites happen on open and are cached after that (the
+ *  current site's are already cached by App's own profile query). */
+function SiteMenuAvatar({ site, signedIn, current }: { site: Site; signedIn: boolean; current: boolean }) {
+  const { data: profile } = useUserProfileQuery(site, "me", signedIn);
+  const { data: url } = useAvatarUrl(site, profile?.avatar_id ?? null);
+  return (
+    // The ring is padding on this wrapper (not a box-shadow `ring-*`) and the badge sits inside
+    // its bounds: MenuItem's label span truncates (overflow: hidden), which would clip anything
+    // drawn outside the box.
+    <span className={`relative flex shrink-0 rounded-full p-[2px] ${current ? "bg-[rgb(var(--accent))]" : ""}`}>
+      <Avatar
+        url={signedIn ? url : null}
+        name={signedIn ? (profile?.name ?? SITE_DISPLAY_NAME[site]) : `Not signed in to ${SITE_DISPLAY_NAME[site]}`}
+        size={22}
+        className={signedIn ? "" : "opacity-50"}
+      />
+      {current && (
+        <span className="absolute bottom-0 right-0 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-[rgb(var(--lt-surface))] bg-[rgb(var(--accent))] text-white dark:border-[rgb(var(--dk-surface-2))]">
+          <Check size={8} strokeWidth={4} />
+        </span>
+      )}
+    </span>
   );
 }
