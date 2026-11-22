@@ -182,9 +182,13 @@ export function UploadPanel({ site, droppedPath, onClose, onOpenPost }: UploadPa
   const isVideo = file && ["webm", "mp4"].includes(file.ext);
   const md5Dup = md5Q.data;
 
+  const blockingItems = checklist.filter((c) => c.blocking);
+  const blockingDone = blockingItems.filter((c) => c.status === "pass").length;
+  const sourceName = source?.kind === "file" ? source.path.split(/[\\/]/).pop() : source?.kind === "url" ? source.url : null;
+
   return (
-    <Overlay ref={overlay} onClose={onClose} variant="sheet" className="relative">
-      <div className="flex shrink-0 items-center gap-2 border-b border-black/10 px-4 py-3 dark:border-white/10">
+    <Overlay ref={overlay} onClose={onClose} variant="sheet" sheetWidth="max-w-5xl" className="relative">
+      <div className="flex shrink-0 items-center gap-2 border-b border-black/10 px-5 py-3 dark:border-white/10">
         <Upload size={16} className="opacity-70" />
         <h1 className="text-sm font-semibold">Upload to e621</h1>
         <IconButton onClick={() => overlay.current?.close()} title="Close (Esc)" className="ml-auto">
@@ -202,67 +206,100 @@ export function UploadPanel({ site, droppedPath, onClose, onOpenPost }: UploadPa
           </div>
         </div>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
+        // Narrow windows stack the checklist under the form and scroll the whole body; from md up
+        // the two columns scroll independently and the Upload button stays pinned.
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[minmax(0,1fr)_320px] md:overflow-hidden">
           {/* --- form --- */}
-          <div className="min-h-0 space-y-5 overflow-y-auto p-5">
+          <div className="min-h-0 space-y-6 p-6 md:overflow-y-auto">
             <Field label="File">
-              <div className="mb-2 flex gap-1">
-                <ModeTab active={mode === "file"} onClick={() => setMode("file")} icon={<FileUp size={13} />}>
-                  Local file
-                </ModeTab>
-                <ModeTab active={mode === "url"} onClick={() => setMode("url")} icon={<Link2 size={13} />}>
-                  Direct URL
-                </ModeTab>
-              </div>
-              {mode === "file" ? (
-                <button
-                  type="button"
-                  onClick={pickFile}
-                  className="flex w-full flex-col items-center justify-center gap-1 rounded-[var(--radius-md)] border-2 border-dashed
-                             border-black/15 px-4 py-6 text-sm opacity-80 hover:border-[rgb(var(--accent))] hover:opacity-100 dark:border-white/15"
-                >
-                  <FileUp size={22} className="opacity-60" />
-                  {source?.kind === "file" ? (
-                    <span className="max-w-full truncate font-medium">{source.path.split(/[\\/]/).pop()}</span>
-                  ) : (
-                    <span>Click to choose, or drop a file anywhere on this window</span>
-                  )}
-                  <span className="text-xs opacity-60">jpg · png · gif · webp · webm · mp4 — up to 100 MB</span>
-                </button>
-              ) : (
-                <form
-                  className="flex gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (urlDraft.trim()) setSource({ kind: "url", url: urlDraft.trim() });
-                  }}
-                >
-                  <input
-                    value={urlDraft}
-                    onChange={(e) => setUrlDraft(e.target.value)}
-                    placeholder="https://… (direct link to the image or video file)"
-                    className={INPUT}
-                  />
-                  <Button disabled={!urlDraft.trim()} onClick={() => urlDraft.trim() && setSource({ kind: "url", url: urlDraft.trim() })}>
-                    Fetch
-                  </Button>
-                </form>
-              )}
-              {source && (
-                <div className="mt-3 flex items-center justify-center overflow-hidden rounded-[var(--radius-md)] bg-black/5 dark:bg-white/5">
-                  {fileQ.isLoading ? (
-                    <Spinner size={24} className="my-10" />
-                  ) : previewQ.data ? (
-                    <img src={previewQ.data} alt="" className="max-h-72 object-contain" />
-                  ) : isVideo ? (
-                    <div className="my-8 flex flex-col items-center gap-1 text-xs opacity-60">
-                      <Film size={28} />
-                      Video ({file?.ext})
+              {source ? (
+                <div className="flex gap-4 rounded-[var(--radius-md)] border border-black/10 p-3 dark:border-white/10">
+                  <div className="flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-sm)] bg-black/5 dark:bg-white/5">
+                    {fileQ.isLoading ? (
+                      <Spinner size={24} />
+                    ) : previewQ.data ? (
+                      <img src={previewQ.data} alt="" className="max-h-full max-w-full object-contain" />
+                    ) : isVideo ? (
+                      <Film size={32} className="opacity-50" />
+                    ) : (
+                      <span className="text-xs opacity-50">No preview</span>
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5 py-1">
+                    <div className="truncate text-sm font-semibold" title={sourceName ?? undefined}>
+                      {sourceName}
                     </div>
-                  ) : (
-                    <div className="my-8 text-xs opacity-60">No preview</div>
-                  )}
+                    {file ? (
+                      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+                        <dt className="opacity-50">Type</dt>
+                        <dd className="uppercase">{file.ext || "unknown"}</dd>
+                        {file.width != null && file.height != null && (
+                          <>
+                            <dt className="opacity-50">Size</dt>
+                            <dd>
+                              {file.width} × {file.height}
+                            </dd>
+                          </>
+                        )}
+                        <dt className="opacity-50">File</dt>
+                        <dd>{formatBytes(file.size)}</dd>
+                        <dt className="opacity-50">MD5</dt>
+                        <dd className="truncate font-mono opacity-70">{file.md5}</dd>
+                      </dl>
+                    ) : fileQ.isError ? (
+                      <div className="text-xs text-red-500">{errorMessage(fileQ.error)}</div>
+                    ) : (
+                      <div className="text-xs opacity-50">Reading file…</div>
+                    )}
+                    <div className="mt-auto flex gap-2 pt-2">
+                      {source.kind === "file" && (
+                        <Button onClick={pickFile}>Choose another…</Button>
+                      )}
+                      <Button onClick={() => setSource(null)}>Remove</Button>
+                    </div>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  <div className="mb-2 flex gap-1">
+                    <ModeTab active={mode === "file"} onClick={() => setMode("file")} icon={<FileUp size={13} />}>
+                      Local file
+                    </ModeTab>
+                    <ModeTab active={mode === "url"} onClick={() => setMode("url")} icon={<Link2 size={13} />}>
+                      Direct URL
+                    </ModeTab>
+                  </div>
+                  {mode === "file" ? (
+                    <button
+                      type="button"
+                      onClick={pickFile}
+                      className="flex w-full flex-col items-center justify-center gap-1.5 rounded-[var(--radius-md)] border-2 border-dashed
+                                 border-black/15 px-4 py-8 text-sm opacity-80 transition-colors hover:border-[rgb(var(--accent))] hover:opacity-100 dark:border-white/15"
+                    >
+                      <FileUp size={24} className="opacity-60" />
+                      <span>Click to choose, or drop a file anywhere on this window</span>
+                      <span className="text-xs opacity-60">jpg · png · gif · webp · webm · mp4 — up to 100 MB</span>
+                    </button>
+                  ) : (
+                    <form
+                      className="flex gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (urlDraft.trim()) setSource({ kind: "url", url: urlDraft.trim() });
+                      }}
+                    >
+                      <input
+                        value={urlDraft}
+                        onChange={(e) => setUrlDraft(e.target.value)}
+                        placeholder="https://… (direct link to the image or video file)"
+                        className={INPUT}
+                      />
+                      <Button disabled={!urlDraft.trim()} onClick={() => urlDraft.trim() && setSource({ kind: "url", url: urlDraft.trim() })}>
+                        Fetch
+                      </Button>
+                    </form>
+                  )}
+                </>
               )}
             </Field>
 
@@ -273,14 +310,14 @@ export function UploadPanel({ site, droppedPath, onClose, onOpenPost }: UploadPa
               <UploadTagInput site={site} tags={tags} onChange={setTags} resolved={resolved} implied={implied} />
             </Field>
 
-            <Field label="Rating" hint="Required - no default.">
-              <div className="flex gap-2">
+            <Field label="Rating" hint="Required - there's no default.">
+              <div className="grid grid-cols-3 gap-2">
                 {RATINGS.map((r) => (
                   <button
                     key={r.value}
                     type="button"
                     onClick={() => setRating(r.value)}
-                    className={`flex-1 rounded-[var(--radius-sm)] border px-3 py-2 text-sm font-semibold transition-colors ${
+                    className={`rounded-[var(--radius-sm)] border px-3 py-2 text-sm font-semibold transition-colors ${
                       rating === r.value ? "text-white" : "border-black/10 opacity-70 hover:opacity-100 dark:border-white/10"
                     }`}
                     style={rating === r.value ? { backgroundColor: r.color, borderColor: r.color } : undefined}
@@ -292,28 +329,53 @@ export function UploadPanel({ site, droppedPath, onClose, onOpenPost }: UploadPa
             </Field>
 
             <Field label="Sources" hint="One URL per line - link the artist's original post.">
-              <textarea value={sources} onChange={(e) => setSources(e.target.value)} rows={3} className={INPUT} />
+              <textarea
+                value={sources}
+                onChange={(e) => setSources(e.target.value)}
+                rows={3}
+                placeholder="https://www.furaffinity.net/view/…"
+                className={`${INPUT} resize-y`}
+              />
             </Field>
 
             <Field label="Description" hint="Optional. DText is supported.">
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={INPUT} />
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={`${INPUT} resize-y`} />
             </Field>
 
-            <div className="flex flex-wrap items-end gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[10rem_1fr] sm:items-end">
               <Field label="Parent post ID">
-                <input value={parentId} onChange={(e) => setParentId(e.target.value)} placeholder="optional" className={`${INPUT} w-36`} />
+                <input
+                  value={parentId}
+                  onChange={(e) => setParentId(e.target.value.replace(/[^0-9]/g, ""))}
+                  inputMode="numeric"
+                  placeholder="optional"
+                  className={INPUT}
+                />
               </Field>
               <label className="flex items-center gap-2 pb-2 text-sm">
                 <input type="checkbox" checked={asPending} onChange={(e) => setAsPending(e.target.checked)} />
-                Upload as pending (for unlimited uploaders)
+                Upload as pending <span className="opacity-50">(unlimited uploaders only)</span>
               </label>
             </div>
           </div>
 
           {/* --- checklist --- */}
-          <aside className="flex min-h-0 flex-col border-l border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.02]">
-            <div className="px-4 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wide opacity-50">Checklist</div>
-            <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2">
+          <aside className="flex min-h-0 flex-col border-t border-black/10 bg-black/[0.02] md:border-l md:border-t-0 dark:border-white/10 dark:bg-white/[0.02]">
+            <div className="px-4 pb-2 pt-5">
+              <div className="flex items-baseline justify-between text-[11px] font-semibold uppercase tracking-wide">
+                <span className="opacity-50">Checklist</span>
+                <span className="tabular-nums opacity-60">
+                  {blockingDone}/{blockingItems.length} required
+                </span>
+              </div>
+              <div className="mt-2 h-1 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                <div
+                  className="h-full rounded-full bg-green-500 transition-[width] duration-300"
+                  style={{ width: `${blockingItems.length ? (blockingDone / blockingItems.length) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+            <ul className="min-h-0 flex-1 space-y-0.5 px-2 md:overflow-y-auto">
               {checklist.map((item) => (
                 <ChecklistRow key={item.id} item={item}>
                   {item.id === "md5" && md5Dup && (
@@ -373,12 +435,21 @@ export function UploadPanel({ site, droppedPath, onClose, onOpenPost }: UploadPa
                 {submitting ? <Spinner size={16} /> : <Upload size={16} />}
                 {submitting ? "Uploading…" : "Upload"}
               </button>
+              {!ready && !submitting && (
+                <p className="text-center text-[11px] opacity-50">Finish the required checklist items to upload.</p>
+              )}
             </div>
           </aside>
         </div>
       )}
     </Overlay>
   );
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 const INPUT =
