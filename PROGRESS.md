@@ -2476,15 +2476,15 @@ live call before implementing (per user instruction - no more guessing).
   bundled wireproxy runs as a job-object child exposing SOCKS5 on loopback; net.rs routes every
   reqwest client and WebView2 through it. Fail-closed, applies per launch, profile kept encrypted
   in credentials.dat. Shlink (Settings > Integrations): "Copy short link" in the viewer, and
-  Telegram shares use the short link. See the 493b71e commit message for details. Not yet
-  live-tested.
+  Telegram shares use the short link. See the 493b71e commit message for details. Live-tested by the
+  owner (both work).
 - [x] **floofgens + blep replace e6AI** (v1.29.0) e6AI shut down in Nov 2026. floofgens.net and
   blep.art run e621ng, so they're new `Site` variants by host (CDNs static1.floofgens.net and
   cdn.blep.art). Each site has its own rate limiter, credentials slot and recovered-posts folder.
   blep still serves the legacy posts JSON, which the `AnyPost` shim parses, so don't drop that
   branch while blep needs it. Saved e6AI state (site, backup site, post-window site, wallpaper
   source, stats, credentials) falls back to e621 or is dropped. Deep links and the browser
-  extension (1.0.5) accept the new hosts. Live-tested against both sites' posts.json.
+  extension (1.0.5) accept the new hosts. Live-tested in the app (both work).
 - [x] **Per-site blacklists** (v1.29.0) Fixes #34: the single shared blacklist was merged into
   whichever site's account was active, so e621 lines leaked onto other accounts and back. Now
   `settingsStore.blacklistBySite`, with `blacklist`/`blacklistEntries` mirroring the active site
@@ -2492,7 +2492,7 @@ live call before implementing (per user instruction - no more guessing).
   syncs every signed-in site, and switching sites syncs the new one. Migration: the old list
   becomes e621's, and other sites' sync bases are dropped so their first sync is a pull, not a
   wipe. Backups carry `blacklistBySite`, and old backups restore e621's list only. Unit-tested
-  (`blacklistPerSite.test.ts`); not yet live-tested.
+  (`blacklistPerSite.test.ts`); live-tested by the owner.
 - [x] **Blacklist chips + site switcher** (v1.29.0) Settings > Blacklist has an e621/floofgens/blep
   switcher (it doesn't change the browsing site) and a Chips/Text view. In Chips view, each line
   is a row of category-colored chips (`BlacklistChips.tsx`); categories come from tags.json in
