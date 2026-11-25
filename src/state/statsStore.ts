@@ -12,6 +12,7 @@ import { create } from "zustand";
 import { load, type Store } from "@tauri-apps/plugin-store";
 import { e621Api } from "../api/client";
 import { useSettingsStore } from "./settingsStore";
+import { queryTerms } from "../lib/queryTerms";
 import type { Post } from "../models/post";
 import { SITES, type Site } from "../models/site";
 
@@ -24,6 +25,9 @@ const TAG_MAP_CAP = 400; // per-category viewed-tag tallies; pruned to TAG_MAP_K
 const TAG_MAP_KEEP = 300;
 const TERM_MAP_CAP = 400;
 const TERM_MAP_KEEP = 300;
+/** Bump to discard saved `searchTermCounts` once. 2: earlier counts included excluded (`-tag`)
+ *  tags, and only totals were saved so they can't be separated out. */
+const SEARCH_TERMS_VERSION = 2;
 
 export interface StatsLifetime {
   postsViewed: number;
@@ -67,6 +71,7 @@ export interface StatsSnapshot {
   daily: Record<string, StatsDailyEntry>;
   seenPostIds: number[];
   searchTermCounts: Record<string, number>;
+  searchTermsVersion: number;
   viewedTags: {
     artist: Record<string, number>;
     character: Record<string, number>;
@@ -140,6 +145,7 @@ function freshSnapshot(): StatsSnapshot {
     daily: {},
     seenPostIds: [],
     searchTermCounts: {},
+    searchTermsVersion: SEARCH_TERMS_VERSION,
     viewedTags: { artist: {}, character: {}, copyright: {} },
   };
 }
@@ -215,17 +221,6 @@ function addToMap(
   return pruneMap(next, cap, keep);
 }
 
-/** Real tag tokens from a query - lowercased, leading `-` stripped, metatags (`foo:bar`) dropped. */
-function queryTerms(query: string): string[] {
-  return query
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((t) => t.replace(/^-+/, ""))
-    .filter((t) => t.length > 0 && !t.includes(":") && t !== "~");
-}
-
 // --- persistence (debounced) ---
 
 let storePromise: Promise<Store> | null = null;
@@ -246,6 +241,7 @@ function snapshotOf(s: StatsState): StatsSnapshot {
     daily: s.daily,
     seenPostIds: s.seenPostIds,
     searchTermCounts: s.searchTermCounts,
+    searchTermsVersion: s.searchTermsVersion,
     viewedTags: s.viewedTags,
   };
 }
@@ -445,13 +441,15 @@ export async function loadStats(): Promise<void> {
     saved = null;
   }
   const base = freshSnapshot();
+  const termsCurrent = saved?.searchTermsVersion === SEARCH_TERMS_VERSION;
   const merged: StatsSnapshot = {
     firstLaunch: saved?.firstLaunch ?? Date.now(),
     lifetime: { ...base.lifetime, ...saved?.lifetime },
     perSite: mergePerSite(saved?.perSite),
     daily: saved?.daily ?? {},
     seenPostIds: saved?.seenPostIds ?? [],
-    searchTermCounts: saved?.searchTermCounts ?? {},
+    searchTermCounts: termsCurrent ? (saved?.searchTermCounts ?? {}) : {},
+    searchTermsVersion: SEARCH_TERMS_VERSION,
     viewedTags: {
       artist: saved?.viewedTags?.artist ?? {},
       character: saved?.viewedTags?.character ?? {},
@@ -461,7 +459,7 @@ export async function loadStats(): Promise<void> {
   seenSet.clear();
   for (const id of merged.seenPostIds) seenSet.add(id);
   useStatsStore.setState({ ...merged, isLoaded: true });
-  if (!saved || saved.firstLaunch == null) schedulePersist();
+  if (!saved || saved.firstLaunch == null || !termsCurrent) schedulePersist();
 }
 
 // --- backup (aggregates only - see lib/backup.ts) ---
