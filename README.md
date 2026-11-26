@@ -93,3 +93,14 @@ The source code in this repository is available under the terms in [LICENSE](LIC
 ## Disclaimer
 
 Transparency is important. This app is a personal project. <ins>**Parts of this app, including some of the third-party tools, libraries, and dependencies it relies on behind the scenes, were written with the assistance of AI tools.**</ins> If this bothers you, please do not install, use, or otherwise disseminate its content. I have not, nor will I ever claim I am a developer: competent or otherwise. I use AI to do what I otherwise may not have been able to do on my own.
+
+## Screenshots
+
+*Post images are blurred for this page.*
+
+| | |
+|---|---|
+| ![Search grid](docs/screenshots/grid.png) | ![Post viewer](docs/screenshots/viewer.png) |
+| **Search** - tag-chip search over a resizable masonry grid | **Post viewer** - voting, favorites, downloads, info and color-coded tags |
+| ![Settings](docs/screenshots/settings.png) | ![Games](docs/screenshots/games.png) |
+| **Settings** - themes, palettes, accent colours and more | **Games** - Tagdle, Tag Hopper, Tag Bingo and friends |
