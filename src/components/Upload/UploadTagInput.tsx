@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { Site } from "../../models/site";
 import { useTagAutocomplete } from "../../queries/useTagAutocomplete";
-import { TAG_CATEGORY_STYLE } from "../../lib/tagCategoryStyle";
+import { TAG_CATEGORY_STYLE, isNeutralCategory } from "../../lib/tagCategoryStyle";
 import { numericTagCategory, tagSuggestionCategory } from "../../models/user";
 import { normalizeTags, TAG_CAT, type ResolvedTag } from "../../lib/uploadChecks";
 
@@ -80,7 +80,7 @@ export function UploadTagInput({ site, tags, onChange, resolved, implied }: Uplo
           const r = byInput.get(tag);
           const cat = r?.category;
           const invalid = cat === TAG_CAT.invalid;
-          const style = cat != null && !invalid && cat !== TAG_CAT.contributor ? TAG_CATEGORY_STYLE[numericTagCategory(cat)] : null;
+          const style = cat != null && !invalid && !isNeutralCategory(numericTagCategory(cat)) ? TAG_CATEGORY_STYLE[numericTagCategory(cat)] : null;
           const isImplied = r ? implied.has(r.canonical) : false;
           const title = [
             r?.aliasedFrom ? `Alias of ${r.canonical}` : "",

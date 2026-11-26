@@ -5,7 +5,7 @@ import type { Site } from "../../models/site";
 import { useTagAutocomplete } from "../../queries/useTagAutocomplete";
 import { useMetatagCompletions } from "../../queries/useMetatagValues";
 import { useSearchHistoryStore } from "../../state/searchHistoryStore";
-import { TAG_CATEGORY_STYLE } from "../../lib/tagCategoryStyle";
+import { TAG_CATEGORY_STYLE, isNeutralCategory } from "../../lib/tagCategoryStyle";
 import { cacheTagCategory, getCachedTagCategory } from "../../lib/tagCategoryCache";
 import { tagSuggestionCategory } from "../../models/user";
 import { EasterEggDialog } from "./EasterEggDialog";
@@ -245,7 +245,7 @@ export function SearchBar({ site, activeQuery, onSearch, onOpenBuilder }: Search
           const excluded = tag.startsWith("-");
           const lookupName = tagLookupName(tag);
           const category = lookupName ? getCachedTagCategory(lookupName) : null;
-          const style = category ? TAG_CATEGORY_STYLE[category] : null;
+          const style = category && !isNeutralCategory(category) ? TAG_CATEGORY_STYLE[category] : null;
           return (
             <span
               key={`${tag}-${i}`}

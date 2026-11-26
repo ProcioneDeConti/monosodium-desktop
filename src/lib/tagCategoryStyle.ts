@@ -22,3 +22,10 @@ export const TAG_CATEGORY_STYLE: Record<TagCategory, TagCategoryStyle> = {
   lore: { label: "Lore", chipBg: "rgb(255 255 255 / 0.15)", chipFg: "#FFFFFF", headerColor: null },
   meta: { label: "Meta", chipBg: "rgb(255 255 255 / 0.15)", chipFg: "#FFFFFF", headerColor: null },
 };
+
+/** The neutral group (general/lore/meta/contributor) - its translucent-white chip only reads on
+ *  a dark backdrop, so chips on theme-following surfaces (search bar, uploader tag input) should
+ *  fall back to their own light/dark-aware neutral classes instead of this inline style. */
+export function isNeutralCategory(category: TagCategory): boolean {
+  return TAG_CATEGORY_STYLE[category].headerColor === null;
+}
